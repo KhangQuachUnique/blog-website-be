@@ -1,0 +1,13 @@
+import { ChildEntity, ManyToOne } from 'typeorm';
+
+import { BlogPost } from './blog-post.entity';
+import { Community } from 'src/communities/entities/community.entity';
+
+@ChildEntity('community')
+export class CommunityBlogPost extends BlogPost {
+  @ManyToOne(() => Community, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  community: Community;
+}
