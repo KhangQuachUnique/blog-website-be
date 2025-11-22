@@ -13,6 +13,7 @@ import { CommunitiesModule } from './communities/communities.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
+import { NewsfeedModule } from './newsfeed/newsfeed.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
     ReportsModule,
     NotificationsModule,
     SavedPostListModule,
+    NewsfeedModule,
   ],
   controllers: [AppController],
   providers: [AppService],
