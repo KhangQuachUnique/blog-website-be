@@ -19,14 +19,10 @@ import { NewsfeedModule } from './newsfeed/newsfeed.module';
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'db.nhmlmwlvvrdabyikxvzo.supabase.co',
-      port: 5432,
-      username: 'postgres',
-      password: 'kadfwfsfsvs',
+      url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true,
-      logging: true,
     }),
     UsersModule,
     BlogPostsModule,

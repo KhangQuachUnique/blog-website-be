@@ -1,6 +1,6 @@
-import { Block } from 'src/blocks/entities/block.entity';
-import { PostComment } from 'src/comments/entities/post-comment.entity';
-import { NormalUser } from 'src/users/entities/normal-user.entity';
+import type { Block } from 'src/blocks/entities/block.entity';
+import type { PostComment } from 'src/comments/entities/post-comment.entity';
+import type { NormalUser } from 'src/users/entities/normal-user.entity';
 import type { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 import {
   Column,
@@ -41,7 +41,7 @@ export abstract class BlogPost {
   createdAt: Date;
 
   // Relations
-  @OneToMany(() => PostComment, (postComment) => postComment.post, { cascade: true })
+  @OneToMany('PostComment', 'post', { cascade: true })
   comments: PostComment[];
 
   @ManyToMany('Hashtag', 'posts')
@@ -55,7 +55,7 @@ export abstract class BlogPost {
   @OneToMany('Block', 'post', { cascade: true })
   blocks: Block[];
 
-  @ManyToOne(() => NormalUser, {
+  @ManyToOne('NormalUser', {
     onDelete: 'SET NULL',
     nullable: true,
   })
