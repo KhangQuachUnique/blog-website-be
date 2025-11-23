@@ -14,6 +14,15 @@ async function fixSchema() {
     await AppDataSource.query('ALTER TABLE users ALTER COLUMN "savedPostListId" DROP NOT NULL;');
     console.log('✓ Column altered successfully\n');
 
+    // Make postId and commentId nullable for Single Table Inheritance in user_reacts
+    console.log('Altering postId column in user_reacts to be nullable...');
+    await AppDataSource.query('ALTER TABLE user_reacts ALTER COLUMN "postId" DROP NOT NULL;');
+    console.log('✓ postId column altered successfully\n');
+
+    console.log('Altering commentId column in user_reacts to be nullable...');
+    await AppDataSource.query('ALTER TABLE user_reacts ALTER COLUMN "commentId" DROP NOT NULL;');
+    console.log('✓ commentId column altered successfully\n');
+
     console.log('✅ Schema fixed successfully!');
   } catch (error) {
     console.error('❌ Error during schema fix:', error);

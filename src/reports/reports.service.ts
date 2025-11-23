@@ -5,12 +5,24 @@ import { Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Report } from './entities/report.entity';
+import { UserReport } from './entities/user-report.entity';
+import { PostReport } from './entities/post-report.entity';
+import { CommentReport } from './entities/comment-report.entity';
 
 @Injectable()
 export class ReportsService {
   constructor(
     @InjectRepository(Report)
     private reportRepository: Repository<Report>,
+
+    @InjectRepository(UserReport)
+    private userReportRepository: Repository<UserReport>,
+
+    @InjectRepository(PostReport)
+    private postReportRepository: Repository<PostReport>,
+
+    @InjectRepository(CommentReport)
+    private commentReportRepository: Repository<CommentReport>,
   ) {}
 
   create(createReportDto: CreateReportDto) {

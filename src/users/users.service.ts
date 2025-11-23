@@ -5,12 +5,20 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { NormalUser } from './entities/normal-user.entity';
+import { AdminUser } from './entities/admin-user.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+
+    @InjectRepository(NormalUser)
+    private normalUserRepository: Repository<NormalUser>,
+
+    @InjectRepository(AdminUser)
+    private adminUserRepository: Repository<AdminUser>,
   ) {}
 
   create(createUserDto: CreateUserDto) {
