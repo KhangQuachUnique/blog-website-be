@@ -13,7 +13,6 @@ export class NormalUser extends User {
   @OneToOne(() => SavedPostList, (list) => list.user, {
     cascade: true,
     onDelete: 'CASCADE',
-    nullable: true,
   })
   @JoinColumn()
   savedPostList: SavedPostList;

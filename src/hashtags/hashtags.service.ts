@@ -1,9 +1,18 @@
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
+
 import { CreateHashtagDto } from './dto/create-hashtag.dto';
 import { UpdateHashtagDto } from './dto/update-hashtag.dto';
+import { Hashtag } from './entities/hashtag.entity';
 
 @Injectable()
 export class HashtagsService {
+  constructor(
+    @InjectRepository(Hashtag)
+    private hashtagRepository: Repository<Hashtag>,
+  ) {}
+
   create(createHashtagDto: CreateHashtagDto) {
     return 'This action adds a new hashtag';
   }
