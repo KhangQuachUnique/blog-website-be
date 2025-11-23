@@ -1,7 +1,7 @@
 import { Block } from 'src/blocks/entities/block.entity';
 import { PostComment } from 'src/comments/entities/post-comment.entity';
 import { NormalUser } from 'src/users/entities/normal-user.entity';
-import type { Hashtag } from 'src/hashtags/entities/hashtag.entity';
+import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 import {
   Column,
   Entity,
@@ -44,7 +44,7 @@ export abstract class BlogPost {
   @OneToMany(() => PostComment, (postComment) => postComment.post, { cascade: true })
   comments: PostComment[];
 
-  @ManyToMany('Hashtag', 'posts')
+  @ManyToMany(() => Hashtag, (hashtag) => hashtag.posts)
   @JoinTable({
     name: 'post_hashtags',
     joinColumn: { name: 'postId', referencedColumnName: 'id' },
@@ -52,7 +52,7 @@ export abstract class BlogPost {
   })
   hashtags: Hashtag[];
 
-  @OneToMany('Block', 'post', { cascade: true })
+  @OneToMany(() => Block, (block) => block.post, { cascade: true })
   blocks: Block[];
 
   @ManyToOne(() => NormalUser, {
