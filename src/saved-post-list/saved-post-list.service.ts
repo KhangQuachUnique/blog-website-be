@@ -1,9 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
 import { CreateSavedPostListDto } from './dto/create-saved-post-list.dto';
 import { UpdateSavedPostListDto } from './dto/update-saved-post-list.dto';
+import { SavedPostList } from './entities/saved-post-list.entity';
 
 @Injectable()
 export class SavedPostListService {
+  constructor(
+    @InjectRepository(SavedPostList)
+    private savedPostListRepository: Repository<SavedPostList>,
+  ) {}
+
   create(createSavedPostListDto: CreateSavedPostListDto) {
     return 'This action adds a new savedPostList';
   }

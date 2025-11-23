@@ -1,9 +1,18 @@
+import { Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+
+import { Emoji } from './entities/emoji.entity';
 import { CreateEmojiDto } from './dto/create-emoji.dto';
 import { UpdateEmojiDto } from './dto/update-emoji.dto';
 
 @Injectable()
 export class EmojisService {
+  constructor(
+    @InjectRepository(Emoji)
+    private emojiRepository: Repository<Emoji>,
+  ) {}
+
   create(createEmojiDto: CreateEmojiDto) {
     return 'This action adds a new emoji';
   }

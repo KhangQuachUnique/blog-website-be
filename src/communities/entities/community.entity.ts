@@ -1,4 +1,3 @@
-import { CommunityBlogPost } from 'src/blog-posts/entities/community-blog-post.entity';
 import { Emoji } from 'src/emojis/entities/emoji.entity';
 import { NormalUser } from 'src/users/entities/normal-user.entity';
 import { Column, Entity, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
@@ -24,9 +23,6 @@ export class Community {
   createdAt: Date;
 
   // Relations
-  @OneToMany(() => CommunityBlogPost, (post) => post.community)
-  posts: CommunityBlogPost[];
-
   @ManyToMany(() => NormalUser, (user) => user.communities)
   members: NormalUser[];
 

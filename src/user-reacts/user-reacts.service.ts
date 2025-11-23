@@ -1,9 +1,18 @@
+import { Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+
+import { UserReact } from './entities/user-react.entity';
 import { CreateUserReactDto } from './dto/create-user-react.dto';
 import { UpdateUserReactDto } from './dto/update-user-react.dto';
 
 @Injectable()
 export class UserReactsService {
+  constructor(
+    @InjectRepository(UserReact)
+    private userReactRepository: Repository<UserReact>,
+  ) {}
+
   create(createUserReactDto: CreateUserReactDto) {
     return 'This action adds a new userReact';
   }
