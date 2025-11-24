@@ -1,14 +1,13 @@
 import { DataSource } from 'typeorm';
 import { Seeder } from '../seeder.base';
 
-// Temporarily disabled due to missing PersonalBlogPost and RepostBlogPost entities
-export class BlogPostSeeder extends Seeder {
+export class BlogPostSimpleSeeder extends Seeder {
   constructor(dataSource: DataSource) {
     super(dataSource);
   }
 
   async run(): Promise<void> {
-    console.log('BlogPostSeeder temporarily disabled - missing entity files');
+    console.log('BlogPostSimpleSeeder - temporarily disabled');
     return Promise.resolve();
   }
 }

@@ -27,7 +27,7 @@ export class SearchService {
       case SearchType.POST:
         return this.postRepo.createQueryBuilder('post')
           .leftJoinAndSelect('post.author', 'author') // Join để lấy thông tin tác giả
-          .select(['post.id', 'post.title', 'post.thumbnailUrl', 'post.createdAt', 'author.username', 'author.avatarUrl'])
+          .select(['post.id', 'post.title', 'post.createdAt', 'author.username', 'author.avatarUrl'])
           .where('LOWER(post.title) LIKE :keyword', { keyword })
           .andWhere('post.isPublic = :isPublic', { isPublic: true })
           .orderBy('post.createdAt', 'DESC')
