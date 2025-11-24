@@ -11,6 +11,6 @@ export class NewsfeedController {
   @Get()
   getNewsfeed(@Query() query: GetNewsfeedDto) {
     // userId = null → chạy chế độ chung (không cá nhân hóa)
-    return this.newsfeedService.getNewsfeed(query, null);
+    return this.newsfeedService.getNewsfeed(query);
   }
 }
