@@ -1,7 +1,8 @@
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 // Định nghĩa các loại tìm kiếm cho phép
 export enum SearchType {
+  ALL = 'all',      // Tìm tất cả loại
   POST = 'post',
   USER = 'user',
   COMMUNITY = 'community',
@@ -14,6 +15,7 @@ export class SearchDto {
   @IsNotEmpty()
   q: string; // Keyword
 
+  @IsOptional()
   @IsEnum(SearchType)
-  type: SearchType; // Loại tìm kiếm
+  type?: SearchType = SearchType.ALL; // Loại tìm kiếm (mặc định là ALL)
 }

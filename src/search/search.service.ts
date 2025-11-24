@@ -22,44 +22,71 @@ export class SearchService {
     const { q, type } = searchDto;
     const keyword = `%${q.toLowerCase()}%`; // Chuẩn bị chuỗi tìm kiếm tương đối (ILIKE)
 
+    // Nếu type là ALL hoặc undefined, tìm tất cả loại
+    if (type === SearchType.ALL || !type) {
+      const [posts, users, communities, hashtags] = await Promise.all([
+        this.searchPosts(keyword),
+        this.searchUsers(keyword),
+        this.searchCommunities(keyword),
+        this.searchHashtags(keyword)
+      ]);
+      
+      return {
+        posts,
+        users, 
+        communities,
+        hashtags,
+        total: posts.length + users.length + communities.length + hashtags.length
+      };
+    }
+
+    // Tìm kiếm theo loại cụ thể
     switch (type) {
-      // 1. Tìm kiếm bài viết theo tiêu đề
       case SearchType.POST:
-        return this.postRepo.createQueryBuilder('post')
-          .leftJoinAndSelect('post.author', 'author') // Join để lấy thông tin tác giả
-          .select(['post.id', 'post.title', 'post.createdAt', 'author.username', 'author.avatarUrl'])
-          .where('LOWER(post.title) LIKE :keyword', { keyword })
-          .andWhere('post.isPublic = :isPublic', { isPublic: true })
-          .orderBy('post.createdAt', 'DESC')
-          .getMany();
-
-      // 2. Tìm kiếm người dùng theo username
+        return this.searchPosts(keyword);
       case SearchType.USER:
-        return this.userRepo.createQueryBuilder('user')
-          .select(['user.id', 'user.username', 'user.avatarUrl', 'user.bio'])
-          .where('LOWER(user.username) LIKE :keyword', { keyword })
-          .getMany();
-
-      // 3. Tìm kiếm cộng đồng theo tên
+        return this.searchUsers(keyword);
       case SearchType.COMMUNITY:
-        return this.communityRepo.createQueryBuilder('community')
-          .where('LOWER(community.name) LIKE :keyword', { keyword })
-          .andWhere('community.isPublic = :isPublic', { isPublic: true })
-          .getMany();
-
-      // 4. Tìm bài viết theo Hashtag (Chính xác hashtag)
+        return this.searchCommunities(keyword);
       case SearchType.HASHTAG:
-        // Logic: Tìm bài viết -> join bảng trung gian post_hashtags -> join bảng hashtags
-        return this.postRepo.createQueryBuilder('post')
-          .innerJoin('post_hashtags', 'ph', 'ph.postId = post.id')
-          .innerJoin('hashtags', 'h', 'h.id = ph.hashtagId')
-          .leftJoinAndSelect('post.author', 'author')
-          .where('LOWER(h.name) = LOWER(:tag)', { tag: q }) // Tìm chính xác tên tag
-          .andWhere('post.isPublic = :isPublic', { isPublic: true })
-          .getMany();
-
+        return this.searchHashtags(keyword);
       default:
         return [];
     }
+  }
+
+  // Các method tìm kiếm riêng biệt
+  private async searchPosts(keyword: string) {
+    return this.postRepo.createQueryBuilder('post')
+      .leftJoinAndSelect('post.author', 'author')
+      .select(['post.id', 'post.title', 'post.createdAt', 'author.username', 'author.avatarUrl'])
+      .where('LOWER(post.title) LIKE :keyword', { keyword })
+      .andWhere('post.isPublic = :isPublic', { isPublic: true })
+      .orderBy('post.createdAt', 'DESC')
+      .limit(10) // Giới hạn 10 kết quả cho global search
+      .getMany();
+  }
+
+  private async searchUsers(keyword: string) {
+    return this.userRepo.createQueryBuilder('user')
+      .select(['user.id', 'user.username', 'user.avatarUrl', 'user.bio'])
+      .where('LOWER(user.username) LIKE :keyword', { keyword })
+      .limit(10)
+      .getMany();
+  }
+
+  private async searchCommunities(keyword: string) {
+    return this.communityRepo.createQueryBuilder('community')
+      .where('LOWER(community.name) LIKE :keyword', { keyword })
+      .andWhere('community.isPublic = :isPublic', { isPublic: true })
+      .limit(10)
+      .getMany();
+  }
+
+  private async searchHashtags(keyword: string) {
+    return this.hashtagRepo.createQueryBuilder('hashtag')
+      .where('LOWER(hashtag.name) LIKE :keyword', { keyword })
+      .limit(10)
+      .getMany();
   }
 }
