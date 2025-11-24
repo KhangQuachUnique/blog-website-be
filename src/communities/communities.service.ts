@@ -1,9 +1,18 @@
+import { Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
+import { Community } from './entities/community.entity';
 
 @Injectable()
 export class CommunitiesService {
+  constructor(
+    @InjectRepository(Community)
+    private communityRepository: Repository<Community>,
+  ) {}
+
   create(createCommunityDto: CreateCommunityDto) {
     return 'This action adds a new community';
   }

@@ -7,8 +7,7 @@ export class CommunityFactory {
 
     community.name = override.name || faker.company.name();
     community.description = override.description || faker.lorem.paragraphs(2);
-    community.thumbnailUrl =
-      override.thumbnailUrl || faker.image.urlLoremFlickr({ category: 'business' });
+    community.thumbnailUrl = override.thumbnailUrl || faker.image.url();
     community.isPublic =
       override.isPublic !== undefined ? override.isPublic : faker.datatype.boolean();
 

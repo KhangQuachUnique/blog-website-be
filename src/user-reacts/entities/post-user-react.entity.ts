@@ -6,7 +6,7 @@ import { UserReact } from './user-react.entity';
 export class PostUserReact extends UserReact {
   @ManyToOne(() => BlogPost, {
     onDelete: 'CASCADE',
-    nullable: false,
+    nullable: true,
   })
   post: BlogPost;
 }
