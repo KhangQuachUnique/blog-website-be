@@ -28,8 +28,19 @@ export class CommentsService {
     return 'This action adds a new comment';
   }
 
-  findAll() {
-    return `This action returns all comments`;
+  async findAll() {
+    // Lấy tất cả comments cơ bản từ database
+    return await this.commentRepository
+      .createQueryBuilder('comment')
+      .select([
+        'comment.id',
+        'comment.content', 
+        'comment.createAt',  // Sử dụng tên field đúng từ entity
+        'comment.type'
+      ])
+      .orderBy('comment.createAt', 'DESC')
+      .limit(20) // Giới hạn 20 comments đầu tiên
+      .getMany();
   }
 
   findOne(id: number) {
