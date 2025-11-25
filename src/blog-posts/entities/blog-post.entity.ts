@@ -27,7 +27,7 @@ export abstract class BlogPost {
   title: string;
 
   @Column({ type: 'text' })
-  thumnailUrl: string;
+  thumbnailUrl: string;
 
   @Column({ type: 'int', default: 0 })
   upVotes: number;
@@ -41,7 +41,7 @@ export abstract class BlogPost {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @Column({ type: 'enum', enum: BlogPostStatus, default: BlogPostStatus.NORMAL })
+  @Column({ type: 'enum', enum: BlogPostStatus, default: BlogPostStatus.ACTIVE })
   status: BlogPostStatus;
 
   // Relations

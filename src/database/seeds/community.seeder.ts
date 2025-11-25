@@ -5,6 +5,8 @@ import { EmojiFactory } from '../factories/emoji.factory';
 import { Community } from '../../communities/entities/community.entity';
 import { NormalUser } from '../../users/entities/normal-user.entity';
 import { Emoji } from '../../emojis/entities/emoji.entity';
+import { CommunityMember } from '../../communities/entities/community-member.entity';
+import { ECommunityRole } from '../../communities/enums/community-role.enum';
 
 export class CommunitySeeder extends Seeder {
   constructor(dataSource: DataSource) {
@@ -17,6 +19,7 @@ export class CommunitySeeder extends Seeder {
     const communityRepository = this.dataSource.getRepository(Community);
     const userRepository = this.dataSource.getRepository(NormalUser);
     const emojiRepository = this.dataSource.getRepository(Emoji);
+    const memberRepository = this.dataSource.getRepository(CommunityMember);
 
     try {
       // Get all users
@@ -34,17 +37,20 @@ export class CommunitySeeder extends Seeder {
       // Add members to communities
       for (const community of savedCommunities) {
         const memberCount = Math.floor(Math.random() * 20) + 5; // 5-25 members
-        const members: NormalUser[] = [];
+        const communityMembers: CommunityMember[] = [];
 
         for (let i = 0; i < memberCount; i++) {
           const randomUser = users[Math.floor(Math.random() * users.length)];
-          if (!members.find((m) => m.id === randomUser.id)) {
-            members.push(randomUser);
+          if (!communityMembers.find((m) => m.user.id === randomUser.id)) {
+            const member = new CommunityMember();
+            member.community = community;
+            member.user = randomUser;
+            member.role = i === 0 ? ECommunityRole.ADMIN : ECommunityRole.MEMBER;
+            communityMembers.push(member);
           }
         }
 
-        community.members = members;
-        await communityRepository.save(community);
+        await memberRepository.save(communityMembers);
 
         // Create emojis for community
         const emojis = EmojiFactory.createBatch(community, Math.floor(Math.random() * 5) + 3);

@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { NormalUser } from '../../users/entities/normal-user.entity';
 import { AdminUser } from '../../users/entities/admin-user.entity';
-import { EGender } from '../../users/entities/user.entity';
+import { EGender } from '../../users/enums/gender.enum';
 
 export class UserFactory {
   static createNormalUser(override: Partial<NormalUser> = {}): NormalUser {

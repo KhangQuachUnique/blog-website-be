@@ -44,7 +44,7 @@ export class BlogPostSeeder extends Seeder {
     try {
       // Get data
       const users = await userRepository.find();
-      const communities = await communityRepository.find({ relations: ['members', 'emojis'] });
+      const communities = await communityRepository.find({ relations: ['members', 'members.user', 'emojis'] });
       const hashtags = await hashtagRepository.find();
       const allEmojis = await emojiRepository.find();
 
@@ -109,7 +109,7 @@ export class BlogPostSeeder extends Seeder {
             const randomMember = members[Math.floor(Math.random() * members.length)];
             const useVietnamese = Math.random() > 0.2; // 80% tiếng Việt
             const post = BlogPostFactory.createCommunityPost(
-              randomMember,
+              randomMember.user,
               community,
               {},
               useVietnamese,
@@ -125,9 +125,12 @@ export class BlogPostSeeder extends Seeder {
               imageBlockRepository,
               useVietnamese,
             );
+            
+            // Extract users from members for comments
+            const memberUsers = members.map(m => m.user);
             await this.addCommentsToPost(
               savedPost,
-              members,
+              memberUsers,
               postCommentRepository,
               childCommentRepository,
               useVietnamese,
@@ -138,7 +141,7 @@ export class BlogPostSeeder extends Seeder {
             if (communityEmojis.length > 0) {
               await this.addReactionsToPost(
                 savedPost,
-                members,
+                memberUsers,
                 communityEmojis,
                 postReactRepository,
               );
