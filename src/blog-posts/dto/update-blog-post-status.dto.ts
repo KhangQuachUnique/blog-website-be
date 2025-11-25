@@ -1,10 +1,10 @@
 import { IsEnum, IsNotEmpty } from 'class-validator';
-import { BlogPostStatus } from '../enums/blog-post-status.enum';
+import { EBlogPostStatus } from '../enums/blog-post-status.enum';
 
 export class UpdateBlogStatusDto {
     @IsNotEmpty()
-    @IsEnum(BlogPostStatus, {
+    @IsEnum(EBlogPostStatus, {
         message: 'Invalid status',
     })
-    status: BlogPostStatus;
+    status: EBlogPostStatus;
 }

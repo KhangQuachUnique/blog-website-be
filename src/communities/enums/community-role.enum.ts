@@ -1,5 +1,5 @@
 export enum ECommunityRole {
-  ADMIN,
-  MODERATOR,
-  MEMBER,
+  ADMIN = 'ADMIN',
+  MODERATOR = 'MODERATOR',
+  MEMBER = 'MEMBER',
 }

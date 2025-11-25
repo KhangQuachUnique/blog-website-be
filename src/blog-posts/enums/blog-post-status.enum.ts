@@ -1,4 +1,4 @@
-export enum BlogPostStatus {
+export enum EBlogPostStatus {
   ACTIVE = 'ACTIVE',
   HIDDEN = 'HIDDEN',
   DRAFT = 'DRAFT',
