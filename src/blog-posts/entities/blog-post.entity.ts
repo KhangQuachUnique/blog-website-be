@@ -13,7 +13,7 @@ import {
   PrimaryGeneratedColumn,
   TableInheritance,
 } from 'typeorm';
-import { BlogPostStatus } from '../enums/blog-post-status.enum';
+import { EBlogPostStatus } from '../enums/blog-post-status.enum';
 
 @Entity('blog_posts')
 @TableInheritance({ column: { type: 'varchar', name: 'type' } })
@@ -41,8 +41,8 @@ export abstract class BlogPost {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @Column({ type: 'enum', enum: BlogPostStatus, default: BlogPostStatus.ACTIVE })
-  status: BlogPostStatus;
+  @Column({ type: 'enum', enum: EBlogPostStatus, default: EBlogPostStatus.ACTIVE })
+  status: EBlogPostStatus;
 
   // Relations
   @OneToMany(() => PostComment, (postComment) => postComment.post, { cascade: true })
