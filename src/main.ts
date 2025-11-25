@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { ResponseExceptionFilter } from './common/filters/exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -12,6 +13,11 @@ async function bootstrap(): Promise<void> {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }));
 
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new ResponseExceptionFilter());
