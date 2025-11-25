@@ -1,5 +1,5 @@
 export enum BlogPostStatus {
-  ACTIVE = 'active',
-  HIDDEN = 'hidden',
-  DRAFT = 'draft',
+  ACTIVE = 'ACTIVE',
+  HIDDEN = 'HIDDEN',
+  DRAFT = 'DRAFT',
 }
