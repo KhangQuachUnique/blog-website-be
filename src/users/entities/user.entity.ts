@@ -39,6 +39,9 @@ export abstract class User {
   @Column({ type: 'enum', enum: EGender, default: EGender.Other })
   gender: EGender;
 
+  @Column({ type: 'boolean', default: false })
+  isPrivate: boolean;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinAt: Date;
 }
