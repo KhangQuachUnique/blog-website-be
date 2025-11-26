@@ -1,9 +1,10 @@
 import { Repository } from 'typeorm';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
+import { UpdateBlogStatusDto } from './dto/update-blog-post-status.dto';
 import { BlogPost } from './entities/blog-post.entity';
 import { CommunityBlogPost } from './entities/community-blog-post.entity';
 import { RepostBlogPost } from './entities/repost-blog-post.entity';
@@ -43,6 +44,18 @@ export class BlogPostsService {
 
   update(id: number, updateBlogPostDto: UpdateBlogPostDto) {
     return `This action updates a #${id} blogPost`;
+  }
+
+  async updateStatus(id: number, updateBlogStatusDto: UpdateBlogStatusDto) {
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
+
+    post.status = updateBlogStatusDto.status;
+
+    return await this.blogPostRepository.save(post);
   }
 
   remove(id: number) {

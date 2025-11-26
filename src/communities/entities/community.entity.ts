@@ -1,6 +1,6 @@
 import { Emoji } from 'src/emojis/entities/emoji.entity';
-import { NormalUser } from 'src/users/entities/normal-user.entity';
-import { Column, Entity, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { CommunityMember } from './community-member.entity';
 
 @Entity()
 export class Community {
@@ -23,8 +23,8 @@ export class Community {
   createdAt: Date;
 
   // Relations
-  @ManyToMany(() => NormalUser, (user) => user.communities)
-  members: NormalUser[];
+  @OneToMany(() => CommunityMember, (member) => member.community)
+  members: CommunityMember[];
 
   @OneToMany(() => Emoji, (emoji) => emoji.community, { cascade: true })
   emojis: Emoji[];

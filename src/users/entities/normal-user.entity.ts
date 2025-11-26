@@ -1,14 +1,13 @@
-import { ChildEntity, JoinColumn, JoinTable, ManyToMany, OneToOne } from 'typeorm';
+import { ChildEntity, JoinColumn, JoinTable, ManyToMany, OneToMany, OneToOne } from 'typeorm';
 import { User } from './user.entity';
-import { Community } from 'src/communities/entities/community.entity';
 import { SavedPostList } from 'src/saved-post-list/entities/saved-post-list.entity';
+import { CommunityMember } from 'src/communities/entities/community-member.entity';
 
 @ChildEntity('user')
 export class NormalUser extends User {
   // Relations
-  @ManyToMany(() => Community, (community) => community.members)
-  @JoinTable()
-  communities: Community[];
+  @OneToMany(() => CommunityMember, (member) => member.user)
+  communitiesMemberOf: CommunityMember[];
 
   @OneToOne(() => SavedPostList, (list) => list.user, {
     cascade: true,

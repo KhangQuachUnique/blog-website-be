@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/commo
 import { BlogPostsService } from './blog-posts.service';
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
+import { UpdateBlogStatusDto } from './dto/update-blog-post-status.dto';
 
 @Controller('blog-posts')
 export class BlogPostsController {
@@ -25,6 +26,14 @@ export class BlogPostsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateBlogPostDto: UpdateBlogPostDto) {
     return this.blogPostsService.update(+id, updateBlogPostDto);
+  }
+
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id') id: string, 
+    @Body() updateBlogStatusDto: UpdateBlogStatusDto
+  ) {
+    return this.blogPostsService.updateStatus(+id, updateBlogStatusDto);
   }
 
   @Delete(':id')

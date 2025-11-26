@@ -69,7 +69,7 @@ export class NewsfeedService {
     const posts = rawPosts.map((p) => ({
       id: p.post_id.toString(),
       title: p.post_title,
-      thumbnailUrl: p.post_thumnailUrl,        // đúng tên cột của bạn
+      thumbnailUrl: p.post_thumbnailUrl,        // đúng tên cột của bạn
       upVotes: Number(p.post_upVotes),
       downVotes: Number(p.post_downVotes),
       createdAt: new Date(p.post_createdAt).toISOString(),

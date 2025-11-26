@@ -1,10 +1,5 @@
 import { Column, Entity, PrimaryGeneratedColumn, TableInheritance } from 'typeorm';
-
-export enum EGender {
-  Male,
-  Female,
-  Other,
-}
+import { EGender } from '../enums/gender.enum';
 
 @Entity('users')
 @TableInheritance({ column: { type: 'varchar', name: 'role' } })
@@ -36,7 +31,7 @@ export abstract class User {
   @Column({ type: 'date', nullable: true })
   dob: Date | null;
 
-  @Column({ type: 'enum', enum: EGender, default: EGender.Other })
+  @Column({ type: 'enum', enum: EGender, default: EGender.OTHER })
   gender: EGender;
 
   @Column({ type: 'boolean', default: false })

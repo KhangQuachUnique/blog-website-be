@@ -25,7 +25,7 @@ export class BlogPostFactory {
     // Tiếng Việt: "Khám phá những địa điểm du lịch tuyệt vời"
     // Tiếng Anh: "Discover amazing travel destinations"
     post.title = override.title || fakerInstance.lorem.sentence({ min: 3, max: 8 });
-    post.thumnailUrl = override.thumnailUrl || fakerInstance.image.url();
+    post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
     post.upVotes = override.upVotes || fakerInstance.number.int({ min: 0, max: 1000 });
     post.downVotes = override.downVotes || fakerInstance.number.int({ min: 0, max: 100 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
@@ -44,7 +44,7 @@ export class BlogPostFactory {
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
     post.title = override.title || fakerInstance.lorem.sentence({ min: 3, max: 8 });
-    post.thumnailUrl = override.thumnailUrl || fakerInstance.image.url();
+    post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
     post.upVotes = override.upVotes || fakerInstance.number.int({ min: 0, max: 500 });
     post.downVotes = override.downVotes || fakerInstance.number.int({ min: 0, max: 50 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
@@ -64,7 +64,7 @@ export class BlogPostFactory {
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
     post.title = override.title || `[Repost] ${fakerInstance.lorem.sentence({ min: 3, max: 8 })}`;
-    post.thumnailUrl = override.thumnailUrl || fakerInstance.image.url();
+    post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
     post.upVotes = override.upVotes || fakerInstance.number.int({ min: 0, max: 300 });
     post.downVotes = override.downVotes || fakerInstance.number.int({ min: 0, max: 30 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
