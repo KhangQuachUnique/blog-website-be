@@ -28,16 +28,28 @@ export class BlogPostsController {
     return this.blogPostsService.update(+id, updateBlogPostDto);
   }
 
-  @Patch(':id/status')
-  updateStatus(
-    @Param('id') id: string, 
-    @Body() updateBlogStatusDto: UpdateBlogStatusDto
-  ) {
-    return this.blogPostsService.updateStatus(+id, updateBlogStatusDto);
-  }
-
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.blogPostsService.remove(+id);
+  }
+
+  @Patch(':id/status')
+  updateStatus(@Param('id') id: string, @Body() updateBlogStatusDto: UpdateBlogStatusDto) {
+    return this.blogPostsService.updateStatus(+id, updateBlogStatusDto);
+  }
+
+  @Patch(':id/restore')
+  restore(@Param('id') id: string) {
+    return this.blogPostsService.restore(+id);
+  }
+
+  @Patch(':id/hide')
+  hide(@Param('id') id: string) {
+    return this.blogPostsService.hide(+id);
+  }
+
+  @Patch(':id/publish')
+  publish(@Param('id') id: string) {
+    return this.blogPostsService.publish(+id);
   }
 }
