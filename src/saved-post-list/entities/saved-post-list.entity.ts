@@ -1,6 +1,6 @@
-import { NormalUser } from 'src/users/entities/normal-user.entity';
 import { Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { SavedPostListItem } from './saved-post-list-item.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('saved_post_lists')
 export class SavedPostList {
@@ -8,11 +8,11 @@ export class SavedPostList {
   id: number;
 
   // Relations
-  @OneToOne(() => NormalUser, (user) => user.savedPostList, {
+  @OneToOne(() => User, (user) => user.savedPostList, {
     onDelete: 'CASCADE',
     nullable: false,
   })
-  user: NormalUser;
+  user: User;
 
   @OneToMany(() => SavedPostListItem, (item) => item.savedPostList, {
     onDelete: 'CASCADE',

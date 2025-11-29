@@ -1,34 +1,36 @@
-import { PostUserReact } from '../../user-reacts/entities/post-user-react.entity';
-import { CommentUserReact } from '../../user-reacts/entities/comment-user-react.entity';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { UserReact } from '../../user-reacts/entities/user-react.entity';
+import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 import { Emoji } from '../../emojis/entities/emoji.entity';
+import { EReactTargetType } from '../../user-reacts/enums/react-target-type.enum';
 
 export class UserReactFactory {
-  static createPostReact(user: NormalUser, post: BlogPost, emoji: Emoji): PostUserReact {
-    const react = new PostUserReact();
+  static createPostReact(user: User, post: BlogPost, emoji: Emoji): UserReact {
+    const react = new UserReact();
     react.user = user;
     react.post = post;
     react.emoji = emoji;
+    react.type = EReactTargetType.POST;
     return react;
   }
 
-  static createCommentReact(user: NormalUser, comment: Comment, emoji: Emoji): CommentUserReact {
-    const react = new CommentUserReact();
+  static createCommentReact(user: User, comment: Comment, emoji: Emoji): UserReact {
+    const react = new UserReact();
     react.user = user;
     react.comment = comment;
     react.emoji = emoji;
+    react.type = EReactTargetType.COMMENT;
     return react;
   }
 
   static createPostReactBatch(
-    users: NormalUser[],
+    users: User[],
     post: BlogPost,
     emojis: Emoji[],
     count: number,
-  ): PostUserReact[] {
-    const reacts: PostUserReact[] = [];
+  ): UserReact[] {
+    const reacts: UserReact[] = [];
     const usedUsers = new Set<number>();
 
     for (let i = 0; i < count && i < users.length; i++) {
@@ -44,12 +46,12 @@ export class UserReactFactory {
   }
 
   static createCommentReactBatch(
-    users: NormalUser[],
+    users: User[],
     comment: Comment,
     emojis: Emoji[],
     count: number,
-  ): CommentUserReact[] {
-    const reacts: CommentUserReact[] = [];
+  ): UserReact[] {
+    const reacts: UserReact[] = [];
     const usedUsers = new Set<number>();
 
     for (let i = 0; i < count && i < users.length; i++) {

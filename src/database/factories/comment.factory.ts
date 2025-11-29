@@ -1,51 +1,51 @@
 import { faker, Faker } from '@faker-js/faker';
 import { vi } from '@faker-js/faker';
-import { PostComment } from '../../comments/entities/post-comment.entity';
-import { BlockComment } from '../../comments/entities/block-comment.entity';
+import { Comment } from '../../comments/entities/comment.entity';
 import { ChildComment } from '../../comments/entities/child-comment.entity';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Block } from '../../blocks/entities/block.entity';
-import { Comment } from '../../comments/entities/comment.entity';
 
 const fakerVi = new Faker({ locale: vi });
 
 export class CommentFactory {
   static createPostComment(
-    commenter: NormalUser,
+    commenter: User,
     post: BlogPost,
-    override: Partial<PostComment> = {},
+    override: Partial<Comment> = {},
     useVietnamese = true,
-  ): PostComment {
-    const comment = new PostComment();
+  ): Comment {
+    const comment = new Comment();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
     comment.content = override.content || fakerInstance.lorem.sentences({ min: 1, max: 3 });
     comment.commenter = commenter;
     comment.post = post;
+    comment.type = useVietnamese ? ('POST' as any) : ('POST' as any);
 
     return comment;
   }
 
   static createBlockComment(
-    commenter: NormalUser,
+    commenter: User,
     block: Block,
-    override: Partial<BlockComment> = {},
+    override: Partial<Comment> = {},
     useVietnamese = true,
-  ): BlockComment {
-    const comment = new BlockComment();
+  ): Comment {
+    const comment = new Comment();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
     comment.content = override.content || fakerInstance.lorem.sentences({ min: 1, max: 2 });
     comment.commenter = commenter;
     comment.block = block;
+    comment.type = 'BLOCK' as any;
 
     return comment;
   }
 
   static createChildComment(
-    commentUser: NormalUser,
-    replyToUser: NormalUser,
+    commentUser: User,
+    replyToUser: User,
     parentComment: Comment,
     override: Partial<ChildComment> = {},
     useVietnamese = true,
@@ -62,11 +62,11 @@ export class CommentFactory {
   }
 
   static createPostCommentBatch(
-    commenters: NormalUser[],
+    commenters: User[],
     post: BlogPost,
     count: number,
     useVietnamese = true,
-  ): PostComment[] {
+  ): Comment[] {
     return Array.from({ length: count }, () => {
       const randomCommenter = commenters[Math.floor(Math.random() * commenters.length)];
       return this.createPostComment(randomCommenter, post, {}, useVietnamese);
@@ -74,7 +74,7 @@ export class CommentFactory {
   }
 
   static createChildCommentBatch(
-    users: NormalUser[],
+    users: User[],
     parentComment: Comment,
     count: number,
     useVietnamese = true,

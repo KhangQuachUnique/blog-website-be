@@ -1,7 +1,7 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Community } from './community.entity';
-import { NormalUser } from 'src/users/entities/normal-user.entity';
 import { ECommunityRole } from '../enums/community-role.enum';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('community_members')
 export class CommunityMember {
@@ -11,8 +11,8 @@ export class CommunityMember {
   @ManyToOne(() => Community, (community) => community.members)
   community: Community;
 
-  @ManyToOne(() => NormalUser, (user) => user.communitiesMemberOf)
-  user: NormalUser;
+  @ManyToOne(() => User, (user) => user.communitiesMemberOf)
+  user: User;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinedAt: Date;
