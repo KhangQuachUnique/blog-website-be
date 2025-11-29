@@ -13,8 +13,11 @@ import { CommunitiesModule } from './communities/communities.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
+<<<<<<< HEAD
 import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
+=======
+>>>>>>> origin
 
 @Module({
   imports: [
@@ -36,8 +39,11 @@ import { NewsfeedModule } from './newsfeed/newsfeed.module';
     ReportsModule,
     NotificationsModule,
     SavedPostListModule,
+<<<<<<< HEAD
     ViewedHistoryModule,
     NewsfeedModule,
+=======
+>>>>>>> origin
   ],
   controllers: [AppController],
   providers: [AppService],
