@@ -3,7 +3,7 @@ import { vi } from '@faker-js/faker';
 import { PersonalBlogPost } from '../../blog-posts/entities/personal-blog-post.entity';
 import { CommunityBlogPost } from '../../blog-posts/entities/community-blog-post.entity';
 import { RepostBlogPost } from '../../blog-posts/entities/repost-blog-post.entity';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { User } from '../../users/entities/user.entity';
 import { Community } from '../../communities/entities/community.entity';
 
 // Tạo Faker instance với locale tiếng Việt
@@ -15,7 +15,7 @@ export class BlogPostFactory {
    * @param useVietnamese - true: dùng tiếng Việt, false: dùng tiếng Anh (default: true)
    */
   static createPersonalPost(
-    author: NormalUser,
+    author: User,
     override: Partial<PersonalBlogPost> = {},
     useVietnamese = true,
   ): PersonalBlogPost {
@@ -35,7 +35,7 @@ export class BlogPostFactory {
   }
 
   static createCommunityPost(
-    author: NormalUser,
+    author: User,
     community: Community,
     override: Partial<CommunityBlogPost> = {},
     useVietnamese = true,
@@ -55,7 +55,7 @@ export class BlogPostFactory {
   }
 
   static createRepost(
-    author: NormalUser,
+    author: User,
     originalPostId: number,
     override: Partial<RepostBlogPost> = {},
     useVietnamese = true,
@@ -75,7 +75,7 @@ export class BlogPostFactory {
   }
 
   static createPersonalBatch(
-    author: NormalUser,
+    author: User,
     count: number,
     useVietnamese = true,
   ): PersonalBlogPost[] {
@@ -83,7 +83,7 @@ export class BlogPostFactory {
   }
 
   static createCommunityBatch(
-    author: NormalUser,
+    author: User,
     community: Community,
     count: number,
     useVietnamese = true,
@@ -94,7 +94,7 @@ export class BlogPostFactory {
   }
 
   static createRepostBatch(
-    author: NormalUser,
+    author: User,
     originalPostIds: number[],
     useVietnamese = true,
   ): RepostBlogPost[] {

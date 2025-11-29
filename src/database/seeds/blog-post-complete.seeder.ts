@@ -6,14 +6,14 @@ import { UserReactFactory } from '../factories/user-react.factory';
 import { PersonalBlogPost } from '../../blog-posts/entities/personal-blog-post.entity';
 import { CommunityBlogPost } from '../../blog-posts/entities/community-blog-post.entity';
 import { RepostBlogPost } from '../../blog-posts/entities/repost-blog-post.entity';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { User } from '../../users/entities/user.entity';
 import { Community } from '../../communities/entities/community.entity';
 import { Hashtag } from '../../hashtags/entities/hashtag.entity';
-import { TextBlock } from '../../blocks/entities/text-block.entity';
-import { ImageBlock } from '../../blocks/entities/image-block.entity';
-import { PostComment } from '../../comments/entities/post-comment.entity';
+import { Block } from '../../blocks/entities/block.entity';
+import { EBlockType } from '../../blocks/enums/block-type.enum';
+import { Comment } from '../../comments/entities/comment.entity';
 import { ChildComment } from '../../comments/entities/child-comment.entity';
-import { PostUserReact } from '../../user-reacts/entities/post-user-react.entity';
+import { UserReact } from '../../user-reacts/entities/user-react.entity';
 import { Emoji } from '../../emojis/entities/emoji.entity';
 import { faker, Faker } from '@faker-js/faker';
 import { vi } from '@faker-js/faker';
@@ -31,20 +31,21 @@ export class BlogPostSeeder extends Seeder {
     const personalPostRepository = this.dataSource.getRepository(PersonalBlogPost);
     const communityPostRepository = this.dataSource.getRepository(CommunityBlogPost);
     const repostRepository = this.dataSource.getRepository(RepostBlogPost);
-    const userRepository = this.dataSource.getRepository(NormalUser);
+    const userRepository = this.dataSource.getRepository(User);
     const communityRepository = this.dataSource.getRepository(Community);
     const hashtagRepository = this.dataSource.getRepository(Hashtag);
-    const textBlockRepository = this.dataSource.getRepository(TextBlock);
-    const imageBlockRepository = this.dataSource.getRepository(ImageBlock);
-    const postCommentRepository = this.dataSource.getRepository(PostComment);
+    const blockRepository = this.dataSource.getRepository(Block);
+    const commentRepository = this.dataSource.getRepository(Comment);
     const childCommentRepository = this.dataSource.getRepository(ChildComment);
-    const postReactRepository = this.dataSource.getRepository(PostUserReact);
+    const postReactRepository = this.dataSource.getRepository(UserReact);
     const emojiRepository = this.dataSource.getRepository(Emoji);
 
     try {
       // Get data
       const users = await userRepository.find();
-      const communities = await communityRepository.find({ relations: ['members', 'members.user', 'emojis'] });
+      const communities = await communityRepository.find({
+        relations: ['members', 'members.user', 'emojis'],
+      });
       const hashtags = await hashtagRepository.find();
       const allEmojis = await emojiRepository.find();
 
@@ -70,18 +71,13 @@ export class BlogPostSeeder extends Seeder {
           allCreatedPostIds.push(Number(savedPost.id));
 
           // Add blocks
-          await this.addBlocksToPost(
-            savedPost,
-            textBlockRepository,
-            imageBlockRepository,
-            useVietnamese,
-          );
+          await this.addBlocksToPost(savedPost, blockRepository, useVietnamese);
 
           // Add comments
           await this.addCommentsToPost(
             savedPost,
             users,
-            postCommentRepository,
+            commentRepository,
             childCommentRepository,
             useVietnamese,
           );
@@ -119,19 +115,13 @@ export class BlogPostSeeder extends Seeder {
             const savedPost = await communityPostRepository.save(post);
             allCreatedPostIds.push(Number(savedPost.id));
 
-            await this.addBlocksToPost(
-              savedPost,
-              textBlockRepository,
-              imageBlockRepository,
-              useVietnamese,
-            );
-            
+            await this.addBlocksToPost(savedPost, blockRepository, useVietnamese);
             // Extract users from members for comments
-            const memberUsers = members.map(m => m.user);
+            const memberUsers = members.map((m) => m.user);
             await this.addCommentsToPost(
               savedPost,
               memberUsers,
-              postCommentRepository,
+              commentRepository,
               childCommentRepository,
               useVietnamese,
             );
@@ -169,19 +159,13 @@ export class BlogPostSeeder extends Seeder {
             const savedRepost = await repostRepository.save(repost);
 
             // Reposts có ít blocks hơn
-            await this.addBlocksToPost(
-              savedRepost,
-              textBlockRepository,
-              imageBlockRepository,
-              useVietnamese,
-              2,
-            );
+            await this.addBlocksToPost(savedRepost, blockRepository, useVietnamese, 2);
 
             // Add comments
             await this.addCommentsToPost(
               savedRepost,
               users,
-              postCommentRepository,
+              commentRepository,
               childCommentRepository,
               useVietnamese,
             );
@@ -228,8 +212,7 @@ export class BlogPostSeeder extends Seeder {
 
   private async addBlocksToPost(
     post: PersonalBlogPost | CommunityBlogPost | RepostBlogPost,
-    textBlockRepository: Repository<TextBlock>,
-    imageBlockRepository: Repository<ImageBlock>,
+    blockRepository: Repository<Block>,
     useVietnamese: boolean,
     maxBlocks = 5,
   ): Promise<void> {
@@ -237,34 +220,30 @@ export class BlogPostSeeder extends Seeder {
     const blockCount = Math.floor(Math.random() * maxBlocks) + 2;
 
     for (let i = 0; i < blockCount; i++) {
+      const block = new Block();
+      block.post = post;
+      block.x = 0;
+      block.y = i * 100;
+      block.width = 800;
+      block.height = Math.random() > 0.4 ? 200 : 400;
       if (Math.random() > 0.4) {
-        // 60% Text blocks
-        const textBlock = new TextBlock();
-        textBlock.post = post;
-        textBlock.x = 0;
-        textBlock.y = i * 100;
-        textBlock.width = 800;
-        textBlock.height = 200;
-        textBlock.text = fakerInstance.lorem.paragraphs(Math.floor(Math.random() * 3) + 1);
-        await textBlockRepository.save(textBlock);
+        // Text block
+        block.type = EBlockType.TEXT;
+        block.content = fakerInstance.lorem.paragraphs(Math.floor(Math.random() * 3) + 1);
       } else {
-        // 40% Image blocks
-        const imageBlock = new ImageBlock();
-        imageBlock.post = post;
-        imageBlock.x = 0;
-        imageBlock.y = i * 100;
-        imageBlock.width = 800;
-        imageBlock.height = 400;
-        imageBlock.imageUrl = fakerInstance.image.url();
-        await imageBlockRepository.save(imageBlock);
+        // Image block
+        block.type = EBlockType.IMAGE;
+        block.content = fakerInstance.image.url();
       }
+
+      await blockRepository.save(block);
     }
   }
 
   private async addCommentsToPost(
     post: PersonalBlogPost | CommunityBlogPost | RepostBlogPost,
-    users: NormalUser[],
-    postCommentRepository: Repository<PostComment>,
+    users: User[],
+    postCommentRepository: Repository<Comment>,
     childCommentRepository: Repository<ChildComment>,
     useVietnamese: boolean,
   ): Promise<void> {
@@ -297,9 +276,9 @@ export class BlogPostSeeder extends Seeder {
 
   private async addReactionsToPost(
     post: PersonalBlogPost | CommunityBlogPost | RepostBlogPost,
-    users: NormalUser[],
+    users: User[],
     emojis: Emoji[],
-    postReactRepository: Repository<PostUserReact>,
+    postReactRepository: Repository<UserReact>,
   ): Promise<void> {
     const reactCount = Math.floor(Math.random() * 15) + 3; // 3-18 reactions
     const reactingUsers = this.getRandomItems(users, Math.min(reactCount, users.length));
@@ -311,8 +290,12 @@ export class BlogPostSeeder extends Seeder {
       reactCount,
     );
 
-    if (reactions.length > 0) {
-      await postReactRepository.save(reactions);
+    if (reactions.length === 0) return;
+
+    const batchSize = 8;
+    for (let i = 0; i < reactions.length; i += batchSize) {
+      const batch = reactions.slice(i, i + batchSize);
+      await postReactRepository.save(batch);
     }
   }
 }

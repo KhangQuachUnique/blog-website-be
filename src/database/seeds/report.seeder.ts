@@ -1,10 +1,8 @@
 import { DataSource } from 'typeorm';
 import { Seeder } from '../seeder.base';
-import { PostReport } from '../../reports/entities/post-report.entity';
-import { CommentReport } from '../../reports/entities/comment-report.entity';
-import { UserReport } from '../../reports/entities/user-report.entity';
+import { Report } from '../../reports/entities/report.entity';
 import { ReportFactory } from '../factories/report.factory';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 
@@ -16,10 +14,8 @@ export class ReportSeeder extends Seeder {
   async run(): Promise<void> {
     console.log('🌱 Seeding Reports...');
 
-    const postReportRepository = this.dataSource.getRepository(PostReport);
-    const commentReportRepository = this.dataSource.getRepository(CommentReport);
-    const userReportRepository = this.dataSource.getRepository(UserReport);
-    const userRepository = this.dataSource.getRepository(NormalUser);
+    const reportRepository = this.dataSource.getRepository(Report);
+    const userRepository = this.dataSource.getRepository(User);
     const blogPostRepository = this.dataSource.getRepository(BlogPost);
     const commentRepository = this.dataSource.getRepository(Comment);
 
@@ -39,7 +35,7 @@ export class ReportSeeder extends Seeder {
       if (blogPosts.length > 0) {
         // 5% of posts get reported
         const reportCount = Math.floor(blogPosts.length * 0.05);
-        const postReports: PostReport[] = [];
+        const postReports: Report[] = [];
 
         for (let i = 0; i < reportCount; i++) {
           const reporter = users[Math.floor(Math.random() * users.length)];
@@ -50,7 +46,7 @@ export class ReportSeeder extends Seeder {
           if (report) postReports.push(report);
         }
 
-        await postReportRepository.save(postReports);
+        await reportRepository.save(postReports);
         this.success(`Created ${postReports.length} post reports`);
       }
 
@@ -59,7 +55,7 @@ export class ReportSeeder extends Seeder {
       if (comments.length > 0) {
         // 3% of comments get reported
         const reportCount = Math.floor(comments.length * 0.03);
-        const commentReports: CommentReport[] = [];
+        const commentReports: Report[] = [];
 
         for (let i = 0; i < reportCount; i++) {
           const reporter = users[Math.floor(Math.random() * users.length)];
@@ -70,7 +66,7 @@ export class ReportSeeder extends Seeder {
           if (report) commentReports.push(report);
         }
 
-        await commentReportRepository.save(commentReports);
+        await reportRepository.save(commentReports);
         this.success(`Created ${commentReports.length} comment reports`);
       }
 
@@ -78,7 +74,7 @@ export class ReportSeeder extends Seeder {
       console.log('  👤 Creating user reports...');
       // 2% of users get reported
       const userReportCount = Math.floor(users.length * 0.02);
-      const userReports: UserReport[] = [];
+      const userReports: Report[] = [];
 
       for (let i = 0; i < userReportCount; i++) {
         const reporter = users[Math.floor(Math.random() * users.length)];
@@ -89,7 +85,7 @@ export class ReportSeeder extends Seeder {
         if (report) userReports.push(report);
       }
 
-      await userReportRepository.save(userReports);
+      await reportRepository.save(userReports);
       this.success(`Created ${userReports.length} user reports`);
 
       this.success('✓ Reports seeded successfully');
