@@ -3,7 +3,7 @@ import { Seeder } from '../seeder.base';
 import { CommunityFactory } from '../factories/community.factory';
 import { EmojiFactory } from '../factories/emoji.factory';
 import { Community } from '../../communities/entities/community.entity';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { User } from '../../users/entities/user.entity';
 import { Emoji } from '../../emojis/entities/emoji.entity';
 import { CommunityMember } from '../../communities/entities/community-member.entity';
 import { ECommunityRole } from '../../communities/enums/community-role.enum';
@@ -17,7 +17,7 @@ export class CommunitySeeder extends Seeder {
     console.log('🌱 Seeding Communities...');
 
     const communityRepository = this.dataSource.getRepository(Community);
-    const userRepository = this.dataSource.getRepository(NormalUser);
+    const userRepository = this.dataSource.getRepository(User);
     const emojiRepository = this.dataSource.getRepository(Emoji);
     const memberRepository = this.dataSource.getRepository(CommunityMember);
 

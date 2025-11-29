@@ -1,8 +1,7 @@
 import { DataSource } from 'typeorm';
 import { Seeder } from '../seeder.base';
 import { UserFactory } from '../factories/user.factory';
-import { NormalUser } from '../../users/entities/normal-user.entity';
-import { AdminUser } from '../../users/entities/admin-user.entity';
+import { User } from '../../users/entities/user.entity';
 import { SavedPostList } from '../../saved-post-list/entities/saved-post-list.entity';
 
 export class UserSeeder extends Seeder {
@@ -13,8 +12,8 @@ export class UserSeeder extends Seeder {
   async run(): Promise<void> {
     console.log('🌱 Seeding Users...');
 
-    const userRepository = this.dataSource.getRepository(NormalUser);
-    const adminRepository = this.dataSource.getRepository(AdminUser);
+    const userRepository = this.dataSource.getRepository(User);
+    const adminRepository = this.dataSource.getRepository(User);
 
     try {
       // Create admin users (AdminUser doesn't have SavedPostList requirement)
@@ -31,7 +30,7 @@ export class UserSeeder extends Seeder {
       const normalUsers = UserFactory.createBatch(50);
 
       // Create users with their SavedPostList
-      const savedUsers: NormalUser[] = [];
+      const savedUsers: User[] = [];
       for (const user of normalUsers) {
         const savedPostList = new SavedPostList();
         savedPostList.user = user;
@@ -48,7 +47,7 @@ export class UserSeeder extends Seeder {
         const user = savedUsers[i];
         const followCount = Math.floor(Math.random() * 10) + 1;
 
-        const following: NormalUser[] = [];
+        const following: User[] = [];
         for (let j = 0; j < followCount; j++) {
           const randomUser = savedUsers[Math.floor(Math.random() * savedUsers.length)];
           if (randomUser.id !== user.id && !following.find((u) => u.id === randomUser.id)) {

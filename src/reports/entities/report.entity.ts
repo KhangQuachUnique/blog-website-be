@@ -1,22 +1,45 @@
-import { NormalUser } from 'src/users/entities/normal-user.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, TableInheritance } from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { EReportType } from '../enums/report-type.enum';
+import { User } from 'src/users/entities/user.entity';
+import { Comment } from 'src/comments/entities/comment.entity';
+import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 
 @Entity('reports')
-@TableInheritance({ column: { type: 'varchar', name: 'type' } })
-export abstract class Report {
+export class Report {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ type: 'text' })
   reason: string;
 
+  @Column({ type: 'enum', enum: EReportType })
+  type: EReportType;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
   // Relations
-  @ManyToOne(() => NormalUser, {
+  @ManyToOne(() => User, {
     onDelete: 'SET NULL',
     nullable: true,
   })
-  reporter: NormalUser;
+  reporter: User;
+
+  @ManyToOne(() => User, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  reportedUser: User;
+
+  @ManyToOne(() => Comment, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  reportedComment: Comment;
+
+  @ManyToOne(() => BlogPost, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  reportedPost: BlogPost;
 }
