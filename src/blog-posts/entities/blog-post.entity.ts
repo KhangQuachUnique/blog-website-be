@@ -60,7 +60,7 @@ export abstract class BlogPost {
   @OneToMany(() => Block, (block) => block.post, { cascade: true })
   blocks: Block[];
 
-  @ManyToOne(() => User, {
+  @ManyToOne('User', {
     onDelete: 'SET NULL',
     nullable: true,
   })
