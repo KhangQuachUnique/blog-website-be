@@ -1,100 +1,127 @@
 // src/newsfeed/newsfeed.service.ts
+// FIX: Sửa tên cột để lấy đúng data từ PostgreSQL
+
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BlogPost } from '../blog-posts/entities/blog-post.entity';
 import { GetNewsfeedDto } from './dto/get-newsfeed.dto';
+import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
 
 @Injectable()
 export class NewsfeedService {
   constructor(
     @InjectRepository(BlogPost)
     private readonly postRepo: Repository<BlogPost>,
+    private readonly viewedHistoryService: ViewedHistoryService,
   ) {}
 
-  async getNewsfeed(dto: GetNewsfeedDto) {
+  async getNewsfeed(dto: GetNewsfeedDto, user?: any) {
     const { limit = 15, after } = dto;
 
-    // Decode cursor
-    let cursorId: number | null = null;
+    // === Cursor ===
     let cursorScore: number | null = null;
+    let cursorId: number | null = null;
     if (after) {
       try {
-        const decoded = Buffer.from(after, 'base64').toString('utf-8');
-        const [idStr, scoreStr] = decoded.split('|');
+        const [idStr, scoreStr] = Buffer.from(after, 'base64').toString('utf-8').split('|');
         cursorId = Number(idStr);
         cursorScore = Number(scoreStr);
       } catch {}
     }
 
-    const qb = this.postRepo
-      .createQueryBuilder('post')
-      .leftJoin('post.author', 'author')
-      .addSelect(['author.username', 'author.avatarUrl'])
-      .addSelect(
-        `(post."upVotes" - post."downVotes") + (COALESCE(reacts.cnt, 0) * 2) + (COALESCE(comments.cnt, 0) * 3)`,
-        'calculated_score',
-      )
-      .addSelect('COALESCE(reacts.cnt, 0)', 'react_count')
-      .addSelect('COALESCE(comments.cnt, 0)', 'comment_count')
-      .leftJoin(
-        '(SELECT "postId", COUNT(*) AS cnt FROM user_reacts GROUP BY "postId")',
-        'reacts',
-        'reacts."postId" = post.id',
-      )
-      .leftJoin(
-        '(SELECT "postId", COUNT(*) AS cnt FROM comments WHERE "postId" IS NOT NULL GROUP BY "postId")',
-        'comments',
-        'comments."postId" = post.id',
-      )
-      .where('post.isPublic = true')
-      .orderBy('calculated_score', 'DESC')
-      .addOrderBy('post.id', 'DESC')
-      .limit(limit + 1);
-
-    // Cursor pagination
-    if (cursorId !== null && cursorScore !== null) {
-      qb.andWhere(
-        `(post."upVotes" - post."downVotes") + (COALESCE(reacts.cnt, 0) * 2) + (COALESCE(comments.cnt, 0) * 3) < :cursorScore
-         OR (
-           (post."upVotes" - post."downVotes") + (COALESCE(reacts.cnt, 0) * 2) + (COALESCE(comments.cnt, 0) * 3) = :cursorScore
-           AND post.id < :cursorId
-         )`,
-        { cursorScore, cursorId },
-      );
+    // === Hashtags ===
+    let interestedTags: string[] = [];
+    if (user?.id) {
+      const top = await this.viewedHistoryService.getTopHashtags(user.id, 25, 14);
+      interestedTags = top.map((t: any) => t.name);
     }
 
-    const rawPosts = await qb.getRawMany();
+    // === Build query + params ===
+    const params: any[] = [];
+    let tagBonus = '0';
+    if (interestedTags.length > 0) {
+      tagBonus = `(SELECT COUNT(*) FROM post_hashtags ph JOIN hashtags h ON h.id = ph."hashtagId" WHERE ph."postId" = p.id AND h.name = ANY($${params.length + 1}::text[])) * 15`;
+      params.push(interestedTags);
+    }
 
-    const posts = rawPosts.map((p) => ({
-      id: p.post_id.toString(),
-      title: p.post_title,
-      thumbnailUrl: p.post_thumbnailUrl,        // đúng tên cột của bạn
-      upVotes: Number(p.post_upVotes),
-      downVotes: Number(p.post_downVotes),
-      createdAt: new Date(p.post_createdAt).toISOString(),
+    let followBonus = '0';
+    if (user?.id) {
+      followBonus = `COALESCE((SELECT 20 FROM user_follows f WHERE f."userId" = $${params.length + 1} AND f."followingId" = p."authorId"), 0)`;
+      params.push(user.id);
+    }
+
+    let cursorWhere = '';
+    if (cursorScore !== null && cursorId !== null) {
+      cursorWhere = `WHERE score < $${params.length + 1} OR (score = $${params.length + 1} AND id < $${params.length + 2})`;
+      params.push(cursorScore, cursorId);
+    }
+
+    // ✅ FIX: Thêm alias rõ ràng cho các cột
+    const query = `
+      WITH ranked AS (
+        SELECT 
+          p.id,
+          p.title,
+          p."thumbnailUrl" as thumbnail_url,
+          p."upVotes" as up_votes,
+          p."downVotes" as down_votes,
+          p."createdAt" as created_at,
+          u.username,
+          u."avatarUrl" as avatar_url,
+          (
+            (p."upVotes" - p."downVotes")::int
+            + COALESCE(r.reacts, 0)::int * 2
+            + COALESCE(c.comments, 0)::int * 3
+            + ${tagBonus}
+            + ${followBonus}
+            + 1.0 / (EXTRACT(EPOCH FROM (NOW() - p."createdAt")) / 3600 + 2)
+          ) AS score
+        FROM blog_posts p
+        LEFT JOIN users u ON u.id = p."authorId"
+        LEFT JOIN (SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId") r ON r."postId" = p.id
+        LEFT JOIN (SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId") c ON c."postId" = p.id
+        WHERE p."isPublic" = true AND p.status = 'ACTIVE'
+      )
+      SELECT *
+      FROM ranked
+      ${cursorWhere}
+      ORDER BY score DESC, id DESC
+      LIMIT $${params.length + 1}
+    `;
+
+    params.push(limit + 1);
+
+    const rawPosts = await this.postRepo.query(query, params);
+
+    // ✅ Map với tên cột đã alias
+    const posts = rawPosts.map((p: any) => ({
+      id: String(p.id),
+      title: p.title || 'Untitled',
+      thumbnailUrl: p.thumbnail_url || null,
+      upVotes: Number(p.up_votes) || 0,
+      downVotes: Number(p.down_votes) || 0,
+      createdAt: p.created_at ? new Date(p.created_at).toISOString() : new Date().toISOString(),
       author: {
-        username: p.author_username || 'Anonymous',
-        avatarUrl: p.author_avatarUrl || null,
+        username: p.username || 'Anonymous',
+        avatarUrl: p.avatar_url || null,
       },
-      community: null, // chưa có
-      score: Number(p.calculated_score || 0),
-      totalReacts: Number(p.react_count || 0),
-      totalComments: Number(p.comment_count || 0),
+      community: null,
+      score: Number(Number(p.score).toFixed(4)),
+      totalReacts: 0,
+      totalComments: 0,
     }));
 
     const hasMore = posts.length > limit;
     const items = hasMore ? posts.slice(0, limit) : posts;
     const lastItem = items[items.length - 1];
 
-    const nextCursor =
-      hasMore && lastItem
-        ? Buffer.from(`${lastItem.id}|${lastItem.score}`).toString('base64')
-        : null;
+    const nextCursor = hasMore && lastItem
+      ? Buffer.from(`${lastItem.id}|${lastItem.score}`).toString('base64')
+      : null;
 
     return {
       status: 'success',
-      statusCode: 200,
       data: {
         items,
         pagination: { hasMore, nextCursor },
