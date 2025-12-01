@@ -14,6 +14,8 @@ import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
 import { SearchModule } from './search/search.module';
+import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
+import { NewsfeedModule } from './newsfeed/newsfeed.module';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { SearchModule } from './search/search.module';
     NotificationsModule,
     SavedPostListModule,
     SearchModule,
+    ViewedHistoryModule,
+    NewsfeedModule,
   ],
   controllers: [AppController],
   providers: [AppService],

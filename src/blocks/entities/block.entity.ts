@@ -1,18 +1,11 @@
-import {
-  Column,
-  Entity,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  TableInheritance,
-} from 'typeorm';
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
-import { BlockComment } from '../../comments/entities/block-comment.entity';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
+import { Comment } from 'src/comments/entities/comment.entity';
+import { EBlockType } from '../enums/block-type.enum';
 
 @Entity('blocks')
-@TableInheritance({ column: { type: 'varchar', name: 'type' } })
-export abstract class Block {
+export class Block {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -28,6 +21,12 @@ export abstract class Block {
   @Column()
   height: number;
 
+  @Column({ type: 'enum', enum: EBlockType })
+  type: EBlockType;
+
+  @Column({ type: 'text' })
+  content: string;
+
   // Relations
   @ManyToOne(() => BlogPost, (post) => post.blocks, {
     onDelete: 'CASCADE',
@@ -35,6 +34,6 @@ export abstract class Block {
   })
   post: BlogPost;
 
-  @OneToMany(() => BlockComment, (blockComment) => blockComment.block, { cascade: true })
-  comments: BlockComment[];
+  @OneToMany(() => Comment, (comment) => comment.block, { cascade: true })
+  comments: Comment[];
 }

@@ -1,6 +1,4 @@
 import { Block } from 'src/blocks/entities/block.entity';
-import { PostComment } from 'src/comments/entities/post-comment.entity';
-import { NormalUser } from 'src/users/entities/normal-user.entity';
 import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 import {
   Column,
@@ -13,6 +11,10 @@ import {
   PrimaryGeneratedColumn,
   TableInheritance,
 } from 'typeorm';
+import { EBlogPostStatus } from '../enums/blog-post-status.enum';
+import { Comment } from 'src/comments/entities/comment.entity';
+import { User } from 'src/users/entities/user.entity';
+import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 
 @Entity('blog_posts')
 @TableInheritance({ column: { type: 'varchar', name: 'type' } })
@@ -40,9 +42,12 @@ export abstract class BlogPost {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
+  @Column({ type: 'enum', enum: EBlogPostStatus, default: EBlogPostStatus.ACTIVE })
+  status: EBlogPostStatus;
+
   // Relations
-  @OneToMany(() => PostComment, (postComment) => postComment.post, { cascade: true })
-  comments: PostComment[];
+  @OneToMany(() => Comment, (comment) => comment.post, { cascade: true })
+  comments: Comment[];
 
   @ManyToMany(() => Hashtag, (hashtag) => hashtag.posts)
   @JoinTable({
@@ -55,9 +60,12 @@ export abstract class BlogPost {
   @OneToMany(() => Block, (block) => block.post, { cascade: true })
   blocks: Block[];
 
-  @ManyToOne(() => NormalUser, {
+  @ManyToOne('User', {
     onDelete: 'SET NULL',
     nullable: true,
   })
-  author: NormalUser;
+  author: User;
+
+  @OneToMany(() => ViewedHistory, (history) => history.post)
+  viewedBy: ViewedHistory[];
 }

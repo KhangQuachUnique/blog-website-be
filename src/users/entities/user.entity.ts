@@ -1,14 +1,14 @@
-import { Column, Entity, PrimaryGeneratedColumn, TableInheritance } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { EGender } from '../enums/gender.enum';
+import { EUserRole } from '../enums/role.enum';
 
-export enum EGender {
-  MALE = 'MALE',
-  FEMALE = 'FEMALE', 
-  OTHER = 'OTHER',
-}
+import { OneToMany, ManyToMany, JoinTable, OneToOne, JoinColumn } from 'typeorm';
+import { CommunityMember } from 'src/communities/entities/community-member.entity';
+import { SavedPostList } from 'src/saved-post-list/entities/saved-post-list.entity';
+import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 
 @Entity('users')
-@TableInheritance({ column: { type: 'varchar', name: 'role' } })
-export abstract class User {
+export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -36,9 +36,63 @@ export abstract class User {
   @Column({ type: 'date', nullable: true })
   dob: Date | null;
 
-  @Column({ type: 'enum', enum: EGender, default: EGender.OTHER })
+  @Column({ type: 'enum', enum: EGender, nullable: true })
   gender: EGender;
+
+  @Column({ type: 'enum', enum: EUserRole })
+  type: EUserRole;
+
+  @Column({ type: 'boolean', default: false })
+  isPrivate: boolean;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinAt: Date;
+
+  //Relations
+  @OneToMany(() => CommunityMember, (member) => member.user)
+  communitiesMemberOf: CommunityMember[];
+
+  @OneToOne(() => SavedPostList, (list) => list.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn()
+  savedPostList: SavedPostList;
+
+  @ManyToMany(() => User, (user) => user.followers)
+  @JoinTable({
+    name: 'user_follows',
+    joinColumn: {
+      name: 'userId',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'followingId',
+      referencedColumnName: 'id',
+    },
+  })
+  following: User[];
+
+  @ManyToMany(() => User, (user) => user.following)
+  followers: User[];
+
+  @ManyToMany(() => User, (user) => user.blockedBy)
+  @JoinTable({
+    name: 'user_blocks',
+    joinColumn: {
+      name: 'userId',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'blockedUserId',
+      referencedColumnName: 'id',
+    },
+  })
+  blockedUsers: User[];
+
+  @ManyToMany(() => User, (user) => user.blockedUsers)
+  blockedBy: User[];
+
+  @OneToMany(() => ViewedHistory, (history) => history.user)
+  viewedHistory: ViewedHistory[];
 }

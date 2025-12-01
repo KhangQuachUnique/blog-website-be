@@ -1,9 +1,8 @@
 import { faker, Faker } from '@faker-js/faker';
 import { vi } from '@faker-js/faker';
-import { PostReport } from '../../reports/entities/post-report.entity';
-import { CommentReport } from '../../reports/entities/comment-report.entity';
-import { UserReport } from '../../reports/entities/user-report.entity';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { Report } from '../../reports/entities/report.entity';
+import { EReportType } from '../../reports/enums/report-type.enum';
+import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 
@@ -46,69 +45,71 @@ export class ReportFactory {
   private static reportedUsers = new Set<string>();
 
   static createPostReport(
-    reporter: NormalUser,
+    reporter: User,
     post: BlogPost,
-    override: Partial<PostReport> = {},
+    override: Partial<Report> = {},
     useVietnamese = true,
-  ): PostReport | null {
+  ): Report | null {
     const key = `${reporter.id}-${post.id}`;
     if (this.reportedPosts.has(key)) {
       return null; // Already reported
     }
 
-    const report = new PostReport();
+    const report = new Report();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
     const reasons = useVietnamese ? REPORT_REASONS_VI : REPORT_REASONS_EN;
 
     report.reason = override.reason || fakerInstance.helpers.arrayElement(reasons);
     report.reporter = reporter;
-    report.post = post;
+    report.reportedPost = post;
+    report.type = EReportType.POST;
 
     this.reportedPosts.add(key);
     return report;
   }
 
   static createCommentReport(
-    reporter: NormalUser,
+    reporter: User,
     comment: Comment,
-    override: Partial<CommentReport> = {},
+    override: Partial<Report> = {},
     useVietnamese = true,
-  ): CommentReport | null {
+  ): Report | null {
     const key = `${reporter.id}-${comment.id}`;
     if (this.reportedComments.has(key)) {
       return null; // Already reported
     }
 
-    const report = new CommentReport();
+    const report = new Report();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
     const reasons = useVietnamese ? REPORT_REASONS_VI : REPORT_REASONS_EN;
 
     report.reason = override.reason || fakerInstance.helpers.arrayElement(reasons);
     report.reporter = reporter;
-    report.comment = comment;
+    report.reportedComment = comment;
+    report.type = EReportType.COMMENT;
 
     this.reportedComments.add(key);
     return report;
   }
 
   static createUserReport(
-    reporter: NormalUser,
-    reportedUser: NormalUser,
-    override: Partial<UserReport> = {},
+    reporter: User,
+    reportedUser: User,
+    override: Partial<Report> = {},
     useVietnamese = true,
-  ): UserReport | null {
+  ): Report | null {
     const key = `${reporter.id}-${reportedUser.id}`;
     if (this.reportedUsers.has(key) || reporter.id === reportedUser.id) {
       return null; // Already reported or self-report
     }
 
-    const report = new UserReport();
+    const report = new Report();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
     const reasons = useVietnamese ? REPORT_REASONS_VI : REPORT_REASONS_EN;
-
     report.reason = override.reason || fakerInstance.helpers.arrayElement(reasons);
     report.reporter = reporter;
-    report.user = reportedUser;
+    report.reportedUser = reportedUser;
+    report.type = EReportType.USER;
 
     this.reportedUsers.add(key);
     return report;

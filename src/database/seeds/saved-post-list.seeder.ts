@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm';
 import { Seeder } from '../seeder.base';
 import { SavedPostList } from '../../saved-post-list/entities/saved-post-list.entity';
 import { SavedPostListItem } from '../../saved-post-list/entities/saved-post-list-item.entity';
-import { NormalUser } from '../../users/entities/normal-user.entity';
+import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 
 export class SavedPostListSeeder extends Seeder {
@@ -15,7 +15,7 @@ export class SavedPostListSeeder extends Seeder {
 
     const savedPostListRepository = this.dataSource.getRepository(SavedPostList);
     const savedPostListItemRepository = this.dataSource.getRepository(SavedPostListItem);
-    const userRepository = this.dataSource.getRepository(NormalUser);
+    const userRepository = this.dataSource.getRepository(User);
     const blogPostRepository = this.dataSource.getRepository(BlogPost);
 
     try {

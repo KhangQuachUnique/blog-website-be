@@ -1,0 +1,22 @@
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Community } from './community.entity';
+import { ECommunityRole } from '../enums/community-role.enum';
+import { User } from 'src/users/entities/user.entity';
+
+@Entity('community_members')
+export class CommunityMember {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @ManyToOne(() => Community, (community) => community.members)
+  community: Community;
+
+  @ManyToOne(() => User, (user) => user.communitiesMemberOf)
+  user: User;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  joinedAt: Date;
+
+  @Column({ type: 'enum', enum: ECommunityRole, default: ECommunityRole.MEMBER })
+  role: ECommunityRole;
+}

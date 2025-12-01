@@ -1,35 +1,42 @@
-import {
-  Column,
-  Entity,
-  Index,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  TableInheritance,
-} from 'typeorm';
+import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { ChildComment } from './child-comment.entity';
-import { NormalUser } from 'src/users/entities/normal-user.entity';
+import { ECommentType } from '../enums/comment-type.enum';
+import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
+import { Block } from 'src/blocks/entities/block.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('comments')
-@TableInheritance({ column: { type: 'varchar', name: 'type' } })
 @Index(['createAt'])
-export abstract class Comment {
+export class Comment {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
   content: string;
 
-  @OneToMany(() => ChildComment, (childComment) => childComment.parentComment, { cascade: true })
-  childComments: ChildComment[];
+  @Column({ type: 'enum', enum: ECommentType })
+  type: ECommentType;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createAt: Date;
 
   // Relations
-  @ManyToOne(() => NormalUser, {
+  @OneToMany(() => ChildComment, (childComment) => childComment.parentComment, { cascade: true })
+  childComments: ChildComment[];
+
+  @ManyToOne(() => User, {
     onDelete: 'SET NULL',
     nullable: true,
   })
-  commenter: NormalUser;
+  commenter: User;
+
+  @ManyToOne(() => BlogPost, {
+    onDelete: 'CASCADE',
+  })
+  post: BlogPost;
+
+  @ManyToOne(() => Block, {
+    onDelete: 'CASCADE',
+  })
+  block: Block;
 }
