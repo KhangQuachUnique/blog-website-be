@@ -1,9 +1,9 @@
 import { Column, Entity, PrimaryGeneratedColumn, TableInheritance } from 'typeorm';
 
 export enum EGender {
-  Male,
-  Female,
-  Other,
+  MALE = 'MALE',
+  FEMALE = 'FEMALE', 
+  OTHER = 'OTHER',
 }
 
 @Entity('users')
@@ -36,7 +36,7 @@ export abstract class User {
   @Column({ type: 'date', nullable: true })
   dob: Date | null;
 
-  @Column({ type: 'enum', enum: EGender, default: EGender.Other })
+  @Column({ type: 'enum', enum: EGender, default: EGender.OTHER })
   gender: EGender;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

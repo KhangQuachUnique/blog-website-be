@@ -26,7 +26,7 @@ export abstract class BlogPost {
   title: string;
 
   @Column({ type: 'text' })
-  thumnailUrl: string;
+  thumbnailUrl: string;
 
   @Column({ type: 'int', default: 0 })
   upVotes: number;

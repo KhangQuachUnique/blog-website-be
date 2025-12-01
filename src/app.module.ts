@@ -22,7 +22,7 @@ import { SearchModule } from './search/search.module';
       url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: false, // Tạm thời disable để tránh conflict enum
     }),
     UsersModule,
     BlogPostsModule,

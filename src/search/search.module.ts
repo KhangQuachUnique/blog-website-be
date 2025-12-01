@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
+import { SearchDao } from './search.dao';
 
 // Import Entities để TypeOrmModule.forFeature tạo repository
 import { BlogPost } from '../blog-posts/entities/blog-post.entity';
@@ -15,6 +16,6 @@ import { Hashtag } from '../hashtags/entities/hashtag.entity';
     TypeOrmModule.forFeature([BlogPost, User, Community, Hashtag]),
   ],
   controllers: [SearchController],
-  providers: [SearchService],
+  providers: [SearchService, SearchDao],
 })
 export class SearchModule {}
