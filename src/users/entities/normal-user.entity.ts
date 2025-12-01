@@ -1,14 +1,15 @@
-import { ChildEntity, JoinColumn, JoinTable, ManyToMany, OneToOne } from 'typeorm';
+import { ChildEntity, JoinColumn, JoinTable, ManyToMany, OneToMany, OneToOne } from 'typeorm';
 import { User } from './user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { SavedPostList } from 'src/saved-post-list/entities/saved-post-list.entity';
+import { CommunityMember } from 'src/communities/entities/community-member.entity';
 
 @ChildEntity('user')
 export class NormalUser extends User {
   // Relations
-  @ManyToMany(() => Community, (community) => community.members)
-  @JoinTable()
-  communities: Community[];
+  // @ManyToMany(() => Community, (community) => community.members)
+  // @JoinTable()
+  // communities: Community[];
 
   @OneToOne(() => SavedPostList, (list) => list.user, {
     cascade: true,
@@ -50,4 +51,7 @@ export class NormalUser extends User {
 
   @ManyToMany(() => NormalUser, (user) => user.blockedUsers)
   blockedBy: NormalUser[];
+
+  @OneToMany(() => CommunityMember, (cm) => cm.user)
+  communityMembers: CommunityMember[];
 }
