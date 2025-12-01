@@ -1,15 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Community } from './community.entity';
-import { NormalUser } from 'src/users/entities/normal-user.entity';
+import { ECommunityRole } from '../enums/community-role.enum';
+import { User } from 'src/users/entities/user.entity';
 
-export enum CommunityRole {
-  ADMIN = 'admin',
-  MOD = 'mod',
-  MEMBER = 'member',
-  PENDING = 'pending',
-}
-
-@Entity()
+@Entity('community_members')
 export class CommunityMember {
   @PrimaryGeneratedColumn()
   id: number;
@@ -17,15 +11,12 @@ export class CommunityMember {
   @ManyToOne(() => Community, (community) => community.members)
   community: Community;
 
-  @ManyToOne(() => NormalUser, (user) => user.communityMembers)
-  user: NormalUser;
-
-  @Column({
-    type: 'varchar',
-    default: CommunityRole.PENDING,
-  })
-  role: CommunityRole;
+  @ManyToOne(() => User, (user) => user.communitiesMemberOf)
+  user: User;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinedAt: Date;
+
+  @Column({ type: 'enum', enum: ECommunityRole, default: ECommunityRole.PENDING })
+  role: ECommunityRole;
 }

@@ -4,8 +4,6 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Comment } from './entities/comment.entity';
-import { PostComment } from './entities/post-comment.entity';
-import { BlockComment } from './entities/block-comment.entity';
 import { ChildComment } from './entities/child-comment.entity';
 
 @Injectable()
@@ -13,12 +11,6 @@ export class CommentsService {
   constructor(
     @InjectRepository(Comment)
     private commentRepository: Repository<Comment>,
-
-    @InjectRepository(PostComment)
-    private postCommentRepository: Repository<PostComment>,
-
-    @InjectRepository(BlockComment)
-    private blockCommentRepository: Repository<BlockComment>,
 
     @InjectRepository(ChildComment)
     private childCommentRepository: Repository<ChildComment>,

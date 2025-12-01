@@ -1,6 +1,5 @@
 import { Emoji } from 'src/emojis/entities/emoji.entity';
-import { NormalUser } from 'src/users/entities/normal-user.entity';
-import { Column, Entity, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { CommunityMember } from './community-member.entity';
 
 @Entity()
@@ -20,11 +19,16 @@ export class Community {
   @Column()
   isPublic: boolean;
 
+  @Column({ default: false })
+  requirePostApproval: boolean;      
+
+  @Column({ default: false })
+  requireMemberApproval: boolean;  
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  // Relations
-  @OneToMany(() => CommunityMember, (cm) => cm.community)
+  @OneToMany(() => CommunityMember, (member) => member.community)
   members: CommunityMember[];
 
   @OneToMany(() => Emoji, (emoji) => emoji.community, { cascade: true })
