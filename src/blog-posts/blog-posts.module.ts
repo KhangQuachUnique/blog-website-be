@@ -6,12 +6,22 @@ import { BlogPost } from './entities/blog-post.entity';
 import { CommunityBlogPost } from './entities/community-blog-post.entity';
 import { PersonalBlogPost } from './entities/personal-blog-post.entity';
 import { RepostBlogPost } from './entities/repost-blog-post.entity';
+import { Block } from 'src/blocks/entities/block.entity';
+import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BlogPost, CommunityBlogPost, PersonalBlogPost, RepostBlogPost]),
+    TypeOrmModule.forFeature([
+      BlogPost,
+      CommunityBlogPost,
+      PersonalBlogPost,
+      RepostBlogPost,
+      Block,
+      Hashtag,
+    ]),
   ],
   controllers: [BlogPostsController],
   providers: [BlogPostsService],
+  exports: [BlogPostsService],
 })
 export class BlogPostsModule {}

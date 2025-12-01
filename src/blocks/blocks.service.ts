@@ -10,7 +10,7 @@ import { Block } from './entities/block.entity';
 export class BlocksService {
   constructor(
     @InjectRepository(Block)
-    private blockRepository: Repository<Block>,
+    private readonly blockRepository: Repository<Block>,
   ) {}
 
   create(createBlockDto: CreateBlockDto) {
