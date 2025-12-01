@@ -31,4 +31,9 @@ export class CommentsController {
   remove(@Param('id') id: string) {
     return this.commentsService.remove(+id);
   }
+
+  @Get('/post/:postId')
+  findByPost(@Param('postId') postId: string) {
+    return this.commentsService.findByPost(+postId);
+  }
 }

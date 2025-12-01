@@ -44,10 +44,16 @@ export class SearchDao {
       .getMany();
   }
 
-  // Tìm kiếm hashtags theo tên
-  async searchHashtags(keyword: string): Promise<Hashtag[]> {
-    return this.hashtagRepo.createQueryBuilder('hashtag')
-      .where('LOWER(hashtag.name) LIKE :keyword', { keyword })
+  // Tìm kiếm bài viết theo hashtag (trả về posts có hashtag đó)
+  async searchHashtags(keyword: string): Promise<BlogPost[]> {
+    return this.postRepo.createQueryBuilder('post')
+      .innerJoin('post_hashtags', 'ph', 'ph.postId = post.id')
+      .innerJoin('hashtags', 'h', 'h.id = ph.hashtagId')
+      .leftJoinAndSelect('post.author', 'author')
+      .select(['post.id', 'post.title', 'post.createdAt', 'author.username', 'author.avatarUrl'])
+      .where('LOWER(h.name) LIKE :keyword', { keyword })
+      .andWhere('post.isPublic = :isPublic', { isPublic: true })
+      .orderBy('post.createdAt', 'DESC')
       .getMany();
   }
 

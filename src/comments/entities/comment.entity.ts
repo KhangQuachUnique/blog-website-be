@@ -30,13 +30,24 @@ export class Comment {
   })
   commenter: User;
 
+  @Column({ name: 'commenterId', nullable: true })
+  commenterId: number;
+
   @ManyToOne(() => BlogPost, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   post: BlogPost;
 
+  @Column({ name: 'postId', nullable: true })
+  postId: number;
+
   @ManyToOne(() => Block, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   block: Block;
+
+  @Column({ name: 'blockId', nullable: true })
+  blockId: number;
 }
