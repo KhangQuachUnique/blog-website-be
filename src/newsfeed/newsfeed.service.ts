@@ -75,6 +75,17 @@ export class NewsfeedService {
       )`;
     }
 
+      // Lấy danh sách post đã xem của user (30 ngày gần nhất) để front-end có thể đánh dấu
+      let viewedIds: number[] = [];
+      if (user?.id) {
+        try {
+          const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days
+          viewedIds = await this.viewedHistoryService.getViewedPostIds(user.id, since);
+        } catch (err) {
+          viewedIds = [];
+        }
+      }
+
     let cursorWhere = '';
     if (cursorScore !== null && cursorId !== null) {
       cursorWhere = `WHERE score < $${params.length + 1} OR (score = $${params.length + 1} AND id < $${params.length + 2})`;
