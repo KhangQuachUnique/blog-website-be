@@ -19,10 +19,13 @@ import {
 } from './dto/response/blog-post-response.dto';
 import { plainToInstance } from 'class-transformer';
 import { BlogPostType } from './enums/blog-post-type.enum';
+import { HashtagsService } from 'src/hashtags/hashtags.service';
 
 @Injectable()
 export class BlogPostsService {
   constructor(
+    private readonly hashtagService: HashtagsService,
+
     @InjectRepository(Block)
     private readonly blockRepository: Repository<Block>,
 
@@ -63,12 +66,16 @@ export class BlogPostsService {
       throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
     }
 
+    // Check hashtags or create new ones
+    const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
+
     const post: BlogPost = this.personalBlogPostRepository.create({
       title: dto.title,
       thumbnailUrl: dto.thumbnailUrl,
       isPublic: dto.isPublic,
       author: author,
       blocks: blocks,
+      hashtags: hashtags,
     });
     const createdPost = await this.personalBlogPostRepository.save(post);
 
@@ -105,6 +112,9 @@ export class BlogPostsService {
       throw new NotFoundException(`Can't find community with ID: ${dto.communityId}`);
     }
 
+    // Check hashtags or create new ones
+    const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
+
     const post: BlogPost = this.communityBlogPostRepository.create({
       title: dto.title,
       thumbnailUrl: dto.thumbnailUrl,
@@ -112,6 +122,7 @@ export class BlogPostsService {
       author: author,
       community: community,
       blocks: blocks,
+      hashtags: hashtags,
     });
     const createdPost = await this.communityBlogPostRepository.save(post);
 
@@ -141,12 +152,16 @@ export class BlogPostsService {
       throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
     }
 
+    // Check hashtags or create new ones
+    const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
+
     const post: BlogPost = this.repostBlogPostRepository.create({
       title: dto.title,
       thumbnailUrl: dto.thumbnailUrl,
       isPublic: dto.isPublic,
       author: author,
       originalPost: originalPost,
+      hashtags: hashtags,
     });
     const createdPost = await this.repostBlogPostRepository.save(post);
 

@@ -14,7 +14,6 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BlogPostType } from '../enums/blog-post-type.enum';
 import { CreateBlockDto } from 'src/blocks/dto/create-block.dto';
-import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 
 export class CreateBlogPostDto {
   @ApiProperty({
@@ -94,10 +93,9 @@ export class CreateBlogPostDto {
   @ApiPropertyOptional({
     description: 'Danh sách hashtags',
     example: ['nestjs', 'typescript', 'backend'],
-    type: [String],
   })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  hashtags?: Hashtag[];
+  hashtags?: string[];
 }

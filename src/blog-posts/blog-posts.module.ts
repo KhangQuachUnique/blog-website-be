@@ -10,6 +10,7 @@ import { Block } from 'src/blocks/entities/block.entity';
 import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
+import { HashtagsService } from 'src/hashtags/hashtags.service';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { Community } from 'src/communities/entities/community.entity';
     ]),
   ],
   controllers: [BlogPostsController],
-  providers: [BlogPostsService],
+  providers: [BlogPostsService, HashtagsService],
   exports: [BlogPostsService],
 })
 export class BlogPostsModule {}
