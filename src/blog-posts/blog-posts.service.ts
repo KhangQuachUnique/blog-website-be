@@ -49,89 +49,100 @@ export class BlogPostsService {
   ) {}
 
   /**
-   * Tạo bài viết cá nhân
-   * @param createBlogPostDto
-   * @returns
+   * Tạo bài viết theo loại (Personal, Community, Repost)
    */
-  async createPersonalPost(dto: CreateBlogPostDto): Promise<DetailPersonalPostResponseDto> {
-    const blocks = this.blockRepository.create(
-      dto.blocks?.map((blockDto) => ({
-        ...blockDto,
-      })) || [],
-    );
-
-    // Check author
+  async create(dto: CreateBlogPostDto): Promise<PostResponseDto> {
+    // Validate author
     const author = await this.userRepository.findOne({ where: { id: dto.authorId } });
     if (!author) {
       throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
     }
 
-    // Check hashtags or create new ones
+    // Get or create hashtags
     const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
 
-    const post: BlogPost = this.personalBlogPostRepository.create({
-      title: dto.title,
-      thumbnailUrl: dto.thumbnailUrl,
-      isPublic: dto.isPublic,
-      author: author,
-      blocks: blocks,
-      hashtags: hashtags,
-    });
-    const createdPost = await this.personalBlogPostRepository.save(post);
+    switch (dto.type) {
+      // Create personal blog post
+      case BlogPostType.PERSONAL: {
+        const blocks = this.blockRepository.create(dto.blocks || []);
 
-    const response = plainToInstance(DetailPersonalPostResponseDto, createdPost, {
-      excludeExtraneousValues: true,
-    });
+        const post = this.personalBlogPostRepository.create({
+          title: dto.title,
+          thumbnailUrl: dto.thumbnailUrl,
+          isPublic: dto.isPublic,
+          author,
+          blocks,
+          hashtags,
+        });
 
-    response.type = BlogPostType.PERSONAL;
+        const savedPost = await this.personalBlogPostRepository.save(post);
+        const response = plainToInstance(DetailPersonalPostResponseDto, savedPost, {
+          excludeExtraneousValues: true,
+        });
+        response.type = BlogPostType.PERSONAL;
+        return response;
+      }
 
-    return response;
-  }
+      // Create community blog post
+      case BlogPostType.COMMUNITY: {
+        // Validate community
+        const community = await this.communityRepository.findOne({
+          where: { id: dto.communityId },
+        });
+        if (!community) {
+          throw new NotFoundException(`Can't find community with ID: ${dto.communityId}`);
+        }
 
-  /**
-   * Tạo bài viết cộng đồng
-   * @param dto
-   * @returns
-   */
-  async createCommunityPost(dto: CreateBlogPostDto): Promise<DetailCommunityPostResponseDto> {
-    const blocks = this.blockRepository.create(
-      dto.blocks?.map((blockDto) => ({
-        ...blockDto,
-      })) || [],
-    );
+        const blocks = this.blockRepository.create(dto.blocks || []);
 
-    // Check author
-    const author = await this.userRepository.findOne({ where: { id: dto.authorId } });
-    if (!author) {
-      throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
+        const post = this.communityBlogPostRepository.create({
+          title: dto.title,
+          thumbnailUrl: dto.thumbnailUrl,
+          isPublic: dto.isPublic,
+          author,
+          community,
+          blocks,
+          hashtags,
+        });
+
+        const savedPost = await this.communityBlogPostRepository.save(post);
+        const response = plainToInstance(DetailCommunityPostResponseDto, savedPost, {
+          excludeExtraneousValues: true,
+        });
+        response.type = BlogPostType.COMMUNITY;
+        return response;
+      }
+
+      // Create repost blog post
+      case BlogPostType.REPOST: {
+        // Validate original post
+        const originalPost = await this.blogPostRepository.findOne({
+          where: { id: dto.originalPostId },
+        });
+        if (!originalPost) {
+          throw new NotFoundException(`Can't find original post with ID: ${dto.originalPostId}`);
+        }
+
+        const post = this.repostBlogPostRepository.create({
+          title: dto.title,
+          thumbnailUrl: dto.thumbnailUrl || originalPost.thumbnailUrl,
+          isPublic: dto.isPublic,
+          author,
+          originalPost: originalPost as PersonalBlogPost,
+          hashtags,
+        });
+
+        const savedPost = await this.repostBlogPostRepository.save(post);
+        const response = plainToInstance(PostResponseDto, savedPost, {
+          excludeExtraneousValues: true,
+        });
+        response.type = BlogPostType.REPOST;
+        return response;
+      }
+
+      default:
+        throw new NotFoundException(`Invalid post type`);
     }
-
-    // Check community
-    const community = await this.communityRepository.findOne({ where: { id: dto.communityId } });
-    if (!community) {
-      throw new NotFoundException(`Can't find community with ID: ${dto.communityId}`);
-    }
-
-    // Check hashtags or create new ones
-    const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
-
-    const post: BlogPost = this.communityBlogPostRepository.create({
-      title: dto.title,
-      thumbnailUrl: dto.thumbnailUrl,
-      isPublic: dto.isPublic,
-      author: author,
-      community: community,
-      blocks: blocks,
-      hashtags: hashtags,
-    });
-    const createdPost = await this.communityBlogPostRepository.save(post);
-
-    const response = plainToInstance(DetailCommunityPostResponseDto, createdPost, {
-      excludeExtraneousValues: true,
-    });
-    response.type = BlogPostType.COMMUNITY;
-
-    return response;
   }
 
   /**

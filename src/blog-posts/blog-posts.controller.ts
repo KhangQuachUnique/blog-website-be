@@ -4,7 +4,6 @@ import { BlogPostsService } from './blog-posts.service';
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
 import { UpdateBlogStatusDto } from './dto/update-blog-post-status.dto';
-import { BlogPostType } from './enums/blog-post-type.enum';
 import { PostResponseDto } from './dto/response/blog-post-response.dto';
 
 @ApiTags('Blog Posts')
@@ -17,17 +16,7 @@ export class BlogPostsController {
   @ApiResponse({ status: 201, description: 'Tạo bài viết thành công' })
   @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ' })
   create(@Body() createBlogPostDto: CreateBlogPostDto): Promise<PostResponseDto> {
-    const type = createBlogPostDto.type;
-    switch (type) {
-      case BlogPostType.PERSONAL:
-        return this.blogPostsService.createPersonalPost(createBlogPostDto);
-      case BlogPostType.COMMUNITY:
-        return this.blogPostsService.createCommunityPost(createBlogPostDto);
-      case BlogPostType.REPOST:
-        return this.blogPostsService.createRepostBlogPost(createBlogPostDto);
-      default:
-        throw new Error('Loại bài viết không hợp lệ');
-    }
+    return this.blogPostsService.create(createBlogPostDto);
   }
 
   @Get()
