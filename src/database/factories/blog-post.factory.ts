@@ -69,7 +69,7 @@ export class BlogPostFactory {
     post.downVotes = override.downVotes || fakerInstance.number.int({ min: 0, max: 30 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
     post.author = author;
-    post.originalPostId = originalPostId;
+    post.originalPost = { id: originalPostId } as PersonalBlogPost;
 
     return post;
   }

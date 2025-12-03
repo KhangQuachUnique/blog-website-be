@@ -8,6 +8,8 @@ import { PersonalBlogPost } from './entities/personal-blog-post.entity';
 import { RepostBlogPost } from './entities/repost-blog-post.entity';
 import { Block } from 'src/blocks/entities/block.entity';
 import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
+import { User } from 'src/users/entities/user.entity';
+import { Community } from 'src/communities/entities/community.entity';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
       RepostBlogPost,
       Block,
       Hashtag,
+      User,
+      Community,
     ]),
   ],
   controllers: [BlogPostsController],
