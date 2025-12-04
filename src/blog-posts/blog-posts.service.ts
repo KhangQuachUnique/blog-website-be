@@ -189,7 +189,10 @@ export class BlogPostsService {
   }
 
   findOne(id: number) {
-    return this.blogPostRepository.findOneBy({ id });
+    return this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community', 'blocks', 'hashtags'],
+    });
   }
 
   /**
