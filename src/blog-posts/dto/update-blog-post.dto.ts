@@ -18,6 +18,11 @@ export class UpdateBlogPostDto {
   @MaxLength(255)
   title?: string;
 
+  @ApiPropertyOptional({ example: 'Mô tả ngắn đã cập nhật' })
+  @IsString()
+  @IsOptional()
+  shortDescription?: string;
+
   @ApiPropertyOptional({ example: 'https://example.com/new-thumbnail.jpg' })
   @IsString()
   @IsOptional()

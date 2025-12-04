@@ -26,6 +26,14 @@ export class CreateBlogPostDto {
   @MaxLength(255, { message: 'Title must be at most 255 characters' })
   title: string;
 
+  @ApiProperty({
+    description: 'Mô tả ngắn của bài viết',
+    example: 'Đây là mô tả ngắn của bài viết đầu tiên của tôi.',
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Short description is required' })
+  shortDescription: string;
+
   @ApiPropertyOptional({
     description: 'URL ảnh thumbnail',
     example: 'https://example.com/thumbnail.jpg',

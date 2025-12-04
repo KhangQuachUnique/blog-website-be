@@ -46,6 +46,10 @@ export class PostResponseDto {
   title: string;
 
   @Expose()
+  @ApiProperty({ example: 'This is a short description of my first blog post.' })
+  shortDescription: string;
+
+  @Expose()
   @ApiPropertyOptional({ example: 'https://example.com/thumbnail.jpg' })
   thumbnailUrl?: string;
 
@@ -55,8 +59,8 @@ export class PostResponseDto {
 
   @Expose()
   @Type(() => AuthorDto)
-  @ApiPropertyOptional({ type: AuthorDto })
-  author?: AuthorDto;
+  @ApiProperty({ type: AuthorDto })
+  author: AuthorDto;
 
   @Expose()
   @ApiProperty({ example: EBlogPostStatus.ACTIVE })

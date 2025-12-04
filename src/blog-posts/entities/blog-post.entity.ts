@@ -28,6 +28,9 @@ export abstract class BlogPost {
   title: string;
 
   @Column({ type: 'text' })
+  shortDescription: string;
+
+  @Column({ type: 'text' })
   thumbnailUrl: string;
 
   @Column({ type: 'int', default: 0 })
