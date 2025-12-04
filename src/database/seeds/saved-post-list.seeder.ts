@@ -11,7 +11,7 @@ export class SavedPostListSeeder extends Seeder {
   }
 
   async run(): Promise<void> {
-    console.log('🌱 Seeding Saved Post Lists...');
+    console.log('🌱 Seeding Saved Post List Items...');
 
     const savedPostListRepository = this.dataSource.getRepository(SavedPostList);
     const savedPostListItemRepository = this.dataSource.getRepository(SavedPostListItem);
@@ -19,7 +19,10 @@ export class SavedPostListSeeder extends Seeder {
     const blogPostRepository = this.dataSource.getRepository(BlogPost);
 
     try {
-      const users = await userRepository.find();
+      // Get users with their saved post lists (created in UserSeeder)
+      const users = await userRepository.find({
+        relations: ['savedPostList'],
+      });
       const blogPosts = await blogPostRepository.find();
 
       if (users.length === 0) {
@@ -32,19 +35,12 @@ export class SavedPostListSeeder extends Seeder {
         return;
       }
 
-      let totalLists = 0;
       let totalItems = 0;
 
-      // 60% of users have saved post lists
-      const usersWithLists = users.filter(() => Math.random() > 0.4);
+      // 60% of users have saved posts
+      const usersWithSavedPosts = users.filter((user) => user.savedPostList && Math.random() > 0.4);
 
-      for (const user of usersWithLists) {
-        const savedPostList = new SavedPostList();
-        savedPostList.user = user;
-
-        const createdList = await savedPostListRepository.save(savedPostList);
-        totalLists++;
-
+      for (const user of usersWithSavedPosts) {
         // Each user saves 3-15 posts
         const savedCount = Math.floor(Math.random() * 13) + 3;
         const shuffledPosts = [...blogPosts].sort(() => Math.random() - 0.5);
@@ -52,16 +48,18 @@ export class SavedPostListSeeder extends Seeder {
 
         for (const post of postsToSave) {
           const item = new SavedPostListItem();
-          item.savedPostList = createdList;
+          item.savedPostList = user.savedPostList;
           item.post = post;
           await savedPostListItemRepository.save(item);
           totalItems++;
         }
       }
 
-      this.success(`Created ${totalLists} saved post lists with ${totalItems} items`);
+      this.success(
+        `Created ${totalItems} saved post items for ${usersWithSavedPosts.length} users`,
+      );
     } catch (error) {
-      this.error('Failed to seed saved post lists', error);
+      this.error('Failed to seed saved post list items', error);
       throw error;
     }
   }

@@ -30,7 +30,7 @@ export abstract class BlogPost {
   @Column({ type: 'text', nullable: true })
   shortDescription: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   thumbnailUrl: string;
 
   @Column({ type: 'int', default: 0 })

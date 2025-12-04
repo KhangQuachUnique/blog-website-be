@@ -9,16 +9,16 @@ export class Block {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column('int', { unsigned: true })
   x: number;
 
-  @Column()
+  @Column('int', { unsigned: true })
   y: number;
 
-  @Column()
+  @Column('int', { unsigned: true })
   width: number;
 
-  @Column()
+  @Column('int', { unsigned: true })
   height: number;
 
   @Column({ type: 'enum', enum: EBlockType })
