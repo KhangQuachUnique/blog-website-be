@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { EBlockType } from '../enums/block-type.enum';
 
@@ -16,6 +16,7 @@ export class CreateBlockDto {
   @ApiProperty({ description: 'Chiều rộng', example: 12, minimum: 1 })
   @IsInt()
   @Min(1)
+  @Max(16)
   width: number;
 
   @ApiProperty({ description: 'Chiều cao', example: 100, minimum: 1 })
