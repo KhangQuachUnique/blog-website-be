@@ -13,7 +13,6 @@ import { PersonalBlogPost } from './entities/personal-blog-post.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { Block } from 'src/blocks/entities/block.entity';
-import { EBlogPostStatus } from './enums/blog-post-status.enum';
 import {
   DetailCommunityPostResponseDto,
   DetailPersonalPostResponseDto,
@@ -196,22 +195,15 @@ export class BlogPostsService {
     return response;
   }
 
-  findAll() {
-<<<<<<< HEAD
-    return this.blogPostRepository
-      .createQueryBuilder('post')
-      .leftJoinAndSelect('post.blocks', 'block')
-      .getMany();
-  }
+  async findAll() {
+    const posts = await this.blogPostRepository.find({
+      relations: ['author', 'community', 'blocks', 'hashtags'],
+      order: {
+        createdAt: 'DESC',
+      },
+    });
 
-  async findOne(id: number) {
-    const post = await this.blogPostRepository.findOneBy({ id });
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-    return post;
-=======
-    return 'This action returns all blog posts';
+    return posts.map(post => plainToInstance(PostResponseDto, post));
   }
 
   findOne(id: number) {
@@ -219,7 +211,6 @@ export class BlogPostsService {
       where: { id },
       relations: ['author', 'community', 'blocks', 'hashtags'],
     });
->>>>>>> origin/main
   }
 
   /**
@@ -260,16 +251,22 @@ export class BlogPostsService {
     return this.blogPostRepository.save(post);
   }
 
-<<<<<<< HEAD
-  remove(id: number) {
-    return `This action removes a #${id} blogPost`;
-=======
   /**
    * Cập nhật trạng thái bài viết
    * @param id
    * @param dto
    * @returns
    */
+
+  /**
+   * Xóa bài viết theo ID
+   * @param id
+   * @returns
+   */
+  async remove(id: number) {
+    return await this.blogPostRepository.delete(id);
+  }
+
   async updateStatus(id: number, dto: { status: EBlogPostStatus }) {
     const post = await this.blogPostRepository.findOne({ where: { id } });
 
@@ -281,25 +278,12 @@ export class BlogPostsService {
     return this.blogPostRepository.save(post);
   }
 
-  /**
-   * Xóa bài viết theo ID
-   * @param id
-   * @returns
-   */
-  async remove(id: number) {
-    return await this.blogPostRepository.delete(id);
->>>>>>> origin/main
-  }
-
-  async updateStatus(id: number, updateBlogStatusDto: UpdateBlogStatusDto) {
-    const post = await this.findOne(id);
-
-    post.status = updateBlogStatusDto.status;
-    return await this.blogPostRepository.save(post);
-  }
-
   async restore(id: number) {
-    const post = await this.findOne(id);
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
 
     if (post.status != EBlogPostStatus.HIDDEN) {
       return { message: `Cannot restore. Current status is '${post.status}', expecting 'HIDDEN'.` };
@@ -316,7 +300,11 @@ export class BlogPostsService {
   }
 
   async hide(id: number) {
-    const post = await this.findOne(id);
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
 
     if (post.status != EBlogPostStatus.ACTIVE) {
       return { message: `Cannot hide. Current status is '${post.status}', expecting 'ACTIVE'.` };
@@ -333,7 +321,11 @@ export class BlogPostsService {
   }
 
   async publish(id: number) {
-    const post = await this.findOne(id);
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
 
     if (post.status != EBlogPostStatus.DRAFT) {
       return { message: `Cannot publish. Current status is '${post.status}', expecting 'DRAFT'.` };

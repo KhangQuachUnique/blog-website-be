@@ -37,8 +37,6 @@ export class BlogPostsController {
     return this.blogPostsService.update(+id, updateBlogPostDto);
   }
 
-<<<<<<< HEAD
-=======
   @Patch(':id/status')
   @ApiOperation({ summary: 'Cập nhật trạng thái bài viết' })
   @ApiResponse({ status: 200, description: 'Cập nhật trạng thái thành công' })
@@ -47,15 +45,9 @@ export class BlogPostsController {
     return this.blogPostsService.updateStatus(+id, dto);
   }
 
->>>>>>> origin/main
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.blogPostsService.remove(+id);
-  }
-
-  @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() updateBlogStatusDto: UpdateBlogStatusDto) {
-    return this.blogPostsService.updateStatus(+id, updateBlogStatusDto);
   }
 
   @Patch(':id/restore')
