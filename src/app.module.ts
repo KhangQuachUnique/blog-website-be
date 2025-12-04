@@ -16,15 +16,16 @@ import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
 import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
+import { UserVotesModule } from './user-votes/user-votes.module';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
+      url: process.env.DATABASE_URL || 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: false,
     }),
     AuthModule,
     UsersModule,
@@ -40,6 +41,7 @@ import { AuthModule } from './auth/auth.module';
     SavedPostListModule,
     ViewedHistoryModule,
     NewsfeedModule,
+    UserVotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

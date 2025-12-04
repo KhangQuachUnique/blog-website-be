@@ -254,4 +254,37 @@ export class BlogPostsService {
   async remove(id: number) {
     return await this.blogPostRepository.delete(id);
   }
+
+  // ========== REPOST METHODS ==========
+
+  /**
+   * Kiểm tra user đã repost bài viết chưa
+   */
+  async checkReposted(userId: number, originalPostId: number): Promise<boolean> {
+    const repost = await this.repostBlogPostRepository.findOne({
+      where: {
+        author: { id: userId },
+        originalPost: { id: originalPostId },
+      },
+    });
+    return !!repost;
+  }
+
+  /**
+   * Xóa repost
+   */
+  async removeRepost(userId: number, originalPostId: number) {
+    const repost = await this.repostBlogPostRepository.findOne({
+      where: {
+        author: { id: userId },
+        originalPost: { id: originalPostId },
+      },
+    });
+
+    if (!repost) {
+      throw new NotFoundException('Repost not found');
+    }
+
+    return this.repostBlogPostRepository.remove(repost);
+  }
 }

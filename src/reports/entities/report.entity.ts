@@ -12,7 +12,11 @@ export class Report {
   @Column({ type: 'text' })
   reason: string;
 
-  @Column({ type: 'enum', enum: EReportType })
+  @Column({
+    type: 'enum',
+    enum: EReportType,
+    enumName: 'e_report_type',
+  })
   type: EReportType;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

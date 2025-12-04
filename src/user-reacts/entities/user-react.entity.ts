@@ -10,7 +10,11 @@ export class UserReact {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'enum', enum: EReactTargetType })
+  @Column({
+    type: 'enum',
+    enum: EReactTargetType,
+    enumName: 'e_react_target_type',
+  })
   type: EReactTargetType;
 
   // Relations
