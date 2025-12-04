@@ -1,1 +1,3 @@
-export class CreateHashtagDto {}
+export class CreateHashtagDto {
+  name: string;
+}

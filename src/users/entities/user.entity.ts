@@ -5,6 +5,7 @@ import { EUserRole } from '../enums/role.enum';
 import { OneToMany, ManyToMany, JoinTable, OneToOne, JoinColumn } from 'typeorm';
 import { CommunityMember } from 'src/communities/entities/community-member.entity';
 import { SavedPostList } from 'src/saved-post-list/entities/saved-post-list.entity';
+import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 
 @Entity('users')
 export class User {
@@ -91,4 +92,7 @@ export class User {
 
   @ManyToMany(() => User, (user) => user.blockedUsers)
   blockedBy: User[];
+
+  @OneToMany(() => ViewedHistory, (history) => history.user)
+  viewedHistory: ViewedHistory[];
 }

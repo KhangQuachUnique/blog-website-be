@@ -14,6 +14,7 @@ import {
 import { EBlogPostStatus } from '../enums/blog-post-status.enum';
 import { Comment } from 'src/comments/entities/comment.entity';
 import { User } from 'src/users/entities/user.entity';
+import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 
 @Entity('blog_posts')
 @TableInheritance({ column: { type: 'varchar', name: 'type' } })
@@ -26,7 +27,10 @@ export abstract class BlogPost {
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
+  shortDescription: string;
+
+  @Column({ type: 'text', nullable: true })
   thumbnailUrl: string;
 
   @Column({ type: 'int', default: 0 })
@@ -59,9 +63,12 @@ export abstract class BlogPost {
   @OneToMany(() => Block, (block) => block.post, { cascade: true })
   blocks: Block[];
 
-  @ManyToOne(() => User, {
+  @ManyToOne('User', {
     onDelete: 'SET NULL',
     nullable: true,
   })
   author: User;
+
+  @OneToMany(() => ViewedHistory, (history) => history.post)
+  viewedBy: ViewedHistory[];
 }
