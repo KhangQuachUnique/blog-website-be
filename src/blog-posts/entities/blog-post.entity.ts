@@ -27,7 +27,7 @@ export abstract class BlogPost {
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   shortDescription: string;
 
   @Column({ type: 'text' })
