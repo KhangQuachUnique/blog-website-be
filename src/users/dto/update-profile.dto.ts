@@ -1,27 +1,21 @@
 import {
   IsString,
-  IsEmail,
   IsOptional,
+  IsEmail,
   IsEnum,
   IsDateString,
-  MinLength,
   MaxLength,
+  MinLength,
+  IsUrl,
 } from 'class-validator';
 import { EGender } from '../enums/gender.enum';
 
-export class CreateUserDto {
+export class UpdateProfileDto {
+  @IsOptional()
   @IsString()
   @MinLength(3)
   @MaxLength(50)
-  username: string;
-
-  @IsEmail({}, { message: 'Email không hợp lệ' })
-  email: string;
-
-  @IsString()
-  @MinLength(8)
-  @MaxLength(50)
-  password: string;
+  username?: string;
 
   @IsOptional()
   @IsString()
@@ -29,12 +23,14 @@ export class CreateUserDto {
   bio?: string;
 
   @IsOptional()
-  @IsString()
-  phoneNumber?: string;
+  @IsUrl()
+  avatarUrl?: string;
 
   @IsOptional()
   @IsString()
-  avatarUrl?: string;
+  @MinLength(10)
+  @MaxLength(15)
+  phoneNumber?: string;
 
   @IsOptional()
   @IsDateString()
