@@ -68,6 +68,7 @@ export class BlogPostsService {
 
         const post = this.personalBlogPostRepository.create({
           title: dto.title,
+          shortDescription: dto.shortDescription,
           thumbnailUrl: dto.thumbnailUrl,
           isPublic: dto.isPublic,
           author,
@@ -97,6 +98,7 @@ export class BlogPostsService {
 
         const post = this.communityBlogPostRepository.create({
           title: dto.title,
+          shortDescription: dto.shortDescription,
           thumbnailUrl: dto.thumbnailUrl,
           isPublic: dto.isPublic,
           author,
@@ -113,22 +115,25 @@ export class BlogPostsService {
         return response;
       }
 
-      // Create repost blog post
+      // Create repost blog post (chỉ repost PersonalBlogPost)
       case BlogPostType.REPOST: {
-        // Validate original post
-        const originalPost = await this.blogPostRepository.findOne({
+        // Validate original post - chỉ cho phép repost PersonalBlogPost
+        const originalPost = await this.personalBlogPostRepository.findOne({
           where: { id: dto.originalPostId },
         });
         if (!originalPost) {
-          throw new NotFoundException(`Can't find original post with ID: ${dto.originalPostId}`);
+          throw new NotFoundException(
+            `Can't find personal post with ID: ${dto.originalPostId}. Only personal posts can be reposted.`,
+          );
         }
 
         const post = this.repostBlogPostRepository.create({
           title: dto.title,
+          shortDescription: dto.shortDescription,
           thumbnailUrl: dto.thumbnailUrl || originalPost.thumbnailUrl,
           isPublic: dto.isPublic,
           author,
-          originalPost: originalPost as PersonalBlogPost,
+          originalPost,
           hashtags,
         });
 
@@ -146,15 +151,19 @@ export class BlogPostsService {
   }
 
   /**
-   * Tao bài viết đăng lại một bài viết cá nhân
+   * Tao bài viết đăng lại một bài viết cá nhân (chỉ cho phép repost PersonalBlogPost)
    * @param dto
    * @returns
    */
   async createRepostBlogPost(dto: CreateBlogPostDto): Promise<PostResponseDto> {
-    // Check original post
-    const originalPost = await this.blogPostRepository.findOneBy({ id: dto.originalPostId });
+    // Check original post - chỉ cho phép repost PersonalBlogPost
+    const originalPost = await this.personalBlogPostRepository.findOneBy({
+      id: dto.originalPostId,
+    });
     if (!originalPost) {
-      throw new NotFoundException(`Can't find original post with ID: ${dto.originalPostId}`);
+      throw new NotFoundException(
+        `Can't find personal post with ID: ${dto.originalPostId}. Only personal posts can be reposted.`,
+      );
     }
 
     // Check author
@@ -166,13 +175,14 @@ export class BlogPostsService {
     // Check hashtags or create new ones
     const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
 
-    const post: BlogPost = this.repostBlogPostRepository.create({
+    const post = this.repostBlogPostRepository.create({
       title: dto.title,
+      shortDescription: dto.shortDescription,
       thumbnailUrl: dto.thumbnailUrl,
       isPublic: dto.isPublic,
-      author: author,
-      originalPost: originalPost,
-      hashtags: hashtags,
+      author,
+      originalPost,
+      hashtags,
     });
     const createdPost = await this.repostBlogPostRepository.save(post);
 
@@ -213,6 +223,7 @@ export class BlogPostsService {
 
     // Cập nhật các trường cơ bản
     if (dto.title !== undefined) post.title = dto.title;
+    if (dto.shortDescription !== undefined) post.shortDescription = dto.shortDescription;
     if (dto.thumbnailUrl !== undefined) post.thumbnailUrl = dto.thumbnailUrl;
     if (dto.isPublic !== undefined) post.isPublic = dto.isPublic;
 
