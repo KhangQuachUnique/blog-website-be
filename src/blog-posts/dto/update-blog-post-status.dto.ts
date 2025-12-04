@@ -1,10 +1,14 @@
 import { IsEnum, IsNotEmpty } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { EBlogPostStatus } from '../enums/blog-post-status.enum';
 
 export class UpdateBlogStatusDto {
-    @IsNotEmpty()
-    @IsEnum(EBlogPostStatus, {
-        message: 'Invalid status',
-    })
-    status: EBlogPostStatus;
+  @ApiProperty({
+    enum: EBlogPostStatus,
+    example: EBlogPostStatus.ACTIVE,
+    description: 'Trạng thái bài viết',
+  })
+  @IsNotEmpty()
+  @IsEnum(EBlogPostStatus)
+  status: EBlogPostStatus;
 }

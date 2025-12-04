@@ -19,6 +19,12 @@ export class Community {
   @Column()
   isPublic: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  requirePostApproval: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  requireMemberApproval: boolean;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
