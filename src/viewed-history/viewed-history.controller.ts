@@ -9,6 +9,7 @@ import {
   Get,
   Query,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ViewedHistoryService } from './viewed-history.service';
 
 @Controller('viewed-history')
@@ -23,7 +24,7 @@ export class ViewedHistoryController {
   @Post('posts/:postId/view')
   async recordView(
     @Param('postId', ParseIntPipe) postId: number,
-    @Req() request: any, // request.user do bạn tự set ở middleware/guard nào đó (hoặc không có
+    @Req() request: Request & { user?: { id: number; username?: string } },
   ) {
     // Nếu có user trong request (đã login) → ghi lịch sử
     // Nếu không có → bỏ qua, không lỗi
@@ -44,7 +45,7 @@ export class ViewedHistoryController {
    */
   @Get('debug/top-hashtags')
   async getMyTopHashtags(
-    @Req() request: any,
+    @Req() request: Request & { user?: { id: number; username?: string } },
     @Query('days') daysStr = '14',
     @Query('limit') limitStr = '20',
   ) {
