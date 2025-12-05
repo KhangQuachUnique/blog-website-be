@@ -19,7 +19,8 @@ export abstract class Seeder {
     console.log(`✓ ${message}`);
   }
 
-  protected error(message: string, error?: any): void {
-    console.error(`✗ ${message}`, error?.message || '');
+  protected error(message: string, error?: unknown): void {
+    const errMsg = error && typeof error === 'object' && 'message' in (error as any) ? (error as any).message : String(error ?? '');
+    console.error(`✗ ${message}`, errMsg);
   }
 }

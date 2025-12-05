@@ -206,6 +206,20 @@ export class BlogPostsService {
     return posts.map((post) => plainToInstance(PostResponseDto, post));
   }
 
+  async findAllPostsByUser(userId: number): Promise<PostResponseDto[]> {
+    const posts = await this.blogPostRepository.find({
+      where: { author: { id: userId } },
+      relations: ['author', 'community', 'hashtags', 'originalPost'],
+    });
+
+    return posts.map((post) => {
+      const response = plainToInstance(PostResponseDto, post, {
+        excludeExtraneousValues: true,
+      });
+      return response;
+    });
+  }
+
   findOne(id: number) {
     return this.blogPostRepository.findOne({
       where: { id },
