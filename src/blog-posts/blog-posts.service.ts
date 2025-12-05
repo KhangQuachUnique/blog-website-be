@@ -4,15 +4,37 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
-import { UpdateBlogStatusDto } from './dto/update-blog-post-status.dto';
 import { BlogPost } from './entities/blog-post.entity';
 import { CommunityBlogPost } from './entities/community-blog-post.entity';
 import { RepostBlogPost } from './entities/repost-blog-post.entity';
 import { PersonalBlogPost } from './entities/personal-blog-post.entity';
+import { User } from 'src/users/entities/user.entity';
+import { Community } from 'src/communities/entities/community.entity';
+import { Block } from 'src/blocks/entities/block.entity';
+import { EBlogPostStatus } from './enums/blog-post-status.enum';
+import {
+  DetailCommunityPostResponseDto,
+  DetailPersonalPostResponseDto,
+  PostResponseDto,
+} from './dto/response/blog-post-response.dto';
+import { plainToInstance } from 'class-transformer';
+import { BlogPostType } from './enums/blog-post-type.enum';
+import { HashtagsService } from 'src/hashtags/hashtags.service';
 
 @Injectable()
 export class BlogPostsService {
   constructor(
+    private readonly hashtagService: HashtagsService,
+
+    @InjectRepository(Block)
+    private readonly blockRepository: Repository<Block>,
+
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+
+    @InjectRepository(Community)
+    private communityRepository: Repository<Community>,
+
     @InjectRepository(BlogPost)
     private blogPostRepository: Repository<BlogPost>,
 
@@ -26,39 +48,224 @@ export class BlogPostsService {
     private repostBlogPostRepository: Repository<RepostBlogPost>,
   ) {}
 
-  create(createBlogPostDto: CreateBlogPostDto) {
-    return 'This action adds a new blogPost';
+  /**
+   * Tạo bài viết theo loại (Personal, Community, Repost)
+   */
+  async create(dto: CreateBlogPostDto): Promise<PostResponseDto> {
+    // Validate author
+    const author = await this.userRepository.findOne({ where: { id: dto.authorId } });
+    if (!author) {
+      throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
+    }
+
+    // Get or create hashtags
+    const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
+
+    switch (dto.type) {
+      // Create personal blog post
+      case BlogPostType.PERSONAL: {
+        const blocks = this.blockRepository.create(dto.blocks || []);
+
+        const post = this.personalBlogPostRepository.create({
+          title: dto.title,
+          shortDescription: dto.shortDescription,
+          thumbnailUrl: dto.thumbnailUrl,
+          isPublic: dto.isPublic,
+          author,
+          blocks,
+          hashtags,
+        });
+
+        const savedPost = await this.personalBlogPostRepository.save(post);
+        const response = plainToInstance(DetailPersonalPostResponseDto, savedPost, {
+          excludeExtraneousValues: true,
+        });
+        response.type = BlogPostType.PERSONAL;
+        return response;
+      }
+
+      // Create community blog post
+      case BlogPostType.COMMUNITY: {
+        // Validate community
+        const community = await this.communityRepository.findOne({
+          where: { id: dto.communityId },
+        });
+        if (!community) {
+          throw new NotFoundException(`Can't find community with ID: ${dto.communityId}`);
+        }
+
+        const blocks = this.blockRepository.create(dto.blocks || []);
+
+        const post = this.communityBlogPostRepository.create({
+          title: dto.title,
+          shortDescription: dto.shortDescription,
+          thumbnailUrl: dto.thumbnailUrl,
+          isPublic: dto.isPublic,
+          author,
+          community,
+          blocks,
+          hashtags,
+        });
+
+        const savedPost = await this.communityBlogPostRepository.save(post);
+        const response = plainToInstance(DetailCommunityPostResponseDto, savedPost, {
+          excludeExtraneousValues: true,
+        });
+        response.type = BlogPostType.COMMUNITY;
+        return response;
+      }
+
+      // Create repost blog post (chỉ repost PersonalBlogPost)
+      case BlogPostType.REPOST: {
+        // Validate original post - chỉ cho phép repost PersonalBlogPost
+        const originalPost = await this.personalBlogPostRepository.findOne({
+          where: { id: dto.originalPostId },
+        });
+        if (!originalPost) {
+          throw new NotFoundException(
+            `Can't find personal post with ID: ${dto.originalPostId}. Only personal posts can be reposted.`,
+          );
+        }
+
+        const post = this.repostBlogPostRepository.create({
+          title: dto.title,
+          shortDescription: dto.shortDescription,
+          thumbnailUrl: dto.thumbnailUrl || originalPost.thumbnailUrl,
+          isPublic: dto.isPublic,
+          author,
+          originalPost,
+          hashtags,
+        });
+
+        const savedPost = await this.repostBlogPostRepository.save(post);
+        const response = plainToInstance(PostResponseDto, savedPost, {
+          excludeExtraneousValues: true,
+        });
+        response.type = BlogPostType.REPOST;
+        return response;
+      }
+
+      default:
+        throw new NotFoundException(`Invalid post type`);
+    }
+  }
+
+  /**
+   * Tao bài viết đăng lại một bài viết cá nhân (chỉ cho phép repost PersonalBlogPost)
+   * @param dto
+   * @returns
+   */
+  async createRepostBlogPost(dto: CreateBlogPostDto): Promise<PostResponseDto> {
+    // Check original post - chỉ cho phép repost PersonalBlogPost
+    const originalPost = await this.personalBlogPostRepository.findOneBy({
+      id: dto.originalPostId,
+    });
+    if (!originalPost) {
+      throw new NotFoundException(
+        `Can't find personal post with ID: ${dto.originalPostId}. Only personal posts can be reposted.`,
+      );
+    }
+
+    // Check author
+    const author = await this.userRepository.findOne({ where: { id: dto.authorId } });
+    if (!author) {
+      throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
+    }
+
+    // Check hashtags or create new ones
+    const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
+
+    const post = this.repostBlogPostRepository.create({
+      title: dto.title,
+      shortDescription: dto.shortDescription,
+      thumbnailUrl: dto.thumbnailUrl,
+      isPublic: dto.isPublic,
+      author,
+      originalPost,
+      hashtags,
+    });
+    const createdPost = await this.repostBlogPostRepository.save(post);
+
+    const response = plainToInstance(PostResponseDto, createdPost, {
+      excludeExtraneousValues: true,
+    });
+    response.type = BlogPostType.REPOST;
+
+    return response;
   }
 
   findAll() {
-    return this.blogPostRepository
-      .createQueryBuilder('post')
-      .leftJoinAndSelect('post.blocks', 'block')
-      .where('post.type = :type', { type: 'repost' })
-      .getMany();
+    return 'This action returns all blog posts';
   }
 
   findOne(id: number) {
-    return this.blogPostRepository.findOneBy({ id });
+    return this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community', 'blocks', 'hashtags'],
+    });
   }
 
-  update(id: number, updateBlogPostDto: UpdateBlogPostDto) {
-    return `This action updates a #${id} blogPost`;
+  /**
+   * Cập nhật bài viết theo ID
+   * @param id
+   * @param dto
+   * @returns
+   */
+  async update(id: number, dto: UpdateBlogPostDto): Promise<BlogPost> {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['blocks'],
+    });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
+
+    // Cập nhật các trường cơ bản
+    if (dto.title !== undefined) post.title = dto.title;
+    if (dto.shortDescription !== undefined) post.shortDescription = dto.shortDescription;
+    if (dto.thumbnailUrl !== undefined) post.thumbnailUrl = dto.thumbnailUrl;
+    if (dto.isPublic !== undefined) post.isPublic = dto.isPublic;
+
+    // Cập nhật các trường là relation
+    // Blocks
+    if (dto.blocks !== undefined) {
+      await this.blockRepository.delete({ post: { id } });
+      const newBlocks = this.blockRepository.create(
+        dto.blocks.map((blockDto) => ({
+          ...blockDto,
+          post: { id: post.id },
+        })),
+      );
+      post.blocks = await this.blockRepository.save(newBlocks);
+    }
+
+    return this.blogPostRepository.save(post);
   }
 
-  async updateStatus(id: number, updateBlogStatusDto: UpdateBlogStatusDto) {
+  /**
+   * Cập nhật trạng thái bài viết
+   * @param id
+   * @param dto
+   * @returns
+   */
+  async updateStatus(id: number, dto: { status: EBlogPostStatus }) {
     const post = await this.blogPostRepository.findOne({ where: { id } });
 
     if (!post) {
       throw new NotFoundException(`Can't find blog post with ID: ${id}`);
     }
 
-    post.status = updateBlogStatusDto.status;
-
-    return await this.blogPostRepository.save(post);
+    post.status = dto.status;
+    return this.blogPostRepository.save(post);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} blogPost`;
+  /**
+   * Xóa bài viết theo ID
+   * @param id
+   * @returns
+   */
+  async remove(id: number) {
+    return await this.blogPostRepository.delete(id);
   }
 }

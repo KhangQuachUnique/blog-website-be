@@ -20,10 +20,10 @@ export class Community {
   isPublic: boolean;
 
   @Column({ type: 'boolean', default: false })
-  requirePostApproval: boolean;      
+  requirePostApproval: boolean;
 
   @Column({ type: 'boolean', default: false })
-  requireMemberApproval: boolean;  
+  requireMemberApproval: boolean;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

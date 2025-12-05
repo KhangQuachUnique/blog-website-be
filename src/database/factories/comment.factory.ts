@@ -5,6 +5,7 @@ import { ChildComment } from '../../comments/entities/child-comment.entity';
 import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Block } from '../../blocks/entities/block.entity';
+import { ECommentType } from '../../comments/enums/comment-type.enum';
 
 const fakerVi = new Faker({ locale: vi });
 
@@ -21,7 +22,7 @@ export class CommentFactory {
     comment.content = override.content || fakerInstance.lorem.sentences({ min: 1, max: 3 });
     comment.commenter = commenter;
     comment.post = post;
-    comment.type = useVietnamese ? ('POST' as any) : ('POST' as any);
+    comment.type = ECommentType.POST;
 
     return comment;
   }
@@ -38,7 +39,7 @@ export class CommentFactory {
     comment.content = override.content || fakerInstance.lorem.sentences({ min: 1, max: 2 });
     comment.commenter = commenter;
     comment.block = block;
-    comment.type = 'BLOCK' as any;
+    comment.type = ECommentType.BLOCK;
 
     return comment;
   }

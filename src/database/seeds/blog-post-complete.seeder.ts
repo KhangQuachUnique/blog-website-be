@@ -6,6 +6,7 @@ import { UserReactFactory } from '../factories/user-react.factory';
 import { PersonalBlogPost } from '../../blog-posts/entities/personal-blog-post.entity';
 import { CommunityBlogPost } from '../../blog-posts/entities/community-blog-post.entity';
 import { RepostBlogPost } from '../../blog-posts/entities/repost-blog-post.entity';
+import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { User } from '../../users/entities/user.entity';
 import { Community } from '../../communities/entities/community.entity';
 import { Hashtag } from '../../hashtags/entities/hashtag.entity';
@@ -31,6 +32,7 @@ export class BlogPostSeeder extends Seeder {
     const personalPostRepository = this.dataSource.getRepository(PersonalBlogPost);
     const communityPostRepository = this.dataSource.getRepository(CommunityBlogPost);
     const repostRepository = this.dataSource.getRepository(RepostBlogPost);
+    const blogPostRepository = this.dataSource.getRepository(BlogPost);
     const userRepository = this.dataSource.getRepository(User);
     const communityRepository = this.dataSource.getRepository(Community);
     const hashtagRepository = this.dataSource.getRepository(Hashtag);
@@ -54,7 +56,8 @@ export class BlogPostSeeder extends Seeder {
         return;
       }
 
-      const allCreatedPostIds: number[] = [];
+      // Chỉ lưu PersonalBlogPost để dùng cho repost
+      const allPersonalPosts: PersonalBlogPost[] = [];
 
       // 1. Create Personal Blog Posts (Tiếng Việt + Tiếng Anh)
       console.log('  📝 Creating personal blog posts...');
@@ -68,7 +71,7 @@ export class BlogPostSeeder extends Seeder {
           // Add random hashtags
           post.hashtags = this.getRandomHashtags(hashtags, Math.floor(Math.random() * 5) + 1);
           const savedPost = await personalPostRepository.save(post);
-          allCreatedPostIds.push(Number(savedPost.id));
+          allPersonalPosts.push(savedPost);
 
           // Add blocks
           await this.addBlocksToPost(savedPost, blockRepository, useVietnamese);
@@ -113,7 +116,6 @@ export class BlogPostSeeder extends Seeder {
 
             post.hashtags = this.getRandomHashtags(hashtags, Math.floor(Math.random() * 4) + 1);
             const savedPost = await communityPostRepository.save(post);
-            allCreatedPostIds.push(Number(savedPost.id));
 
             await this.addBlocksToPost(savedPost, blockRepository, useVietnamese);
             // Extract users from members for comments
@@ -143,16 +145,16 @@ export class BlogPostSeeder extends Seeder {
         this.success(`Created ${communityPostCount} community blog posts`);
       }
 
-      // 3. Create Repost Blog Posts
+      // 3. Create Repost Blog Posts (chỉ repost PersonalBlogPost)
       console.log('  🔄 Creating repost blog posts...');
       let repostCount = 0;
-      if (allCreatedPostIds.length > 0) {
+      if (allPersonalPosts.length > 0) {
         for (const user of users.slice(0, 20)) {
           const repostAmount = Math.floor(Math.random() * 3) + 1;
-          const originalPostIds = this.getRandomItems(allCreatedPostIds, repostAmount);
+          const originalPosts = this.getRandomItems(allPersonalPosts, repostAmount);
           const useVietnamese = Math.random() > 0.5;
 
-          const reposts = BlogPostFactory.createRepostBatch(user, originalPostIds, useVietnamese);
+          const reposts = BlogPostFactory.createRepostBatch(user, originalPosts, useVietnamese);
 
           for (const repost of reposts) {
             repost.hashtags = this.getRandomHashtags(hashtags, Math.floor(Math.random() * 3) + 1);
@@ -222,10 +224,14 @@ export class BlogPostSeeder extends Seeder {
     for (let i = 0; i < blockCount; i++) {
       const block = new Block();
       block.post = post;
+      // x, y: unsigned int (min 0)
       block.x = 0;
       block.y = i * 100;
-      block.width = 800;
-      block.height = Math.random() > 0.4 ? 200 : 400;
+      // width: min 1, max 16 (theo CreateBlockDto validation)
+      block.width = Math.floor(Math.random() * 16) + 1; // 1-16
+      // height: min 1 (theo CreateBlockDto validation)
+      block.height = Math.floor(Math.random() * 400) + 50; // 50-450
+
       if (Math.random() > 0.4) {
         // Text block
         block.type = EBlockType.TEXT;
