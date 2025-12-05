@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
 
@@ -31,5 +31,27 @@ export class HashtagsService {
 
   remove(id: number) {
     return `This action removes a #${id} hashtag`;
+  }
+
+  /**
+   * Get or create hashtags by names
+   * @param names
+   * @returns
+   */
+  async getOrCreate(names: string[]): Promise<Hashtag[]> {
+    if (!names || names.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    const existing = await this.hashtagRepository.find({
+      where: { name: In(names) },
+    });
+    const existingNames = existing.map((hashtag) => hashtag.name);
+
+    const newNames = names.filter((name) => !existingNames.includes(name));
+    const newHashtags = this.hashtagRepository.create(newNames.map((name) => ({ name })));
+
+    const savedNewHashtags = await this.hashtagRepository.save(newHashtags);
+    return [...existing, ...savedNewHashtags];
   }
 }
