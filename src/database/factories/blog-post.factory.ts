@@ -3,8 +3,10 @@ import { vi } from '@faker-js/faker';
 import { PersonalBlogPost } from '../../blog-posts/entities/personal-blog-post.entity';
 import { CommunityBlogPost } from '../../blog-posts/entities/community-blog-post.entity';
 import { RepostBlogPost } from '../../blog-posts/entities/repost-blog-post.entity';
+import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { User } from '../../users/entities/user.entity';
 import { Community } from '../../communities/entities/community.entity';
+import { EBlogPostStatus } from '../../blog-posts/enums/blog-post-status.enum';
 
 // Tạo Faker instance với locale tiếng Việt
 const fakerVi = new Faker({ locale: vi });
@@ -22,13 +24,17 @@ export class BlogPostFactory {
     const post = new PersonalBlogPost();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
-    // Tiếng Việt: "Khám phá những địa điểm du lịch tuyệt vời"
-    // Tiếng Anh: "Discover amazing travel destinations"
-    post.title = override.title || fakerInstance.lorem.sentence({ min: 3, max: 8 });
+    // Title: max 255 chars, required
+    post.title =
+      override.title || fakerInstance.lorem.sentence({ min: 3, max: 8 }).substring(0, 255);
+    // ShortDescription: required in DTO
+    post.shortDescription =
+      override.shortDescription || fakerInstance.lorem.sentences({ min: 1, max: 3 });
     post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
-    post.upVotes = override.upVotes || fakerInstance.number.int({ min: 0, max: 1000 });
-    post.downVotes = override.downVotes || fakerInstance.number.int({ min: 0, max: 100 });
+    post.upVotes = override.upVotes ?? fakerInstance.number.int({ min: 0, max: 1000 });
+    post.downVotes = override.downVotes ?? fakerInstance.number.int({ min: 0, max: 100 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
+    post.status = override.status || EBlogPostStatus.ACTIVE;
     post.author = author;
 
     return post;
@@ -43,11 +49,16 @@ export class BlogPostFactory {
     const post = new CommunityBlogPost();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
-    post.title = override.title || fakerInstance.lorem.sentence({ min: 3, max: 8 });
+    post.title =
+      override.title || fakerInstance.lorem.sentence({ min: 3, max: 8 }).substring(0, 255);
+    post.shortDescription =
+      override.shortDescription || fakerInstance.lorem.sentences({ min: 1, max: 3 });
     post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
-    post.upVotes = override.upVotes || fakerInstance.number.int({ min: 0, max: 500 });
-    post.downVotes = override.downVotes || fakerInstance.number.int({ min: 0, max: 50 });
+    post.upVotes = override.upVotes ?? fakerInstance.number.int({ min: 0, max: 500 });
+    post.downVotes = override.downVotes ?? fakerInstance.number.int({ min: 0, max: 50 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
+    post.status = override.status || EBlogPostStatus.ACTIVE;
+    post.isApproved = override.isApproved !== undefined ? override.isApproved : true;
     post.author = author;
     post.community = community;
 
@@ -56,20 +67,25 @@ export class BlogPostFactory {
 
   static createRepost(
     author: User,
-    originalPostId: number,
+    originalPost: BlogPost,
     override: Partial<RepostBlogPost> = {},
     useVietnamese = true,
   ): RepostBlogPost {
     const post = new RepostBlogPost();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
-    post.title = override.title || `[Repost] ${fakerInstance.lorem.sentence({ min: 3, max: 8 })}`;
-    post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
-    post.upVotes = override.upVotes || fakerInstance.number.int({ min: 0, max: 300 });
-    post.downVotes = override.downVotes || fakerInstance.number.int({ min: 0, max: 30 });
+    post.title =
+      override.title ||
+      `[Repost] ${fakerInstance.lorem.sentence({ min: 3, max: 8 })}`.substring(0, 255);
+    post.shortDescription =
+      override.shortDescription || fakerInstance.lorem.sentences({ min: 1, max: 2 });
+    post.thumbnailUrl = override.thumbnailUrl || originalPost.thumbnailUrl;
+    post.upVotes = override.upVotes ?? fakerInstance.number.int({ min: 0, max: 300 });
+    post.downVotes = override.downVotes ?? fakerInstance.number.int({ min: 0, max: 30 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
+    post.status = override.status || EBlogPostStatus.ACTIVE;
     post.author = author;
-    post.originalPostId = originalPostId;
+    post.originalPost = originalPost;
 
     return post;
   }
@@ -95,9 +111,9 @@ export class BlogPostFactory {
 
   static createRepostBatch(
     author: User,
-    originalPostIds: number[],
+    originalPosts: PersonalBlogPost[],
     useVietnamese = true,
   ): RepostBlogPost[] {
-    return originalPostIds.map((id) => this.createRepost(author, id, {}, useVietnamese));
+    return originalPosts.map((post) => this.createRepost(author, post, {}, useVietnamese));
   }
 }
