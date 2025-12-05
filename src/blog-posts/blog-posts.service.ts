@@ -203,7 +203,7 @@ export class BlogPostsService {
       },
     });
 
-    return posts.map(post => plainToInstance(PostResponseDto, post));
+    return posts.map((post) => plainToInstance(PostResponseDto, post));
   }
 
   findOne(id: number) {
@@ -252,13 +252,6 @@ export class BlogPostsService {
   }
 
   /**
-   * Cập nhật trạng thái bài viết
-   * @param id
-   * @param dto
-   * @returns
-   */
-
-  /**
    * Xóa bài viết theo ID
    * @param id
    * @returns
@@ -267,6 +260,12 @@ export class BlogPostsService {
     return await this.blogPostRepository.delete(id);
   }
 
+  /**
+   * Cập nhật trạng thái bài viết
+   * @param id
+   * @param dto
+   * @returns
+   */
   async updateStatus(id: number, dto: { status: EBlogPostStatus }) {
     const post = await this.blogPostRepository.findOne({ where: { id } });
 
@@ -295,7 +294,7 @@ export class BlogPostsService {
 
     return {
       message: 'Successfully restored blog post status to ACTIVE.',
-      data: post
+      data: post,
     };
   }
 
@@ -316,7 +315,7 @@ export class BlogPostsService {
 
     return {
       message: 'Successfully changed blog post status to HIDDEN.',
-      data: post
+      data: post,
     };
   }
 
@@ -337,7 +336,7 @@ export class BlogPostsService {
 
     return {
       message: 'Successfully published blog post.',
-      data: post
+      data: post,
     };
   }
 }
