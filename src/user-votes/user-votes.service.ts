@@ -29,9 +29,10 @@ export class UserVotesService {
       const post = await manager.findOneBy(BlogPost, { id: postId });
       if (!post) throw new NotFoundException('Post not found');
 
-      // Tìm vote hiện tại của user
+      // Tìm vote hiện tại của user với pessimistic lock để tránh race condition
       const existingVote = await manager.findOne(UserVote, {
         where: { user: { id: userId }, post: { id: postId } },
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (existingVote) {
