@@ -1,7 +1,8 @@
 // src/newsfeed/newsfeed.controller.ts
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { NewsfeedService } from './newsfeed.service';
-import { GetNewsfeedDto } from './dto/get-newsfeed.dto';
+import { GetNewsfeedDto, GetNewsfeedResponseDto } from './dto';
 
 @Controller('newsfeed')
 export class NewsfeedController {
@@ -9,8 +10,11 @@ export class NewsfeedController {
 
   // Không cần login, ai cũng gọi được
   @Get()
-  getNewsfeed(@Query() query: GetNewsfeedDto) {
-    // userId = null → chạy chế độ chung (không cá nhân hóa)
-    return this.newsfeedService.getNewsfeed(query);
+  async getNewsfeed(
+    @Query() query: GetNewsfeedDto,
+    @Req() request: Request & { user?: { id: number; username?: string } },
+  ): Promise<{ status: string; data: GetNewsfeedResponseDto }> {
+    const user = request.user;
+    return this.newsfeedService.getNewsfeed(query, user as any);
   }
 }
