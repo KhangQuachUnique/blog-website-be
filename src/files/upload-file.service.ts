@@ -38,23 +38,31 @@ export class UploadFileServiceS3 {
   async uploadImagesToBucket(
     files: Express.Multer.File[],
     keys: string[],
-  ): Promise<{ keys: string[]; urls: string[] }> {
+  ): Promise<Record<string, string>> {
     const bucket_name = this.config.getOrThrow<string>('AWS_S3_BUCKET');
+    const result: Record<string, string> = {};
+
     const uploadPromises = files.map((file, index) => {
-      const key = `images/${crypto.randomUUID()}.${keys[index]}`;
+      const key = keys[index];
+
+      const s3Key = `images/${crypto.randomUUID()}_${key}`;
       return this.s3_client
         .send(
           new PutObjectCommand({
             Bucket: bucket_name,
-            Key: key,
+            Key: s3Key,
             Body: file.buffer,
             ContentType: file.mimetype,
             ContentLength: file.size,
           }),
         )
-        .then(() => `https://${bucket_name}.s3.amazonaws.com/${key}`);
+
+        .then(() => {
+          const url = `https://${bucket_name}.s3.amazonaws.com/${s3Key}`;
+          result[key] = url;
+        });
     });
-    const urls = await Promise.all(uploadPromises);
-    return { keys, urls };
+    await Promise.all(uploadPromises);
+    return result;
   }
 }

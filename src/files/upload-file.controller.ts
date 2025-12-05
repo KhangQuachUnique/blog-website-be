@@ -7,9 +7,10 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   UploadedFiles,
+  Body,
 } from '@nestjs/common';
 import { UploadFileServiceS3 } from './upload-file.service';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('Files')
@@ -67,7 +68,7 @@ export class UploadFileController {
     status: 400,
     description: 'File không hợp lệ hoặc vượt quá kích thước cho phép',
   })
-  @UseInterceptors(FilesInterceptor('files', 20)) // Tối đa 20 files
+  @UseInterceptors(AnyFilesInterceptor())
   async uploadImages(
     @UploadedFiles(
       new ParseFilePipe({
@@ -78,8 +79,8 @@ export class UploadFileController {
       }),
     )
     files: Express.Multer.File[],
-    keys: string[],
-  ): Promise<{ keys: string[]; urls: string[] }> {
+    @Body('keys') keys: string[],
+  ): Promise<Record<string, string>> {
     return this.uploadFileServiceS3.uploadImagesToBucket(files, keys);
   }
 }
