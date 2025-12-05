@@ -2,6 +2,8 @@ import { Repository } from 'typeorm';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
+import { EBlogPostStatus } from './enums/blog-post-status.enum';
+
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
 import { BlogPost } from './entities/blog-post.entity';
@@ -11,7 +13,6 @@ import { PersonalBlogPost } from './entities/personal-blog-post.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { Block } from 'src/blocks/entities/block.entity';
-import { EBlogPostStatus } from './enums/blog-post-status.enum';
 import {
   DetailCommunityPostResponseDto,
   DetailPersonalPostResponseDto,
@@ -194,8 +195,15 @@ export class BlogPostsService {
     return response;
   }
 
-  findAll() {
-    return 'This action returns all blog posts';
+  async findAll() {
+    const posts = await this.blogPostRepository.find({
+      relations: ['author', 'community', 'blocks', 'hashtags'],
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    return posts.map((post) => plainToInstance(PostResponseDto, post));
   }
 
   async findAllPostsByUser(userId: number): Promise<PostResponseDto[]> {
@@ -258,6 +266,15 @@ export class BlogPostsService {
   }
 
   /**
+   * Xóa bài viết theo ID
+   * @param id
+   * @returns
+   */
+  async remove(id: number) {
+    return await this.blogPostRepository.delete(id);
+  }
+
+  /**
    * Cập nhật trạng thái bài viết
    * @param id
    * @param dto
@@ -274,12 +291,66 @@ export class BlogPostsService {
     return this.blogPostRepository.save(post);
   }
 
-  /**
-   * Xóa bài viết theo ID
-   * @param id
-   * @returns
-   */
-  async remove(id: number) {
-    return await this.blogPostRepository.delete(id);
+  async restore(id: number) {
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
+
+    if (post.status != EBlogPostStatus.HIDDEN) {
+      return { message: `Cannot restore. Current status is '${post.status}', expecting 'HIDDEN'.` };
+    }
+
+    post.status = EBlogPostStatus.ACTIVE;
+
+    await this.blogPostRepository.save(post);
+
+    return {
+      message: 'Successfully restored blog post status to ACTIVE.',
+      data: post,
+    };
+  }
+
+  async hide(id: number) {
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
+
+    if (post.status != EBlogPostStatus.ACTIVE) {
+      return { message: `Cannot hide. Current status is '${post.status}', expecting 'ACTIVE'.` };
+    }
+
+    post.status = EBlogPostStatus.HIDDEN;
+
+    await this.blogPostRepository.save(post);
+
+    return {
+      message: 'Successfully changed blog post status to HIDDEN.',
+      data: post,
+    };
+  }
+
+  async publish(id: number) {
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
+
+    if (post.status != EBlogPostStatus.DRAFT) {
+      return { message: `Cannot publish. Current status is '${post.status}', expecting 'DRAFT'.` };
+    }
+
+    post.status = EBlogPostStatus.ACTIVE;
+
+    await this.blogPostRepository.save(post);
+
+    return {
+      message: 'Successfully published blog post.',
+      data: post,
+    };
   }
 }

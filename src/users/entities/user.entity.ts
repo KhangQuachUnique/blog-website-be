@@ -49,6 +49,9 @@ export class User {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinAt: Date;
 
+  @Column({ type: 'varchar', nullable: true })
+  refreshTokenHash: string | null;
+
   //Relations
   @OneToMany(() => CommunityMember, (member) => member.user)
   communitiesMemberOf: CommunityMember[];
