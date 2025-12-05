@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,6 +18,7 @@ import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
 import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
+import { UploadFileModule } from './files/upload-file.module';
 
 @Module({
   imports: [
@@ -25,6 +28,10 @@ import { AuthModule } from './auth/auth.module';
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true,
+    }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
     }),
     AuthModule,
     UsersModule,
@@ -40,6 +47,7 @@ import { AuthModule } from './auth/auth.module';
     SavedPostListModule,
     ViewedHistoryModule,
     NewsfeedModule,
+    UploadFileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
