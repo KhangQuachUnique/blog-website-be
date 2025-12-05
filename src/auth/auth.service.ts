@@ -1,8 +1,9 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -119,5 +120,51 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  // Refresh token utilities
+  generateRefreshToken(): string {
+    return randomBytes(64).toString('hex');
+  }
+
+  async hashToken(token: string): Promise<string> {
+    return bcrypt.hash(token, 10);
+  }
+
+  async validateRefreshToken(token: string, hashedToken: string): Promise<boolean> {
+    return bcrypt.compare(token, hashedToken);
+  }
+
+  async saveRefreshToken(userId: number, refreshToken: string): Promise<void> {
+    const hashedToken = await this.hashToken(refreshToken);
+    
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error(`User ${userId} not found`);
+    }
+    
+    user.refreshTokenHash = hashedToken;
+    await this.userRepository.save(user);
+  }
+
+  async clearRefreshToken(userId: number): Promise<void> {
+    await this.userRepository.update(userId, { refreshTokenHash: null });
+  }
+
+  async getUserByRefreshToken(refreshToken: string): Promise<User | null> {
+    const users = await this.userRepository.find({
+      where: { refreshTokenHash: Not(IsNull()) },
+    });
+
+    for (const user of users) {
+      if (user.refreshTokenHash) {
+        const isValid = await this.validateRefreshToken(refreshToken, user.refreshTokenHash);
+        if (isValid) {
+          return user;
+        }
+      }
+    }
+
+    return null;
   }
 }
