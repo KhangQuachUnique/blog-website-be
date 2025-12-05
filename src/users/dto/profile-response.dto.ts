@@ -43,10 +43,10 @@ export class ProfileResponseDto {
   username: string;
 
   @Expose()
-  email: string;
+  email?: string; // Optional: chỉ hiện nếu user cho phép
   
   @Expose()
-  phoneNumber: string;
+  phoneNumber?: string; // Optional: chỉ hiện nếu user cho phép
 
   @Expose()
   bio: string;

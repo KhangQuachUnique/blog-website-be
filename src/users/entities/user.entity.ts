@@ -6,6 +6,7 @@ import { OneToMany, ManyToMany, JoinTable, OneToOne, JoinColumn } from 'typeorm'
 import { CommunityMember } from 'src/communities/entities/community-member.entity';
 import { SavedPostList } from 'src/saved-post-list/entities/saved-post-list.entity';
 import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
+import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 
 @Entity('users')
 export class User {
@@ -95,4 +96,7 @@ export class User {
 
   @OneToMany(() => ViewedHistory, (history) => history.user)
   viewedHistory: ViewedHistory[];
+
+  @OneToMany(() => BlogPost, (post) => post.author)
+  posts: BlogPost[];
 }

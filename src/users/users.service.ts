@@ -54,7 +54,7 @@ export class UsersService {
   async getProfile(userId: number, viewerId?: number): Promise<ProfileResponseDto> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['communitiesMemberOf', 'followers', 'following'],
+      relations: ['communitiesMemberOf', 'communitiesMemberOf.community', 'followers', 'following'],
     });
 
     if (!user) {
@@ -80,14 +80,47 @@ export class UsersService {
       throw new ForbiddenException('Hồ sơ này ở chế độ riêng tư');
     }
 
+    // Query blog posts của user
+    // Nếu xem profile của người khác, chỉ hiển thị bài viết public
+    // Nếu xem profile của chính mình, hiển thị tất cả bài viết
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.posts', 'post')
+      .where('user.id = :userId', { userId });
+
+    // Chỉ lấy bài viết public nếu không phải chính mình
+    if (viewerId !== userId) {
+      queryBuilder.andWhere('post.isPublic = true');
+    }
+
+    const userWithPosts = await queryBuilder
+      .select([
+        'user.id',
+        'post.id',
+        'post.title',
+        'post.thumbnailUrl',
+        'post.isPublic',
+        'post.createdAt',
+        'post.upVotes',
+        'post.downVotes',
+      ])
+      .getOne();
+
     // Chuyển đổi sang DTO
     const profileDto = plainToInstance(ProfileResponseDto, user, {
       excludeExtraneousValues: true,
     });
 
+    // Map communities từ CommunityMember
+    profileDto.communities = user.communitiesMemberOf?.map(member => ({
+      id: member.community.id,
+      name: member.community.name,
+      thumbnailUrl: member.community.thumbnailUrl,
+    })) || [];
+
     profileDto.followersCount = user.followers?.length || 0;
     profileDto.followingCount = user.following?.length || 0;
-    profileDto.posts = []; // Sẽ cần query riêng cho posts
+    profileDto.posts = userWithPosts?.posts || [];
 
     return profileDto;
   }
