@@ -20,7 +20,7 @@ class BlogPostDto {
   title: string;
 
   @Expose()
-  thumnailUrl: string;
+  thumbnailUrl: string;
 
   @Expose()
   isPublic: boolean;
