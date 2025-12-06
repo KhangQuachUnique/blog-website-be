@@ -1,6 +1,7 @@
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
@@ -41,11 +42,13 @@ export class NotificationsGateWay implements OnGatewayConnection, OnGatewayDisco
     this.socketUsers.unregister(client.id);
   }
 
+  @SubscribeMessage('notification')
   emitToClient(clientId: number, event: string, data: any) {
     const socketId = this.socketUsers.getSocket(clientId);
     if (socketId) this.server.to(socketId).emit(event, data);
   }
 
+  @SubscribeMessage('notification')
   emitToAll(event: string, data: any) {
     this.server.emit(event, data);
   }
