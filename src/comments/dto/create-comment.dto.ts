@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, ValidateIf } from 'class-validator';
 import { ECommentType } from '../enums/comment-type.enum';
 
 export class CreateCommentDto {
@@ -11,11 +11,13 @@ export class CreateCommentDto {
   @IsNumber()
   commenterId: number;
 
-  @IsOptional()
+  // postId bắt buộc khi type = POST
+  @ValidateIf((o) => o.type === ECommentType.POST)
   @IsNumber()
   postId?: number;
 
-  @IsOptional()
+  // blockId bắt buộc khi type = BLOCK  
+  @ValidateIf((o) => o.type === ECommentType.BLOCK)
   @IsNumber()
   blockId?: number;
 }
