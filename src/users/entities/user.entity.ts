@@ -46,6 +46,12 @@ export class User {
   @Column({ type: 'boolean', default: false })
   isPrivate: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  showEmail: boolean; // Kiểm soát hiển thị email công khai
+
+  @Column({ type: 'boolean', default: false })
+  showPhoneNumber: boolean; // Kiểm soát hiển thị số điện thoại công khai
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinAt: Date;
 

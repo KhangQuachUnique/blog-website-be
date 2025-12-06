@@ -64,6 +64,12 @@ export class ProfileResponseDto {
   isPrivate: boolean;
 
   @Expose()
+  showEmail: boolean; // Cài đặt hiển thị email công khai
+
+  @Expose()
+  showPhoneNumber: boolean; // Cài đặt hiển thị số điện thoại công khai
+
+  @Expose()
   joinAt: Date;
 
   @Expose()
