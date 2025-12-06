@@ -19,6 +19,7 @@ import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadFileModule } from './files/upload-file.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { UploadFileModule } from './files/upload-file.module';
     ViewedHistoryModule,
     NewsfeedModule,
     UploadFileModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
