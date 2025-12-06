@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -13,10 +15,10 @@ import { CommunitiesModule } from './communities/communities.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
-import { SearchModule } from './search/search.module';
 import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
+import { UploadFileModule } from './files/upload-file.module';
 
 @Module({
   imports: [
@@ -25,7 +27,11 @@ import { AuthModule } from './auth/auth.module';
       url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false, // Tạm thời disable để tránh conflict enum
+      // synchronize: true,
+    }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
     }),
     AuthModule,
     UsersModule,
@@ -39,9 +45,9 @@ import { AuthModule } from './auth/auth.module';
     ReportsModule,
     NotificationsModule,
     SavedPostListModule,
-    SearchModule,
     ViewedHistoryModule,
     NewsfeedModule,
+    UploadFileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
