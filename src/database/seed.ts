@@ -8,6 +8,7 @@ import { BlogPostSeeder } from './seeds/blog-post-complete.seeder';
 import { SavedPostListSeeder } from './seeds/saved-post-list.seeder';
 import { NotificationSeeder } from './seeds/notification.seeder';
 import { ReportSeeder } from './seeds/report.seeder';
+import { UserVoteSeeder } from './seeds/user-vote.seeder';
 
 async function runSeeders() {
   console.log('🌱 Starting database seeding...\n');
@@ -25,9 +26,10 @@ async function runSeeders() {
       new CommunitySeeder(AppDataSource), // 3. Communities
       new EmojiSeeder(AppDataSource), // 4. Emojis (depends on communities)
       new BlogPostSeeder(AppDataSource), // 5. Blog Posts with Comments & Reactions
-      new SavedPostListSeeder(AppDataSource), // 6. Saved Post Lists
-      new NotificationSeeder(AppDataSource), // 7. Notifications
-      new ReportSeeder(AppDataSource), // 8. Reports (depends on posts/comments/users)
+      new UserVoteSeeder(AppDataSource), // 6. User Votes (depends on users & blog posts)
+      new SavedPostListSeeder(AppDataSource), // 7. Saved Post Lists
+      new NotificationSeeder(AppDataSource), // 8. Notifications
+      new ReportSeeder(AppDataSource), // 9. Reports (depends on posts/comments/users)
     ];
 
     for (const seeder of seeders) {

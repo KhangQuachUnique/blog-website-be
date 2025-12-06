@@ -21,7 +21,10 @@ import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
 @Injectable()
 export class UsersService {
   // In-memory storage cho verification codes (nên dùng Redis trong production)
-  private emailVerificationCodes = new Map<string, { email: string; code: string; expiresAt: Date }>();
+  private emailVerificationCodes = new Map<
+    string,
+    { email: string; code: string; expiresAt: Date }
+  >();
 
   constructor(
     @InjectRepository(User)
@@ -101,8 +104,7 @@ export class UsersService {
         'post.thumbnailUrl',
         'post.isPublic',
         'post.createdAt',
-        'post.upVotes',
-        'post.downVotes',
+        'post.votes',
       ])
       .getOne();
 
@@ -112,15 +114,22 @@ export class UsersService {
     });
 
     // Map communities từ CommunityMember
-    profileDto.communities = user.communitiesMemberOf?.map(member => ({
-      id: member.community.id,
-      name: member.community.name,
-      thumbnailUrl: member.community.thumbnailUrl,
-    })) || [];
+    profileDto.communities =
+      user.communitiesMemberOf?.map((member) => ({
+        id: member.community.id,
+        name: member.community.name,
+        thumbnailUrl: member.community.thumbnailUrl,
+      })) || [];
 
     profileDto.followersCount = user.followers?.length || 0;
     profileDto.followingCount = user.following?.length || 0;
-    profileDto.posts = userWithPosts?.posts || [];
+
+    // Map posts và tính upVotes/downVotes từ votes relationship
+    profileDto.posts = (userWithPosts?.posts || []).map((post) => ({
+      ...post,
+      upVotes: post.votes?.filter((v) => v.voteType === 'upvote').length || 0,
+      downVotes: post.votes?.filter((v) => v.voteType === 'downvote').length || 0,
+    }));
 
     // Kiểm soát hiển thị email và phone
     // Nếu không phải chính mình xem và user không cho phép hiển thị, ẩn thông tin
@@ -139,7 +148,10 @@ export class UsersService {
   /**
    * Cập nhật thông tin profile
    */
-  async updateProfile(userId: number, updateProfileDto: UpdateProfileDto): Promise<ProfileResponseDto> {
+  async updateProfile(
+    userId: number,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<ProfileResponseDto> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
@@ -166,7 +178,10 @@ export class UsersService {
   /**
    * Đổi mật khẩu
    */
-  async changePassword(userId: number, changePasswordDto: ChangePasswordDto): Promise<{ message: string }> {
+  async changePassword(
+    userId: number,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
     const { currentPassword, newPassword, confirmPassword } = changePasswordDto;
 
     // Kiểm tra mật khẩu mới và xác nhận khớp nhau
@@ -197,7 +212,10 @@ export class UsersService {
   /**
    * Yêu cầu đổi email (gửi mã xác thực)
    */
-  async requestChangeEmail(userId: number, requestDto: RequestChangeEmailDto): Promise<{ message: string }> {
+  async requestChangeEmail(
+    userId: number,
+    requestDto: RequestChangeEmailDto,
+  ): Promise<{ message: string }> {
     const { newEmail } = requestDto;
 
     // Kiểm tra email đã tồn tại
@@ -228,7 +246,10 @@ export class UsersService {
   /**
    * Xác thực và cập nhật email mới
    */
-  async verifyAndChangeEmail(userId: number, verifyDto: VerifyEmailDto): Promise<{ message: string }> {
+  async verifyAndChangeEmail(
+    userId: number,
+    verifyDto: VerifyEmailDto,
+  ): Promise<{ message: string }> {
     const { newEmail, verificationCode } = verifyDto;
 
     const storedData = this.emailVerificationCodes.get(`${userId}`);
