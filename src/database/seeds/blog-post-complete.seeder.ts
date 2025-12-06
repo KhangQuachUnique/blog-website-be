@@ -221,16 +221,22 @@ export class BlogPostSeeder extends Seeder {
     const fakerInstance = useVietnamese ? fakerVi : faker;
     const blockCount = Math.floor(Math.random() * maxBlocks) + 2;
 
+    // Layout is measured in logical grid units (not px). We cap width at 16 columns.
+    const GRID_WIDTH_MAX = 16;
+    const GRID_HEIGHT_MIN = 2;
+    const GRID_HEIGHT_MAX = 12;
+    const GRID_ROW_STEP = 4; // spacing between blocks on the y-axis
+
     for (let i = 0; i < blockCount; i++) {
       const block = new Block();
       block.post = post;
-      // x, y: unsigned int (min 0)
+      // x, y: unsigned int (min 0) in grid units
       block.x = 0;
-      block.y = i * 100;
-      // width: min 1, max 16 (theo CreateBlockDto validation)
-      block.width = Math.floor(Math.random() * 16) + 1; // 1-16
-      // height: min 1 (theo CreateBlockDto validation)
-      block.height = Math.floor(Math.random() * 400) + 50; // 50-450
+      block.y = i * GRID_ROW_STEP;
+      // width: min 1, max 16 columns (CreateBlockDto validation)
+      block.width = fakerInstance.number.int({ min: 1, max: GRID_WIDTH_MAX });
+      // height: min 2, max 12 grid rows to avoid pixel-based sizing
+      block.height = fakerInstance.number.int({ min: GRID_HEIGHT_MIN, max: GRID_HEIGHT_MAX });
 
       if (Math.random() > 0.4) {
         // Text block
