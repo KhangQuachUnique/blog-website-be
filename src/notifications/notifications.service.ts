@@ -6,6 +6,7 @@ import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { Notification } from './entities/notification.entity';
 import { NotificationTemplate } from './entities/notification-template.entity';
+import { NotificationsGateWay } from './gateway/notifications.gateway';
 
 @Injectable()
 export class NotificationsService {
@@ -15,6 +16,8 @@ export class NotificationsService {
 
     @InjectRepository(NotificationTemplate)
     private notificationTemplateRepository: Repository<NotificationTemplate>,
+
+    private readonly notificationsGateWay: NotificationsGateWay,
   ) {}
   create(createNotificationDto: CreateNotificationDto) {
     return 'This action adds a new notification';
