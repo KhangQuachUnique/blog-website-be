@@ -32,7 +32,6 @@ type RawPostRow = {
 
 @Injectable()
 export class NewsfeedService {
-  
   constructor(
     @InjectRepository(BlogPost)
     private readonly postRepo: Repository<BlogPost>,
@@ -53,23 +52,23 @@ export class NewsfeedService {
         const [idStr, scoreStr] = Buffer.from(after, 'base64').toString('utf-8').split('|');
         cursorId = Number(idStr);
         cursorScore = Number(scoreStr);
-      } catch {}
+      } catch {
+        cursorId = null;
+        cursorScore = null;
+      }
     }
 
     // === Hashtags ===
     let interestedTags: string[] = [];
     if (user?.id) {
-      const top: { hashtagId: number; name: string; count: number }[] = await this.viewedHistoryService.getTopHashtags(
-        user.id,
-        25,
-        14,
-      );
+      const top: { hashtagId: number; name: string; count: number }[] =
+        await this.viewedHistoryService.getTopHashtags(user.id, 25, 14);
       interestedTags = top.map((t) => t.name);
     }
 
     // === Build query + params ===
     const params: unknown[] = [];
-    
+
     let tagBonus = '0';
     if (interestedTags.length > 0) {
       tagBonus = `(SELECT COUNT(*) FROM post_hashtags ph JOIN hashtags h ON h.id = ph."hashtagId" WHERE ph."postId" = p.id AND h.name = ANY($${params.length + 1}::text[])) * 15`;
@@ -84,7 +83,7 @@ export class NewsfeedService {
 
     let viewedPenalty = '0';
     let isViewedCheck = 'false';
-    
+
     if (user?.id) {
       viewedPenalty = `
         COALESCE((
@@ -97,7 +96,7 @@ export class NewsfeedService {
         ), 0)
       `;
       params.push(user.id);
-      
+
       isViewedCheck = `EXISTS(
         SELECT 1 FROM viewed_history vh 
         WHERE vh."userId" = $${params.indexOf(user.id) + 1} 
@@ -105,16 +104,16 @@ export class NewsfeedService {
       )`;
     }
 
-      // Lấy danh sách post đã xem của user (30 ngày gần nhất) để front-end có thể đánh dấu
-      let viewedIds: number[] = [];
-      if (user?.id) {
-        try {
-          const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days
-          viewedIds = await this.viewedHistoryService.getViewedPostIds(user.id, since);
-        } catch (err) {
-          viewedIds = [];
-        }
+    // Lấy danh sách post đã xem của user (30 ngày gần nhất) để front-end có thể đánh dấu
+    let viewedIds: number[] = [];
+    if (user?.id) {
+      try {
+        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days
+        viewedIds = await this.viewedHistoryService.getViewedPostIds(user.id, since);
+      } catch {
+        viewedIds = [];
       }
+    }
 
     let cursorWhere = '';
     if (cursorScore !== null && cursorId !== null) {
@@ -130,19 +129,19 @@ export class NewsfeedService {
           p.title,
           p.type as post_type,
           p."thumbnailUrl" as thumbnail_url,
-          p."upVotes" as up_votes,
-          p."downVotes" as down_votes,
           p."createdAt" as created_at,
           u.username,
           u."avatarUrl" as avatar_url,
           COALESCE(r.reacts, 0)::int as total_reacts,
           COALESCE(cm.comments, 0)::int as total_comments,
+          COALESCE(v.up_votes, 0)::int as up_votes,
+          COALESCE(v.down_votes, 0)::int as down_votes,
           -- Community info (chỉ cho community posts)
           comm.id as community_id,
           comm.name as community_name,
           comm."thumbnailUrl" as community_thumbnail,
           (
-            (p."upVotes" - p."downVotes")::int
+            (COALESCE(v.up_votes, 0) - COALESCE(v.down_votes, 0))::int
             + COALESCE(r.reacts, 0)::int * 2
             + COALESCE(cm.comments, 0)::int * 3
             + ${tagBonus}
@@ -155,6 +154,10 @@ export class NewsfeedService {
         LEFT JOIN users u ON u.id = p."authorId"
         LEFT JOIN (SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId") r ON r."postId" = p.id
         LEFT JOIN (SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId") cm ON cm."postId" = p.id
+        LEFT JOIN (SELECT "postId", 
+                  SUM(CASE WHEN "voteType" = 'upvote' THEN 1 ELSE 0 END) as up_votes,
+                  SUM(CASE WHEN "voteType" = 'downvote' THEN 1 ELSE 0 END) as down_votes
+                  FROM user_votes GROUP BY "postId") v ON v."postId" = p.id
         LEFT JOIN community comm ON comm.id = p."communityId"
         WHERE p."isPublic" = true AND p.status = 'ACTIVE'
       )
@@ -167,12 +170,12 @@ export class NewsfeedService {
 
     params.push(limit + 1);
 
-    const rawPosts: RawPostRow[] = await this.postRepo.query(query, params) as RawPostRow[];
+    const rawPosts: RawPostRow[] = (await this.postRepo.query(query, params)) as RawPostRow[];
 
     // ✅ Lấy hashtags cho từng post
     const postIds: number[] = rawPosts.map((p) => Number(p.id));
     let hashtagsMap: Record<string, { id: number; name: string }[]> = {};
-    
+
     if (postIds.length > 0) {
       const hashtagsQuery = `
         SELECT 
@@ -184,19 +187,20 @@ export class NewsfeedService {
         WHERE ph."postId" = ANY($1::bigint[])
         ORDER BY ph."postId", h.name
       `;
-      
-      const hashtagsResult: { post_id: number; id: number; name: string }[] = await this.postRepo.query(
-        hashtagsQuery,
-        [postIds],
-      );
+
+      const hashtagsResult: { post_id: number; id: number; name: string }[] =
+        await this.postRepo.query(hashtagsQuery, [postIds]);
 
       // Group hashtags by postId
-      hashtagsMap = hashtagsResult.reduce<Record<string, { id: number; name: string }[]>>((acc, row) => {
-        const postId = String(row.post_id);
-        if (!acc[postId]) acc[postId] = [];
-        acc[postId].push({ id: Number(row.id), name: row.name });
-        return acc;
-      }, {});
+      hashtagsMap = hashtagsResult.reduce<Record<string, { id: number; name: string }[]>>(
+        (acc, row) => {
+          const postId = String(row.post_id);
+          if (!acc[postId]) acc[postId] = [];
+          acc[postId].push({ id: Number(row.id), name: row.name });
+          return acc;
+        },
+        {},
+      );
     }
 
     // ✅ Map với đầy đủ thông tin
@@ -233,7 +237,12 @@ export class NewsfeedService {
     const items = hasMore ? posts.slice(0, limit) : posts;
     const lastItem = items[items.length - 1];
 
-    const nextCursor = hasMore && lastItem ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score ?? (lastItem as any).score}`).toString('base64') : null;
+    const nextCursor =
+      hasMore && lastItem
+        ? Buffer.from(
+            `${lastItem.id}|${(lastItem as any).final_score ?? (lastItem as any).score}`,
+          ).toString('base64')
+        : null;
     const response: GetNewsfeedResponseDto = {
       items,
       pagination: { hasMore, nextCursor },
