@@ -18,6 +18,15 @@ export class UserVotesService {
   ) {}
 
   /**
+   * Helper: Tính upVotes/downVotes từ votes array
+   */
+  private getVoteCounts(votes: UserVote[]) {
+    const upVotes = votes.filter((v) => v.voteType === EVoteType.UPVOTE).length;
+    const downVotes = votes.filter((v) => v.voteType === EVoteType.DOWNVOTE).length;
+    return { upVotes, downVotes };
+  }
+
+  /**
    * Vote hoặc thay đổi vote cho bài viết - Optimized with transaction
    */
   async vote(userId: number, postId: number, voteType: EVoteType) {
@@ -26,53 +35,43 @@ export class UserVotesService {
       const user = await manager.findOneBy(User, { id: userId });
       if (!user) throw new NotFoundException('User not found');
 
-      const post = await manager.findOneBy(BlogPost, { id: postId });
+      const post = await manager.findOne(BlogPost, {
+        where: { id: postId },
+        relations: ['votes'],
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!post) throw new NotFoundException('Post not found');
 
-      // Tìm vote hiện tại của user với pessimistic lock để tránh race condition
+      // Tìm vote hiện tại của user
       const existingVote = await manager.findOne(UserVote, {
         where: { user: { id: userId }, post: { id: postId } },
-        lock: { mode: 'pessimistic_write' },
       });
 
       if (existingVote) {
         // Nếu vote cùng loại -> xóa vote (toggle off)
         if (existingVote.voteType === voteType) {
           await manager.remove(existingVote);
-          // Cập nhật count
-          if (voteType === EVoteType.UPVOTE) {
-            post.upVotes = Math.max(0, post.upVotes - 1);
-          } else {
-            post.downVotes = Math.max(0, post.downVotes - 1);
-          }
-          await manager.save(post);
+          const updatedVotes = post.votes.filter((v) => v.id !== existingVote.id);
+          const { upVotes, downVotes } = this.getVoteCounts(updatedVotes);
           return {
             message: 'Vote removed',
             voteType: null,
-            upVotes: post.upVotes,
-            downVotes: post.downVotes,
+            upVotes,
+            downVotes,
           };
         }
 
         // Nếu vote khác loại -> đổi vote
-        const oldVoteType = existingVote.voteType;
         existingVote.voteType = voteType;
         await manager.save(existingVote);
-
-        // Cập nhật count
-        if (oldVoteType === EVoteType.UPVOTE) {
-          post.upVotes = Math.max(0, post.upVotes - 1);
-          post.downVotes += 1;
-        } else {
-          post.downVotes = Math.max(0, post.downVotes - 1);
-          post.upVotes += 1;
-        }
-        await manager.save(post);
+        const { upVotes, downVotes } = this.getVoteCounts(
+          post.votes.map((v) => (v.id === existingVote.id ? existingVote : v)),
+        );
         return {
           message: 'Vote changed',
           voteType,
-          upVotes: post.upVotes,
-          downVotes: post.downVotes,
+          upVotes,
+          downVotes,
         };
       }
 
@@ -84,19 +83,14 @@ export class UserVotesService {
       });
       await manager.save(newVote);
 
-      // Cập nhật count
-      if (voteType === EVoteType.UPVOTE) {
-        post.upVotes += 1;
-      } else {
-        post.downVotes += 1;
-      }
-      await manager.save(post);
+      const updatedVotes = [...post.votes, newVote];
+      const { upVotes, downVotes } = this.getVoteCounts(updatedVotes);
 
       return {
         message: 'Vote added',
         voteType,
-        upVotes: post.upVotes,
-        downVotes: post.downVotes,
+        upVotes,
+        downVotes,
       };
     });
   }
