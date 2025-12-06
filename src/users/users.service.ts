@@ -122,6 +122,17 @@ export class UsersService {
     profileDto.followingCount = user.following?.length || 0;
     profileDto.posts = userWithPosts?.posts || [];
 
+    // Kiểm soát hiển thị email và phone
+    // Nếu không phải chính mình xem và user không cho phép hiển thị, ẩn thông tin
+    if (viewerId !== userId) {
+      if (!user.showEmail) {
+        profileDto.email = undefined;
+      }
+      if (!user.showPhoneNumber) {
+        profileDto.phoneNumber = undefined;
+      }
+    }
+
     return profileDto;
   }
 

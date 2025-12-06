@@ -4,6 +4,7 @@ import {
   IsEmail,
   IsEnum,
   IsDateString,
+  IsBoolean,
   MaxLength,
   MinLength,
   IsUrl,
@@ -39,4 +40,12 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsEnum(EGender)
   gender?: EGender;
+
+  @IsOptional()
+  @IsBoolean()
+  showEmail?: boolean; // Cài đặt hiển thị email công khai
+
+  @IsOptional()
+  @IsBoolean()
+  showPhoneNumber?: boolean; // Cài đặt hiển thị số điện thoại công khai
 }
