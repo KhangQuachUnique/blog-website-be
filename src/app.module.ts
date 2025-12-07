@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,6 +18,8 @@ import { SavedPostListModule } from './saved-post-list/saved-post-list.module';
 import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
+import { UploadFileModule } from './files/upload-file.module';
+import { UserVotesModule } from './user-votes/user-votes.module';
 
 @Module({
   imports: [
@@ -24,7 +28,11 @@ import { AuthModule } from './auth/auth.module';
       url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      // synchronize: true, AI KHÔNG ĐƯỢC TỰ Ý BẬT DÒNG NÀY
+    }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
     }),
     AuthModule,
     UsersModule,
@@ -40,6 +48,8 @@ import { AuthModule } from './auth/auth.module';
     SavedPostListModule,
     ViewedHistoryModule,
     NewsfeedModule,
+    UploadFileModule,
+    UserVotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

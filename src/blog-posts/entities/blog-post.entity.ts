@@ -15,6 +15,7 @@ import { EBlogPostStatus } from '../enums/blog-post-status.enum';
 import { Comment } from 'src/comments/entities/comment.entity';
 import { User } from 'src/users/entities/user.entity';
 import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
+import { UserVote } from 'src/user-votes/entities/user-vote.entity';
 
 @Entity('blog_posts')
 @TableInheritance({ column: { type: 'varchar', name: 'type' } })
@@ -32,12 +33,6 @@ export abstract class BlogPost {
 
   @Column({ type: 'text', nullable: true })
   thumbnailUrl: string;
-
-  @Column({ type: 'int', default: 0 })
-  upVotes: number;
-
-  @Column({ type: 'int', default: 0 })
-  downVotes: number;
 
   @Column({ type: 'boolean', default: true })
   isPublic: boolean;
@@ -71,4 +66,7 @@ export abstract class BlogPost {
 
   @OneToMany(() => ViewedHistory, (history) => history.post)
   viewedBy: ViewedHistory[];
+
+  @OneToMany(() => UserVote, (vote) => vote.post)
+  votes: UserVote[];
 }
