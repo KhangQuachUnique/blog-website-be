@@ -154,10 +154,10 @@ export class NewsfeedService {
         LEFT JOIN users u ON u.id = p."authorId"
         LEFT JOIN (SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId") r ON r."postId" = p.id
         LEFT JOIN (SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId") cm ON cm."postId" = p.id
-        LEFT JOIN (SELECT "postId", 
-                  SUM(CASE WHEN "voteType" = 'upvote' THEN 1 ELSE 0 END) as up_votes,
-                  SUM(CASE WHEN "voteType" = 'downvote' THEN 1 ELSE 0 END) as down_votes
-                  FROM user_votes GROUP BY "postId") v ON v."postId" = p.id
+        LEFT JOIN (SELECT "postId",
+                  SUM(CASE WHEN LOWER("voteType"::text) = 'upvote' THEN 1 ELSE 0 END)::int as up_votes,
+                  SUM(CASE WHEN LOWER("voteType"::text) = 'downvote' THEN 1 ELSE 0 END)::int as down_votes
+            FROM user_votes GROUP BY "postId") v ON v."postId" = p.id
         LEFT JOIN community comm ON comm.id = p."communityId"
         WHERE p."isPublic" = true AND p.status = 'ACTIVE'
       )
