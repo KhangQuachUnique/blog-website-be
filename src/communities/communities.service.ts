@@ -7,9 +7,10 @@ import { UpdateCommunityDto } from './dto/update-community.dto';
 import { Community } from './entities/community.entity';
 import { CommunityMember } from './entities/community-member.entity';
 import { ECommunityMemberStatus } from './enums/community-member-status.enum';
-import { ECommunityRole } from './enums/community-role.enum';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { UpdateMemberStatusDto } from './dto/update-member-status.dto';
+import { CommunitySettingResponseDto } from './dto/response/community-response.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class CommunitiesService {
@@ -21,7 +22,7 @@ export class CommunitiesService {
     private memberRepository: Repository<CommunityMember>,
   ) {}
 
-  // ====== Communities cũ vẫn giữ nguyên (tạm giản lược) ======
+  // ====== COMMUNITY CRUD ======
   create(createCommunityDto: CreateCommunityDto) {
     const community = this.communityRepository.create(createCommunityDto);
     return this.communityRepository.save(community);
@@ -31,8 +32,13 @@ export class CommunitiesService {
     return this.communityRepository.find();
   }
 
+  async getSettings(id: number): Promise<CommunitySettingResponseDto> {
+    const settings = await this.communityRepository.findOne({ where: { id } });
+    return plainToInstance(CommunitySettingResponseDto, settings);
+  }
+
   findOne(id: number) {
-    return this.communityRepository.findOne({ where: { id } });
+    return this.communityRepository.findOne({ where: { id }, relations: ['members', 'emojis'] });
   }
 
   async update(id: number, updateCommunityDto: UpdateCommunityDto) {
@@ -117,14 +123,15 @@ export class CommunitiesService {
    * Kick member (ở đây mình xoá record luôn; nếu muốn chỉ ban thì dùng status = BANNED)
    */
   async removeMember(communityId: number, memberId: number) {
-    const result = await this.memberRepository.delete({
-      id: memberId,
-      community: { id: communityId },
+    const member = await this.memberRepository.findOne({
+      where: { id: memberId, community: { id: communityId } },
     });
 
-    if (!result.affected) {
+    if (!member) {
       throw new NotFoundException('Member not found in this community');
     }
+
+    await this.memberRepository.remove(member);
 
     return { deleted: true };
   }
