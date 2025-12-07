@@ -11,6 +11,7 @@ import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
+import { ViewedHistoryModule } from 'src/viewed-history/viewed-history.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { HashtagsService } from 'src/hashtags/hashtags.service';
       User,
       Community,
     ]),
+    ViewedHistoryModule,
   ],
   controllers: [BlogPostsController],
   providers: [BlogPostsService, HashtagsService],

@@ -1,6 +1,6 @@
 // src/newsfeed/newsfeed.controller.ts
 import { Controller, Get, Query, Req } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { NewsfeedService } from './newsfeed.service';
 import { GetNewsfeedDto, GetNewsfeedResponseDto } from './dto';
 
