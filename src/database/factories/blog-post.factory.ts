@@ -31,8 +31,6 @@ export class BlogPostFactory {
     post.shortDescription =
       override.shortDescription || fakerInstance.lorem.sentences({ min: 1, max: 3 });
     post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
-    post.upVotes = override.upVotes ?? fakerInstance.number.int({ min: 0, max: 1000 });
-    post.downVotes = override.downVotes ?? fakerInstance.number.int({ min: 0, max: 100 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
     post.status = override.status || EBlogPostStatus.ACTIVE;
     post.author = author;
@@ -54,8 +52,6 @@ export class BlogPostFactory {
     post.shortDescription =
       override.shortDescription || fakerInstance.lorem.sentences({ min: 1, max: 3 });
     post.thumbnailUrl = override.thumbnailUrl || fakerInstance.image.url();
-    post.upVotes = override.upVotes ?? fakerInstance.number.int({ min: 0, max: 500 });
-    post.downVotes = override.downVotes ?? fakerInstance.number.int({ min: 0, max: 50 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
     post.status = override.status || EBlogPostStatus.ACTIVE;
     post.isApproved = override.isApproved !== undefined ? override.isApproved : true;
@@ -80,8 +76,6 @@ export class BlogPostFactory {
     post.shortDescription =
       override.shortDescription || fakerInstance.lorem.sentences({ min: 1, max: 2 });
     post.thumbnailUrl = override.thumbnailUrl || originalPost.thumbnailUrl;
-    post.upVotes = override.upVotes ?? fakerInstance.number.int({ min: 0, max: 300 });
-    post.downVotes = override.downVotes ?? fakerInstance.number.int({ min: 0, max: 30 });
     post.isPublic = override.isPublic !== undefined ? override.isPublic : true;
     post.status = override.status || EBlogPostStatus.ACTIVE;
     post.author = author;
