@@ -354,6 +354,23 @@ export class BlogPostsService {
     };
   }
 
+  async togglePrivacy(id: number) {
+    const post = await this.blogPostRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
+
+    post.isPublic = !post.isPublic;
+
+    await this.blogPostRepository.save(post);
+
+    return {
+      message: `Successfully changed blog post privacy to ${post.isPublic ? 'public' : 'private'}.`,
+      data: post,
+    };
+  }
+
   // ========== REPOST METHODS ==========
 
   /**

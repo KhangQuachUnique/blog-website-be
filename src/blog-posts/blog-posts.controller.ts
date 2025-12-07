@@ -98,4 +98,12 @@ export class BlogPostsController {
   publish(@Param('id') id: string) {
     return this.blogPostsService.publish(+id);
   }
+
+  @Patch(':id/toggle-privacy')
+  @ApiOperation({ summary: 'Chuyển đổi chế độ công khai/riêng tư của bài viết' })
+  @ApiResponse({ status: 200, description: 'Chuyển đổi chế độ thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy bài viết' })
+  togglePrivacy(@Param('id') id: string) {
+    return this.blogPostsService.togglePrivacy(+id);
+  }
 }

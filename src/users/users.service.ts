@@ -97,6 +97,7 @@ export class UsersService {
     }
 
     const userWithPosts = await queryBuilder
+      .leftJoinAndSelect('post.votes', 'vote')
       .select([
         'user.id',
         'post.id',
@@ -104,7 +105,8 @@ export class UsersService {
         'post.thumbnailUrl',
         'post.isPublic',
         'post.createdAt',
-        'post.votes',
+        'vote.id',
+        'vote.voteType',
       ])
       .getOne();
 
