@@ -10,6 +10,14 @@ export class CommunityFactory {
     community.thumbnailUrl = override.thumbnailUrl || faker.image.url();
     community.isPublic =
       override.isPublic !== undefined ? override.isPublic : faker.datatype.boolean();
+    community.requirePostApproval =
+      override.requirePostApproval !== undefined
+        ? override.requirePostApproval
+        : Math.random() > 0.7; // 30% require approval
+    community.requireMemberApproval =
+      override.requireMemberApproval !== undefined
+        ? override.requireMemberApproval
+        : Math.random() > 0.8; // 20% require approval
 
     return community;
   }

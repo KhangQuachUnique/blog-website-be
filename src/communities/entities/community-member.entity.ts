@@ -2,7 +2,6 @@ import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Community } from './community.entity';
 import { ECommunityRole } from '../enums/community-role.enum';
 import { User } from 'src/users/entities/user.entity';
-import { ECommunityMemberStatus } from '../enums/community-member-status.enum';
 
 @Entity('community_members')
 export class CommunityMember {
@@ -28,11 +27,4 @@ export class CommunityMember {
     default: ECommunityRole.MEMBER,
   })
   role: ECommunityRole;
-
-  @Column({
-    type: 'enum',
-    enum: ECommunityMemberStatus,
-    default: ECommunityMemberStatus.ACTIVE,
-  })
-  status: ECommunityMemberStatus;
 }

@@ -32,7 +32,6 @@ export class BlogPostSeeder extends Seeder {
     const personalPostRepository = this.dataSource.getRepository(PersonalBlogPost);
     const communityPostRepository = this.dataSource.getRepository(CommunityBlogPost);
     const repostRepository = this.dataSource.getRepository(RepostBlogPost);
-    const blogPostRepository = this.dataSource.getRepository(BlogPost);
     const userRepository = this.dataSource.getRepository(User);
     const communityRepository = this.dataSource.getRepository(Community);
     const hashtagRepository = this.dataSource.getRepository(Hashtag);
