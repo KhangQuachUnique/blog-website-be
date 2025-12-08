@@ -18,28 +18,28 @@ export class User {
   username: string;
 
   @Column({ nullable: true, unique: true })
-  googleId: string;
+  googleId: string | null;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ unique: true })
   email: string;
 
   @Column()
   password: string;
 
   @Column({ nullable: true })
-  phoneNumber: string;
+  phoneNumber: string | null;
 
   @Column({ type: 'text', nullable: true })
-  bio: string;
+  bio: string | null;
 
   @Column({ nullable: true })
-  avatarUrl: string;
+  avatarUrl: string | null;
 
   @Column({ type: 'date', nullable: true })
   dob: Date | null;
 
   @Column({ type: 'enum', enum: EGender, nullable: true })
-  gender: EGender;
+  gender: EGender | null;
 
   @Column({ type: 'enum', enum: EUserRole })
   type: EUserRole;
