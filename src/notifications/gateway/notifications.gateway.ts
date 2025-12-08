@@ -1,15 +1,13 @@
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
-  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { SocketUserManager } from '../sockets/socket-user.manager';
+import { Notification } from '../entities/notification.entity';
 
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -42,14 +40,12 @@ export class NotificationsGateWay implements OnGatewayConnection, OnGatewayDisco
     this.socketUsers.unregister(client.id);
   }
 
-  @SubscribeMessage('notification')
-  emitToClient(clientId: number, event: string, data: any) {
-    const socketId = this.socketUsers.getSocket(clientId);
-    if (socketId) this.server.to(socketId).emit(event, data);
+  emitToClient(userId: number, notification: Notification) {
+    const socketId = this.socketUsers.getSocket(userId);
+    if (socketId) this.server.to(socketId).emit('notification', notification);
   }
 
-  @SubscribeMessage('notification')
-  emitToAll(event: string, data: any) {
-    this.server.emit(event, data);
+  emitAllClient(notification: Notification) {
+    this.server.emit('notification', notification);
   }
 }
