@@ -11,6 +11,9 @@ import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { UpdateMemberStatusDto } from './dto/update-member-status.dto';
 import { CommunitySettingResponseDto } from './dto/response/community-response.dto';
 import { plainToInstance } from 'class-transformer';
+import { MyCommunityResponseDto } from './dto/response/my-community-response.dto';
+import { ECommunityRole } from './enums/community-role.enum';
+//import { ECommunityMemberStatus } from './enums/community-member-status.enum';
 
 @Injectable()
 export class CommunitiesService {
@@ -23,9 +26,22 @@ export class CommunitiesService {
   ) {}
 
   // ====== COMMUNITY CRUD ======
-  create(createCommunityDto: CreateCommunityDto) {
+  async create(createCommunityDto: CreateCommunityDto, ownerId: number) {
+    // 1. Tạo community
     const community = this.communityRepository.create(createCommunityDto);
-    return this.communityRepository.save(community);
+    const savedCommunity = await this.communityRepository.save(community);
+
+    // 2. Tạo record member cho người tạo với role ADMIN
+    const ownerMember = this.memberRepository.create({
+      community: savedCommunity,
+      user: { id: ownerId } as any,
+      role: ECommunityRole.ADMIN,
+      status: ECommunityMemberStatus.ACTIVE,
+    });
+
+    await this.memberRepository.save(ownerMember);
+
+    return savedCommunity;
   }
 
   findAll() {
@@ -49,6 +65,30 @@ export class CommunitiesService {
   async remove(id: number) {
     await this.communityRepository.delete(id);
     return { deleted: true };
+  }
+
+    /**
+   * Danh sách cộng đồng mà user đang là member (kèm role + memberCount)
+   */
+  async getMyCommunities(userId: number): Promise<MyCommunityResponseDto[]> {
+    const memberships = await this.memberRepository.find({
+      where: {
+        user: { id: userId },
+        status: ECommunityMemberStatus.ACTIVE, // chỉ lấy member đang ACTIVE
+      },
+      relations: ["community", "community.members"], // load luôn community + list members
+      order: { joinedAt: "DESC" },
+    });
+
+    return memberships.map((m) => ({
+      id: m.community.id,
+      name: m.community.name,
+      description: m.community.description,
+      thumbnailUrl: m.community.thumbnailUrl,
+      isPublic: m.community.isPublic,
+      role: m.role,
+      memberCount: m.community.members ? m.community.members.length : 0,
+    }));
   }
 
   // ====== PHẦN QUẢN LÝ MEMBERS ======

@@ -16,6 +16,7 @@ import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { UpdateMemberStatusDto } from './dto/update-member-status.dto';
 import { ECommunityMemberStatus } from './enums/community-member-status.enum';
 import { CommunitySettingResponseDto } from './dto/response/community-response.dto';
+import { MyCommunityResponseDto } from './dto/response/my-community-response.dto';
 
 @Controller('communities')
 export class CommunitiesController {
@@ -25,7 +26,8 @@ export class CommunitiesController {
 
   @Post()
   create(@Body() createCommunityDto: CreateCommunityDto) {
-    return this.communitiesService.create(createCommunityDto);
+    const fakeUserId = 56; // tạm hard-code
+    return this.communitiesService.create(createCommunityDto, fakeUserId);
   }
 
   @Get()
@@ -54,6 +56,16 @@ export class CommunitiesController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.communitiesService.remove(id);
+  }
+
+    // GET /communities/my - các cộng đồng của user hiện tại
+  @Get('my')
+  getMyCommunities(): Promise<MyCommunityResponseDto[]> {
+    // Nếu có auth:
+    // return this.communitiesService.getMyCommunities(user.id);
+
+    const fakeUserId = 56; // tạm hard-code để test
+    return this.communitiesService.getMyCommunities(fakeUserId);
   }
 
   // ====== PHẦN MEMBERS ======
