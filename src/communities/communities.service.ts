@@ -1,19 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
 import { Community } from './entities/community.entity';
 import { CommunityMember } from './entities/community-member.entity';
-import { ECommunityMemberStatus } from './enums/community-member-status.enum';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { UpdateMemberStatusDto } from './dto/update-member-status.dto';
 import { CommunitySettingResponseDto } from './dto/response/community-response.dto';
 import { plainToInstance } from 'class-transformer';
 import { MyCommunityResponseDto } from './dto/response/my-community-response.dto';
 import { ECommunityRole } from './enums/community-role.enum';
-//import { ECommunityMemberStatus } from './enums/community-member-status.enum';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class CommunitiesService {
@@ -23,10 +21,18 @@ export class CommunitiesService {
 
     @InjectRepository(CommunityMember)
     private memberRepository: Repository<CommunityMember>,
+
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   // ====== COMMUNITY CRUD ======
   async create(createCommunityDto: CreateCommunityDto, ownerId: number) {
+    const owner = await this.userRepository.findOne({ where: { id: ownerId } });
+    if (!owner) {
+      throw new NotFoundException('Owner user not found');
+    }
+
     // 1. Tạo community
     const community = this.communityRepository.create(createCommunityDto);
     const savedCommunity = await this.communityRepository.save(community);
@@ -34,9 +40,8 @@ export class CommunitiesService {
     // 2. Tạo record member cho người tạo với role ADMIN
     const ownerMember = this.memberRepository.create({
       community: savedCommunity,
-      user: { id: ownerId } as any,
+      user: owner,
       role: ECommunityRole.ADMIN,
-      status: ECommunityMemberStatus.ACTIVE,
     });
 
     await this.memberRepository.save(ownerMember);
@@ -67,17 +72,17 @@ export class CommunitiesService {
     return { deleted: true };
   }
 
-    /**
+  /**
    * Danh sách cộng đồng mà user đang là member (kèm role + memberCount)
    */
   async getMyCommunities(userId: number): Promise<MyCommunityResponseDto[]> {
     const memberships = await this.memberRepository.find({
       where: {
         user: { id: userId },
-        status: ECommunityMemberStatus.ACTIVE, // chỉ lấy member đang ACTIVE
+        role: Not(ECommunityRole.PENDING), // không lấy các cộng đồng mà user bị BAN
       },
-      relations: ["community", "community.members"], // load luôn community + list members
-      order: { joinedAt: "DESC" },
+      relations: ['community', 'community.members'],
+      order: { joinedAt: 'DESC' },
     });
 
     return memberships.map((m) => ({
@@ -94,32 +99,20 @@ export class CommunitiesService {
   // ====== PHẦN QUẢN LÝ MEMBERS ======
 
   /**
-   * Lấy danh sách member theo community, có thể lọc theo status
+   * Lấy danh sách member theo community có thể lọc theo role
    */
-  async getMembers(
-    communityId: number,
-    status?: ECommunityMemberStatus,
-  ): Promise<CommunityMember[]> {
-    const qb = this.memberRepository
-      .createQueryBuilder('m')
-      .leftJoinAndSelect('m.user', 'user')
-      .where('m.communityId = :communityId', { communityId });
-
-    if (status) {
-      qb.andWhere('m.status = :status', { status });
-    }
-
-    return qb.orderBy('m.joinedAt', 'DESC').getMany();
+  async getMembers(communityId: number, role?: ECommunityRole): Promise<CommunityMember[]> {
+    return this.memberRepository.find({
+      where: { community: { id: communityId }, role: role ? role : Not(ECommunityRole.PENDING) },
+      relations: ['user'],
+      order: { joinedAt: 'DESC' },
+    });
   }
 
   /**
    * Đổi role của một member (MEMBER / MODERATOR / ADMIN)
    */
-  async updateMemberRole(
-    communityId: number,
-    memberId: number,
-    dto: UpdateMemberRoleDto,
-  ) {
+  async updateMemberRole(communityId: number, memberId: number, dto: UpdateMemberRoleDto) {
     const member = await this.memberRepository.findOne({
       where: { id: memberId, community: { id: communityId } },
       relations: ['community', 'user'],
@@ -134,33 +127,7 @@ export class CommunitiesService {
   }
 
   /**
-   * Đổi status: ví dụ PENDING -> ACTIVE hoặc ACTIVE -> BANNED
-   */
-  async updateMemberStatus(
-    communityId: number,
-    memberId: number,
-    dto: UpdateMemberStatusDto,
-  ) {
-    const member = await this.memberRepository.findOne({
-      where: { id: memberId, community: { id: communityId } },
-    });
-
-    if (!member) {
-      throw new NotFoundException('Member not found in this community');
-    }
-
-    member.status = dto.status;
-
-    // nếu vừa approve thì set joinedAt = now (optional)
-    if (dto.status === ECommunityMemberStatus.ACTIVE && !member.joinedAt) {
-      member.joinedAt = new Date();
-    }
-
-    return this.memberRepository.save(member);
-  }
-
-  /**
-   * Kick member (ở đây mình xoá record luôn; nếu muốn chỉ ban thì dùng status = BANNED)
+   * Kick member (xoá record)
    */
   async removeMember(communityId: number, memberId: number) {
     const member = await this.memberRepository.findOne({

@@ -2,7 +2,6 @@ import { Notification } from '../../notifications/entities/notification.entity';
 import { NotificationTemplate } from '../../notifications/entities/notification-template.entity';
 import { ENotificationType } from '../../notifications/enums/notification.enum';
 import { User } from '../../users/entities/user.entity';
-import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 import { ChildComment } from '../../comments/entities/child-comment.entity';
 import { UserReact } from '../../user-reacts/entities/user-react.entity';

@@ -1,22 +1,11 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  ParseIntPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
 import { CommunitiesService } from './communities.service';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { UpdateMemberStatusDto } from './dto/update-member-status.dto';
-import { ECommunityMemberStatus } from './enums/community-member-status.enum';
 import { CommunitySettingResponseDto } from './dto/response/community-response.dto';
 import { MyCommunityResponseDto } from './dto/response/my-community-response.dto';
+import { ECommunityRole } from './enums/community-role.enum';
 
 @Controller('communities')
 export class CommunitiesController {
@@ -46,10 +35,7 @@ export class CommunitiesController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateCommunityDto: UpdateCommunityDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() updateCommunityDto: UpdateCommunityDto) {
     return this.communitiesService.update(id, updateCommunityDto);
   }
 
@@ -58,7 +44,7 @@ export class CommunitiesController {
     return this.communitiesService.remove(id);
   }
 
-    // GET /communities/my - các cộng đồng của user hiện tại
+  // GET /communities/my - các cộng đồng của user hiện tại
   @Get('my')
   getMyCommunities(): Promise<MyCommunityResponseDto[]> {
     // Nếu có auth:
@@ -70,13 +56,10 @@ export class CommunitiesController {
 
   // ====== PHẦN MEMBERS ======
 
-  // GET /communities/:id/members?status=ACTIVE|PENDING|BANNED
+  // GET /communities/:id/members
   @Get(':id/members')
-  getMembers(
-    @Param('id', ParseIntPipe) id: number,
-    @Query('status') status?: ECommunityMemberStatus,
-  ) {
-    return this.communitiesService.getMembers(id, status);
+  getMembers(@Param('id', ParseIntPipe) id: number, role?: ECommunityRole) {
+    return this.communitiesService.getMembers(id, role);
   }
 
   // PATCH /communities/:id/members/:memberId/role
@@ -87,16 +70,6 @@ export class CommunitiesController {
     @Body() dto: UpdateMemberRoleDto,
   ) {
     return this.communitiesService.updateMemberRole(id, memberId, dto);
-  }
-
-  // PATCH /communities/:id/members/:memberId/status
-  @Patch(':id/members/:memberId/status')
-  updateMemberStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('memberId', ParseIntPipe) memberId: number,
-    @Body() dto: UpdateMemberStatusDto,
-  ) {
-    return this.communitiesService.updateMemberStatus(id, memberId, dto);
   }
 
   // DELETE /communities/:id/members/:memberId
