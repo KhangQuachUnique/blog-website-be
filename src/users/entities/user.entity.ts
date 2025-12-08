@@ -17,7 +17,7 @@ export class User {
   @Column({ unique: true })
   username: string;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ type: 'varchar', nullable: true, unique: true })
   googleId: string | null;
 
   @Column({ unique: true })
@@ -26,13 +26,13 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phoneNumber: string | null;
 
   @Column({ type: 'text', nullable: true })
   bio: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   avatarUrl: string | null;
 
   @Column({ type: 'date', nullable: true })
