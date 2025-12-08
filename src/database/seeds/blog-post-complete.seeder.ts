@@ -224,31 +224,47 @@ export class BlogPostSeeder extends Seeder {
     // Layout is measured in logical grid units (not px). We cap width at 16 columns.
     const GRID_WIDTH_MAX = 16;
     const GRID_HEIGHT_MIN = 2;
-    const GRID_HEIGHT_MAX = 12;
-    const GRID_ROW_STEP = 4; // spacing between blocks on the y-axis
+    const GRID_HEIGHT_MAX = 8; // Reduced max to 8 for more consistent blocks
+    const GRID_SPACING = 1; // Gap between blocks
+
+    let currentY = 0; // Track cumulative Y position
 
     for (let i = 0; i < blockCount; i++) {
       const block = new Block();
       block.post = post;
-      // x, y: unsigned int (min 0) in grid units
+
+      // x: always 0 for full-width layout
       block.x = 0;
-      block.y = i * GRID_ROW_STEP;
-      // width: min 1, max 16 columns (CreateBlockDto validation)
-      block.width = fakerInstance.number.int({ min: 1, max: GRID_WIDTH_MAX });
-      // height: min 2, max 12 grid rows to avoid pixel-based sizing
+
+      // y: stack vertically based on previous blocks
+      block.y = currentY;
+
+      // width: full width or partial (80% chance full width)
+      block.width =
+        Math.random() > 0.2
+          ? GRID_WIDTH_MAX
+          : fakerInstance.number.int({
+              min: Math.floor(GRID_WIDTH_MAX * 0.6),
+              max: GRID_WIDTH_MAX,
+            });
+
+      // height: consistent heights for better layout
       block.height = fakerInstance.number.int({ min: GRID_HEIGHT_MIN, max: GRID_HEIGHT_MAX });
 
       if (Math.random() > 0.4) {
-        // Text block
+        // Text block (60% of blocks)
         block.type = EBlockType.TEXT;
         block.content = fakerInstance.lorem.paragraphs(Math.floor(Math.random() * 3) + 1);
       } else {
-        // Image block
+        // Image block (40% of blocks)
         block.type = EBlockType.IMAGE;
         block.content = fakerInstance.image.url();
       }
 
       await blockRepository.save(block);
+
+      // Update Y position for next block: current Y + current height + spacing
+      currentY += block.height + GRID_SPACING;
     }
   }
 

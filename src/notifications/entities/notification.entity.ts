@@ -1,6 +1,7 @@
 import { User } from 'src/users/entities/user.entity';
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { NotificationTemplate } from './notification-template.entity';
+import { ENotificationType } from '../enums/notification.enum';
 
 @Entity('notifications')
 @Index(['isRead'])
@@ -14,6 +15,12 @@ export class Notification {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
+
+  @Column({ type: 'enum', enum: ENotificationType })
+  type: ENotificationType;
+
+  @Column({ type: 'json', nullable: true })
+  params: Record<string, any>;
 
   // Relations
   @ManyToOne(() => User, {
