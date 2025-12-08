@@ -74,7 +74,7 @@ export class UsersController {
   @Get('me/profile')
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@Request() req: any) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.getProfile(userId, userId);
   }
 
@@ -86,7 +86,7 @@ export class UsersController {
   @Patch('me/profile')
   @UseGuards(JwtAuthGuard)
   async updateMyProfile(@Request() req: any, @Body() updateProfileDto: UpdateProfileDto) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.updateProfile(userId, updateProfileDto);
   }
 
@@ -99,7 +99,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async changePassword(@Request() req: any, @Body() changePasswordDto: ChangePasswordDto) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.changePassword(userId, changePasswordDto);
   }
 
@@ -112,7 +112,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async requestChangeEmail(@Request() req: any, @Body() requestDto: RequestChangeEmailDto) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.requestChangeEmail(userId, requestDto);
   }
 
@@ -125,7 +125,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async verifyEmail(@Request() req: any, @Body() verifyDto: VerifyEmailDto) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.verifyAndChangeEmail(userId, verifyDto);
   }
 
@@ -137,7 +137,7 @@ export class UsersController {
   @Patch('me/privacy')
   @UseGuards(JwtAuthGuard)
   async togglePrivacy(@Request() req: any) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.togglePrivacy(userId);
   }
 
@@ -150,7 +150,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async blockUser(@Request() req: any, @Param('id', ParseIntPipe) targetUserId: number) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.blockUser(userId, targetUserId);
   }
 
@@ -163,7 +163,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async unblockUser(@Request() req: any, @Param('id', ParseIntPipe) targetUserId: number) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.unblockUser(userId, targetUserId);
   }
 
@@ -175,7 +175,7 @@ export class UsersController {
   @Get('me/blocked')
   @UseGuards(JwtAuthGuard)
   async getBlockedUsers(@Request() req: any) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.getBlockedUsers(userId);
   }
 
@@ -188,7 +188,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async deleteAccount(@Request() req: any) {
-    const userId = req.user?.id as number;
+    const userId = req.user?.userId as number;
     return this.usersService.deleteAccount(userId);
   }
 }

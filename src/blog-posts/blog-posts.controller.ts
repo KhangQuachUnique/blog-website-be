@@ -68,12 +68,12 @@ export class BlogPostsController {
   @UseGuards(OptionalJwtAuthGuard)
   async findOne(@Param('id') id: string, @Req() req: Request) {
     const postId = +id;
-    console.log('[BlogPostsController] findOne', { postId, user: (req.user as any)?.id });
+    console.log('[BlogPostsController] findOne', { postId, user: (req.user as any)?.userId });
     // If user is present, record viewed history (fire-and-forget)
     const userAny = req.user as any;
-    if (userAny?.id) {
+    if (userAny?.userId) {
       this.viewedHistoryService
-        .recordView(Number(userAny.id), postId)
+        .recordView(Number(userAny.userId), postId)
         .catch((err) => console.error('ViewedHistory.recordView error', err));
     }
 

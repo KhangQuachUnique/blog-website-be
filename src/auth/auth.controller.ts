@@ -86,7 +86,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getCurrentUser(@Request() req) {
-    return this.authService.getCurrentUser(req.user?.id);
+    return this.authService.getCurrentUser(req.user?.userId);
   }
 
   @Post('refresh')
@@ -129,7 +129,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     // Clear refresh token from database
-    await this.authService.clearRefreshToken(req.user?.id);
+    await this.authService.clearRefreshToken(req.user?.userId);
     
     // Clear refresh token cookie
     res.clearCookie('refreshToken');

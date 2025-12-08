@@ -22,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // ignore logging errors
     }
 
-    return { id: payload.sub, email: payload.email, username: payload.username };
+    // Return both `userId` and `id` for compatibility with existing code
+    return { userId: payload.sub, id: payload.sub, email: payload.email, username: payload.username };
   }
 }

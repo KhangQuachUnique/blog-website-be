@@ -27,11 +27,11 @@ export class ViewedHistoryController {
   @UseGuards(OptionalJwtAuthGuard)
   async recordView(
     @Param('postId', ParseIntPipe) postId: number,
-    @Req() request: Request & { user?: { id: number; username?: string } },
+    @Req() request: Request & { user?: { userId?: number; id?: number; username?: string } },
   ) {
     // Nếu có user trong request (đã login) → ghi lịch sử
     // Nếu không có → bỏ qua, không lỗi
-    const userId = request.user?.id;
+    const userId = request.user?.userId ?? request.user?.id;
 
     if (userId) {
       // fire and forget – không cần await cũng được, nhưng await cho chắc
@@ -49,9 +49,9 @@ export class ViewedHistoryController {
   @UseGuards(OptionalJwtAuthGuard)
   async status(
     @Param('postId', ParseIntPipe) postId: number,
-    @Req() request: Request & { user?: { id: number } },
+    @Req() request: Request & { user?: { userId?: number; id?: number } },
   ) {
-    const userId = request.user?.id;
+    const userId = request.user?.userId ?? request.user?.id;
     if (!userId) return { viewed: false };
 
     const ids = await this.viewedHistoryService.getViewedPostIds(userId);
@@ -65,11 +65,11 @@ export class ViewedHistoryController {
    */
   @Get('debug/top-hashtags')
   async getMyTopHashtags(
-    @Req() request: Request & { user?: { id: number; username?: string } },
+    @Req() request: Request & { user?: { userId?: number; id?: number; username?: string } },
     @Query('days') daysStr = '14',
     @Query('limit') limitStr = '20',
   ) {
-    const userId = request.user?.id;
+    const userId = request.user?.userId ?? request.user?.id;
     if (!userId) {
       return { top: [], note: 'Login required' };
     }
