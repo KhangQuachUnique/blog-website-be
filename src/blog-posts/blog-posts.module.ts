@@ -11,6 +11,7 @@ import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { HashtagsService } from 'src/hashtags/hashtags.service';
       User,
       Community,
     ]),
+    NotificationsModule,
   ],
   controllers: [BlogPostsController],
   providers: [BlogPostsService, HashtagsService],

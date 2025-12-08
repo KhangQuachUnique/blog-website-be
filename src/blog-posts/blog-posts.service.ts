@@ -21,11 +21,14 @@ import {
 import { plainToInstance } from 'class-transformer';
 import { BlogPostType } from './enums/blog-post-type.enum';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class BlogPostsService {
   constructor(
     private readonly hashtagService: HashtagsService,
+
+    private readonly notificationService: NotificationsService,
 
     @InjectRepository(Block)
     private readonly blockRepository: Repository<Block>,
@@ -82,6 +85,7 @@ export class BlogPostsService {
           excludeExtraneousValues: true,
         });
         response.type = BlogPostType.PERSONAL;
+        await this.notificationService.sendCustomToClientNotification(54, 1, {});
         return response;
       }
 
