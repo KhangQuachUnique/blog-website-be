@@ -75,6 +75,10 @@ export class PostResponseDto {
   hashtags: HashtagResponseDto[];
 
   @Expose()
+  @ApiProperty({ example: 150 })
+  votes: number;
+
+  @Expose()
   @ApiProperty({ example: '2024-01-01T12:00:00Z' })
   createdAt: Date;
 }
