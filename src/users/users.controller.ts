@@ -59,7 +59,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@Request() req: any) {
     const userId = req.user.userId;
-    return this.usersService.getProfile(userId, userId);
+    return this.usersService.getProfile(userId);
   }
 
   /**

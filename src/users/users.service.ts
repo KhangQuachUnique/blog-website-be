@@ -17,6 +17,7 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
+import { EVoteType } from 'src/user-votes/entities/user-vote.entity';
 
 @Injectable()
 export class UsersService {
@@ -129,8 +130,8 @@ export class UsersService {
     // Map posts và tính upVotes/downVotes từ votes relationship
     profileDto.posts = (userWithPosts?.posts || []).map((post) => ({
       ...post,
-      upVotes: post.votes?.filter((v) => v.voteType === 'upvote').length || 0,
-      downVotes: post.votes?.filter((v) => v.voteType === 'downvote').length || 0,
+      upVotes: post.votes?.filter((v) => v.voteType === EVoteType.UPVOTE).length || 0,
+      downVotes: post.votes?.filter((v) => v.voteType === EVoteType.DOWNVOTE).length || 0,
     }));
 
     // Kiểm soát hiển thị email và phone
