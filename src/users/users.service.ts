@@ -385,7 +385,7 @@ export class UsersService {
   }
 
   /**
-   * Xóa tài khoản (soft delete)
+   * Xóa tài khoản (hard delete)
    */
   async deleteAccount(userId: number): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -394,8 +394,8 @@ export class UsersService {
       throw new NotFoundException('Người dùng không tồn tại');
     }
 
-    // Soft delete: có thể thêm trường isDeleted hoặc dùng TypeORM soft delete
-    await this.userRepository.softRemove(user);
+    // Hard delete: xóa vĩnh viễn khỏi database
+    await this.userRepository.remove(user);
 
     return { message: 'Tài khoản đã được xóa thành công' };
   }
