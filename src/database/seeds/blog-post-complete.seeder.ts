@@ -13,7 +13,6 @@ import { Hashtag } from '../../hashtags/entities/hashtag.entity';
 import { Block } from '../../blocks/entities/block.entity';
 import { EBlockType } from '../../blocks/enums/block-type.enum';
 import { Comment } from '../../comments/entities/comment.entity';
-import { ChildComment } from '../../comments/entities/child-comment.entity';
 import { UserReact } from '../../user-reacts/entities/user-react.entity';
 import { Emoji } from '../../emojis/entities/emoji.entity';
 import { faker, Faker } from '@faker-js/faker';
@@ -37,7 +36,6 @@ export class BlogPostSeeder extends Seeder {
     const hashtagRepository = this.dataSource.getRepository(Hashtag);
     const blockRepository = this.dataSource.getRepository(Block);
     const commentRepository = this.dataSource.getRepository(Comment);
-    const childCommentRepository = this.dataSource.getRepository(ChildComment);
     const postReactRepository = this.dataSource.getRepository(UserReact);
     const emojiRepository = this.dataSource.getRepository(Emoji);
 
@@ -80,7 +78,6 @@ export class BlogPostSeeder extends Seeder {
             savedPost,
             users,
             commentRepository,
-            childCommentRepository,
             useVietnamese,
           );
 
@@ -123,7 +120,6 @@ export class BlogPostSeeder extends Seeder {
               savedPost,
               memberUsers,
               commentRepository,
-              childCommentRepository,
               useVietnamese,
             );
 
@@ -167,7 +163,6 @@ export class BlogPostSeeder extends Seeder {
               savedRepost,
               users,
               commentRepository,
-              childCommentRepository,
               useVietnamese,
             );
 
@@ -271,7 +266,6 @@ export class BlogPostSeeder extends Seeder {
     post: PersonalBlogPost | CommunityBlogPost | RepostBlogPost,
     users: User[],
     postCommentRepository: Repository<Comment>,
-    childCommentRepository: Repository<ChildComment>,
     useVietnamese: boolean,
   ): Promise<void> {
     const commentCount = Math.floor(Math.random() * 10) + 2; // 2-12 comments
@@ -296,7 +290,7 @@ export class BlogPostSeeder extends Seeder {
           childCount,
           useVietnamese,
         );
-        await childCommentRepository.save(childComments);
+        await postCommentRepository.save(childComments);
       }
     }
   }

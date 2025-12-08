@@ -8,7 +8,6 @@ import {
 } from '../factories/notification.factory';
 import { UserVote } from '../../user-votes/entities/user-vote.entity';
 import { Comment } from '../../comments/entities/comment.entity';
-import { ChildComment } from '../../comments/entities/child-comment.entity';
 import { UserReact } from '../../user-reacts/entities/user-react.entity';
 import { ENotificationType } from '../../notifications/enums/notification.enum';
 import { EReactTargetType } from '../../user-reacts/enums/react-target-type.enum';
@@ -120,18 +119,21 @@ export class NotificationSeeder extends Seeder {
       this.log(`Generated ${commentReactNotifCount} comment reaction notifications`);
 
       // 2e. Notifications from comment replies
-      const childCommentRepository = this.dataSource.getRepository(ChildComment);
-      const childComments = await childCommentRepository.find({
-        relations: ['commentUser', 'parentComment', 'parentComment.commenter'],
-        take: 100,
-      });
+      const replyComments = await commentRepository
+        .createQueryBuilder('comment')
+        .leftJoinAndSelect('comment.commenter', 'commenter')
+        .leftJoinAndSelect('comment.parentComment', 'parentComment')
+        .leftJoinAndSelect('parentComment.commenter', 'parentCommenter')
+        .where('comment.parentCommentId IS NOT NULL')
+        .take(100)
+        .getMany();
 
       const replyTemplate = templateMap.get(ENotificationType.USER_REPLIED_COMMENT);
       let replyNotifCount = 0;
-      for (const childComment of childComments) {
+      for (const replyComment of replyComments) {
         if (replyTemplate) {
           const notification = NotificationFactory.createFromCommentReply(
-            childComment,
+            replyComment,
             replyTemplate,
           );
           if (notification) {

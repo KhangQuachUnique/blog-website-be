@@ -3,7 +3,6 @@ import { NotificationTemplate } from '../../notifications/entities/notification-
 import { ENotificationType } from '../../notifications/enums/notification.enum';
 import { User } from '../../users/entities/user.entity';
 import { Comment } from '../../comments/entities/comment.entity';
-import { ChildComment } from '../../comments/entities/child-comment.entity';
 import { UserReact } from '../../user-reacts/entities/user-react.entity';
 import { UserVote } from '../../user-votes/entities/user-vote.entity';
 
@@ -83,18 +82,18 @@ export class NotificationFactory {
    * Create notification when user replies to a comment
    */
   static createFromCommentReply(
-    childComment: ChildComment,
+    replyComment: Comment,
     template: NotificationTemplate,
   ): Notification | null {
-    if (!childComment.parentComment?.commenter || !childComment.commentUser) return null;
-    if (childComment.commentUser.id === childComment.parentComment.commenter.id) return null;
+    if (!replyComment.parentComment?.commenter || !replyComment.commenter) return null;
+    if (replyComment.commenter.id === replyComment.parentComment.commenter.id) return null;
 
     const notification = new Notification();
     notification.type = ENotificationType.USER_REPLIED_COMMENT;
-    notification.sender = childComment.commentUser;
-    notification.receiver = childComment.parentComment.commenter;
+    notification.sender = replyComment.commenter;
+    notification.receiver = replyComment.parentComment.commenter;
     notification.template = template;
-    notification.params = { commentId: childComment.id };
+    notification.params = { commentId: replyComment.id };
     notification.isRead = Math.random() > 0.7;
     return notification;
   }

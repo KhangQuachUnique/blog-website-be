@@ -1,7 +1,6 @@
 import { faker, Faker } from '@faker-js/faker';
 import { vi } from '@faker-js/faker';
 import { Comment } from '../../comments/entities/comment.entity';
-import { ChildComment } from '../../comments/entities/child-comment.entity';
 import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Block } from '../../blocks/entities/block.entity';
@@ -45,19 +44,20 @@ export class CommentFactory {
   }
 
   static createChildComment(
-    commentUser: User,
+    commenter: User,
     replyToUser: User,
     parentComment: Comment,
-    override: Partial<ChildComment> = {},
+    override: Partial<Comment> = {},
     useVietnamese = true,
-  ): ChildComment {
-    const childComment = new ChildComment();
+  ): Comment {
+    const childComment = new Comment();
     const fakerInstance: Faker = useVietnamese ? fakerVi : faker;
 
     childComment.content = override.content || fakerInstance.lorem.sentences({ min: 1, max: 2 });
-    childComment.commentUser = commentUser;
+    childComment.commenter = commenter;
     childComment.replyToUser = replyToUser;
     childComment.parentComment = parentComment;
+    childComment.type = parentComment.type;
 
     return childComment;
   }
@@ -79,11 +79,11 @@ export class CommentFactory {
     parentComment: Comment,
     count: number,
     useVietnamese = true,
-  ): ChildComment[] {
+  ): Comment[] {
     return Array.from({ length: count }, () => {
-      const commentUser = users[Math.floor(Math.random() * users.length)];
+      const commenter = users[Math.floor(Math.random() * users.length)];
       const replyToUser = users[Math.floor(Math.random() * users.length)];
-      return this.createChildComment(commentUser, replyToUser, parentComment, {}, useVietnamese);
+      return this.createChildComment(commenter, replyToUser, parentComment, {}, useVietnamese);
     });
   }
 }
