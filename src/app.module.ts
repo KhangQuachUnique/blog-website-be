@@ -19,6 +19,7 @@ import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadFileModule } from './files/upload-file.module';
+import { UserVotesModule } from './user-votes/user-votes.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UploadFileModule } from './files/upload-file.module';
       url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      // AI không được tự mở synchronize
       // synchronize: true,
     }),
     ConfigModule.forRoot({
@@ -48,6 +50,7 @@ import { UploadFileModule } from './files/upload-file.module';
     ViewedHistoryModule,
     NewsfeedModule,
     UploadFileModule,
+    UserVotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

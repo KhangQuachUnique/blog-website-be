@@ -1,5 +1,4 @@
 import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
-import { ChildComment } from './child-comment.entity';
 import { ECommentType } from '../enums/comment-type.enum';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Block } from 'src/blocks/entities/block.entity';
@@ -11,7 +10,7 @@ export class Comment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ type: 'text' })
   content: string;
 
   @Column({ type: 'enum', enum: ECommentType })
@@ -21,22 +20,37 @@ export class Comment {
   createAt: Date;
 
   // Relations
-  @OneToMany(() => ChildComment, (childComment) => childComment.parentComment, { cascade: true })
-  childComments: ChildComment[];
-
   @ManyToOne(() => User, {
     onDelete: 'SET NULL',
     nullable: true,
   })
   commenter: User;
 
+  @ManyToOne(() => User, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  replyToUser: User;
+
   @ManyToOne(() => BlogPost, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   post: BlogPost;
 
   @ManyToOne(() => Block, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   block: Block;
+
+  // Self-referencing for parent-child comments
+  @ManyToOne(() => Comment, (comment) => comment.childComments, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  parentComment: Comment;
+
+  @OneToMany(() => Comment, (comment) => comment.parentComment, { cascade: true })
+  childComments: Comment[];
 }

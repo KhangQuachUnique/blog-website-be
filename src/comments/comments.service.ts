@@ -4,16 +4,12 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Comment } from './entities/comment.entity';
-import { ChildComment } from './entities/child-comment.entity';
 
 @Injectable()
 export class CommentsService {
   constructor(
     @InjectRepository(Comment)
     private commentRepository: Repository<Comment>,
-
-    @InjectRepository(ChildComment)
-    private childCommentRepository: Repository<ChildComment>,
   ) {}
 
   create(createCommentDto: CreateCommentDto) {

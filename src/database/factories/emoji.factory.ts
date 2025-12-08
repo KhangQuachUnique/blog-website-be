@@ -5,25 +5,16 @@ import { Community } from '../../communities/entities/community.entity';
 export class EmojiFactory {
   static create(community: Community, override: Partial<Emoji> = {}): Emoji {
     const emoji = new Emoji();
-
-    const emojis = [
-      '😀',
-      '😂',
-      '❤️',
-      '👍',
-      '🔥',
-      '🎉',
-      '💯',
-      '🚀',
-      '⭐',
-      '👏',
-      '💪',
-      '🎯',
-      '✨',
-      '🌟',
-      '💡',
+    // Use image URLs so the emoji content renders as images instead of unicode chars
+    const emojiImages = [
+      faker.image.urlLoremFlickr({ category: 'emoji' }),
+      faker.image.urlLoremFlickr({ category: 'emoji' }),
+      faker.image.urlLoremFlickr({ category: 'emoji' }),
+      faker.image.urlLoremFlickr({ category: 'emoji' }),
+      faker.image.urlLoremFlickr({ category: 'emoji' }),
     ];
-    emoji.emojiUrl = override.emojiUrl || faker.helpers.arrayElement(emojis);
+
+    emoji.emojiUrl = override.emojiUrl || faker.helpers.arrayElement(emojiImages);
     emoji.community = community;
 
     return emoji;
