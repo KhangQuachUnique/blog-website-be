@@ -1,6 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { BlogPostsService } from './blog-posts.service';
+import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import type { Request } from 'express';
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
 import { UpdateBlogStatusDto } from './dto/update-blog-post-status.dto';
@@ -10,7 +13,10 @@ import { BlogPostType } from './enums/blog-post-type.enum';
 @ApiTags('Blog Posts')
 @Controller('blog-posts')
 export class BlogPostsController {
-  constructor(private readonly blogPostsService: BlogPostsService) {}
+  constructor(
+    private readonly blogPostsService: BlogPostsService,
+    private readonly viewedHistoryService: ViewedHistoryService,
+  ) {}
 
   // ========== REPOST ENDPOINTS ==========
   @Post('repost')
@@ -59,8 +65,19 @@ export class BlogPostsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.blogPostsService.findOne(+id);
+  @UseGuards(OptionalJwtAuthGuard)
+  async findOne(@Param('id') id: string, @Req() req: Request) {
+    const postId = +id;
+    console.log('[BlogPostsController] findOne', { postId, user: (req.user as any)?.userId });
+    // If user is present, record viewed history (fire-and-forget)
+    const userAny = req.user as any;
+    if (userAny?.userId) {
+      this.viewedHistoryService
+        .recordView(Number(userAny.userId), postId)
+        .catch((err) => console.error('ViewedHistory.recordView error', err));
+    }
+
+    return this.blogPostsService.findOne(postId);
   }
 
   @Patch(':id')

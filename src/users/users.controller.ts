@@ -14,6 +14,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -71,10 +72,9 @@ export class UsersController {
    * TODO: Thêm @UseGuards(JwtAuthGuard) khi có auth
    */
   @Get('me/profile')
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async getMyProfile(@Request() req: any) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.getProfile(userId, userId);
   }
 
@@ -84,10 +84,9 @@ export class UsersController {
    * TODO: Thêm @UseGuards(JwtAuthGuard) khi có auth
    */
   @Patch('me/profile')
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async updateMyProfile(@Request() req: any, @Body() updateProfileDto: UpdateProfileDto) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.updateProfile(userId, updateProfileDto);
   }
 
@@ -98,10 +97,9 @@ export class UsersController {
    */
   @Post('me/change-password')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async changePassword(@Request() req: any, @Body() changePasswordDto: ChangePasswordDto) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.changePassword(userId, changePasswordDto);
   }
 
@@ -112,10 +110,9 @@ export class UsersController {
    */
   @Post('me/change-email')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async requestChangeEmail(@Request() req: any, @Body() requestDto: RequestChangeEmailDto) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.requestChangeEmail(userId, requestDto);
   }
 
@@ -126,10 +123,9 @@ export class UsersController {
    */
   @Post('me/verify-email')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async verifyEmail(@Request() req: any, @Body() verifyDto: VerifyEmailDto) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.verifyAndChangeEmail(userId, verifyDto);
   }
 
@@ -139,10 +135,9 @@ export class UsersController {
    * TODO: Thêm @UseGuards(JwtAuthGuard) khi có auth
    */
   @Patch('me/privacy')
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async togglePrivacy(@Request() req: any) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.togglePrivacy(userId);
   }
 
@@ -153,10 +148,9 @@ export class UsersController {
    */
   @Post(':id/block')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async blockUser(@Request() req: any, @Param('id', ParseIntPipe) targetUserId: number) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.blockUser(userId, targetUserId);
   }
 
@@ -167,10 +161,9 @@ export class UsersController {
    */
   @Delete(':id/block')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async unblockUser(@Request() req: any, @Param('id', ParseIntPipe) targetUserId: number) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.unblockUser(userId, targetUserId);
   }
 
@@ -180,10 +173,9 @@ export class UsersController {
    * TODO: Thêm @UseGuards(JwtAuthGuard) khi có auth
    */
   @Get('me/blocked')
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async getBlockedUsers(@Request() req: any) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.getBlockedUsers(userId);
   }
 
@@ -194,10 +186,9 @@ export class UsersController {
    */
   @Delete('me/account')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async deleteAccount(@Request() req: any) {
-    // TODO: Lấy userId từ req.user.id khi có JWT guard
-    const userId = 1; // Mock userId
+    const userId = req.user.userId;
     return this.usersService.deleteAccount(userId);
   }
 }
