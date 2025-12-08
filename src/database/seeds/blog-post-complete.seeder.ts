@@ -74,12 +74,7 @@ export class BlogPostSeeder extends Seeder {
           await this.addBlocksToPost(savedPost, blockRepository, useVietnamese);
 
           // Add comments
-          await this.addCommentsToPost(
-            savedPost,
-            users,
-            commentRepository,
-            useVietnamese,
-          );
+          await this.addCommentsToPost(savedPost, users, commentRepository, useVietnamese);
 
           // Add reactions
           if (allEmojis.length > 0) {
@@ -116,12 +111,7 @@ export class BlogPostSeeder extends Seeder {
             await this.addBlocksToPost(savedPost, blockRepository, useVietnamese);
             // Extract users from members for comments
             const memberUsers = members.map((m) => m.user);
-            await this.addCommentsToPost(
-              savedPost,
-              memberUsers,
-              commentRepository,
-              useVietnamese,
-            );
+            await this.addCommentsToPost(savedPost, memberUsers, commentRepository, useVietnamese);
 
             // Use community emojis for reactions
             const communityEmojis = community.emojis?.length > 0 ? community.emojis : allEmojis;
@@ -159,12 +149,7 @@ export class BlogPostSeeder extends Seeder {
             await this.addBlocksToPost(savedRepost, blockRepository, useVietnamese, 2);
 
             // Add comments
-            await this.addCommentsToPost(
-              savedRepost,
-              users,
-              commentRepository,
-              useVietnamese,
-            );
+            await this.addCommentsToPost(savedRepost, users, commentRepository, useVietnamese);
 
             if (allEmojis.length > 0) {
               await this.addReactionsToPost(savedRepost, users, allEmojis, postReactRepository);
