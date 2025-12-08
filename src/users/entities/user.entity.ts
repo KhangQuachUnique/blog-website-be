@@ -48,6 +48,9 @@ export class User {
   isPrivate: boolean;
 
   @Column({ type: 'boolean', default: false })
+  isBanned: boolean;
+
+  @Column({ type: 'boolean', default: false })
   showEmail: boolean; // Kiểm soát hiển thị email công khai
 
   @Column({ type: 'boolean', default: false })
