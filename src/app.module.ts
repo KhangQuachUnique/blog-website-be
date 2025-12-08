@@ -20,6 +20,7 @@ import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadFileModule } from './files/upload-file.module';
 import { SearchModule } from './search/search.module';
+import { UserVotesModule } from './user-votes/user-votes.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SearchModule } from './search/search.module';
       url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      // AI không được tự mở synchronize
       // synchronize: true,
     }),
     ConfigModule.forRoot({
@@ -50,6 +52,7 @@ import { SearchModule } from './search/search.module';
     NewsfeedModule,
     UploadFileModule,
     SearchModule,
+    UserVotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

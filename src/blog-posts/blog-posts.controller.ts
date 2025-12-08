@@ -1,16 +1,50 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { BlogPostsService } from './blog-posts.service';
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
 import { UpdateBlogStatusDto } from './dto/update-blog-post-status.dto';
 import { PostResponseDto } from './dto/response/blog-post-response.dto';
+import { BlogPostType } from './enums/blog-post-type.enum';
 
 @ApiTags('Blog Posts')
 @Controller('blog-posts')
 export class BlogPostsController {
   constructor(private readonly blogPostsService: BlogPostsService) {}
 
+  // ========== REPOST ENDPOINTS ==========
+  @Post('repost')
+  @ApiOperation({ summary: 'Repost bài viết' })
+  @ApiResponse({ status: 201, description: 'Repost thành công' })
+  async repost(@Body() dto: CreateBlogPostDto) {
+    dto.type = BlogPostType.REPOST;
+    return this.blogPostsService.create(dto);
+  }
+
+  @Get('repost/check')
+  @ApiOperation({ summary: 'Kiểm tra đã repost chưa' })
+  @ApiQuery({ name: 'userId', type: Number })
+  @ApiQuery({ name: 'originalPostId', type: Number })
+  async checkReposted(
+    @Query('userId') userId: number,
+    @Query('originalPostId') originalPostId: number,
+  ) {
+    const reposted = await this.blogPostsService.checkReposted(+userId, +originalPostId);
+    return { reposted };
+  }
+
+  @Delete('repost')
+  @ApiOperation({ summary: 'Xóa repost' })
+  @ApiQuery({ name: 'userId', type: Number })
+  @ApiQuery({ name: 'originalPostId', type: Number })
+  async removeRepost(
+    @Query('userId') userId: number,
+    @Query('originalPostId') originalPostId: number,
+  ) {
+    return this.blogPostsService.removeRepost(+userId, +originalPostId);
+  }
+
+  // ========== CRUD ENDPOINTS ==========
   @Post()
   @ApiOperation({ summary: 'Tạo bài viết mới' })
   @ApiResponse({ status: 201, description: 'Tạo bài viết thành công' })
