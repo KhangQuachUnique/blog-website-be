@@ -8,15 +8,23 @@ export class CommunityMember {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Community, (community) => community.members)
+  @ManyToOne(() => Community, (community) => community.members, {
+    onDelete: 'CASCADE',
+  })
   community: Community;
 
-  @ManyToOne(() => User, (user) => user.communitiesMemberOf)
+  @ManyToOne(() => User, (user) => user.communitiesMemberOf, {
+    onDelete: 'CASCADE',
+  })
   user: User;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinedAt: Date;
 
-  @Column({ type: 'enum', enum: ECommunityRole, default: ECommunityRole.MEMBER })
+  @Column({
+    type: 'enum',
+    enum: ECommunityRole,
+    default: ECommunityRole.MEMBER,
+  })
   role: ECommunityRole;
 }

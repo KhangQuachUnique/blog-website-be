@@ -1,8 +1,106 @@
 import { Notification } from '../../notifications/entities/notification.entity';
 import { NotificationTemplate } from '../../notifications/entities/notification-template.entity';
+import { ENotificationType } from '../../notifications/enums/notification.enum';
 import { User } from '../../users/entities/user.entity';
+import { Comment } from '../../comments/entities/comment.entity';
+import { UserReact } from '../../user-reacts/entities/user-react.entity';
+import { UserVote } from '../../user-votes/entities/user-vote.entity';
 
 export class NotificationFactory {
+  /**
+   * Create notification from a vote action
+   */
+  static createFromVote(vote: UserVote, template: NotificationTemplate): Notification | null {
+    if (!vote.post?.author || vote.user.id === vote.post.author.id) return null;
+
+    const notification = new Notification();
+    notification.type = ENotificationType.USER_VOTED_POST;
+    notification.sender = vote.user;
+    notification.receiver = vote.post.author;
+    notification.template = template;
+    notification.params = { postId: vote.post.id };
+    notification.isRead = Math.random() > 0.7; // 30% read
+    return notification;
+  }
+
+  /**
+   * Create notification from a comment action
+   */
+  static createFromComment(comment: Comment, template: NotificationTemplate): Notification | null {
+    if (!comment.post?.author || comment.commenter.id === comment.post.author.id) return null;
+
+    const notification = new Notification();
+    notification.type = ENotificationType.USER_COMMENTED_POST;
+    notification.sender = comment.commenter;
+    notification.receiver = comment.post.author;
+    notification.template = template;
+    notification.params = { postId: comment.post.id, commentId: comment.id };
+    notification.isRead = Math.random() > 0.7;
+    return notification;
+  }
+
+  /**
+   * Create notification from a reaction action
+   */
+  static createFromReaction(
+    reaction: UserReact,
+    template: NotificationTemplate,
+  ): Notification | null {
+    if (!reaction.post?.author || reaction.user.id === reaction.post.author.id) return null;
+
+    const notification = new Notification();
+    notification.type = ENotificationType.USER_REACTED_POST;
+    notification.sender = reaction.user;
+    notification.receiver = reaction.post.author;
+    notification.template = template;
+    notification.params = { postId: reaction.post.id, emojiId: reaction.emoji?.id || '1' };
+    notification.isRead = Math.random() > 0.7;
+    return notification;
+  }
+
+  /**
+   * Create notification when user likes a comment
+   */
+  static createFromCommentReaction(
+    reaction: UserReact,
+    template: NotificationTemplate,
+  ): Notification | null {
+    if (!reaction.comment?.commenter || reaction.user.id === reaction.comment.commenter.id)
+      return null;
+
+    const notification = new Notification();
+    notification.type = ENotificationType.USER_LIKED_COMMENT;
+    notification.sender = reaction.user;
+    notification.receiver = reaction.comment.commenter;
+    notification.template = template;
+    notification.params = { commentId: reaction.comment.id };
+    notification.isRead = Math.random() > 0.7;
+    return notification;
+  }
+
+  /**
+   * Create notification when user replies to a comment
+   */
+  static createFromCommentReply(
+    replyComment: Comment,
+    template: NotificationTemplate,
+  ): Notification | null {
+    if (!replyComment.parentComment?.commenter || !replyComment.commenter) return null;
+    if (replyComment.commenter.id === replyComment.parentComment.commenter.id) return null;
+
+    const notification = new Notification();
+    notification.type = ENotificationType.USER_REPLIED_COMMENT;
+    notification.sender = replyComment.commenter;
+    notification.receiver = replyComment.parentComment.commenter;
+    notification.template = template;
+    notification.params = { commentId: replyComment.id };
+    notification.isRead = Math.random() > 0.7;
+    return notification;
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
   static create(
     sender: User,
     receiver: User,
@@ -10,109 +108,73 @@ export class NotificationFactory {
     override: Partial<Notification> = {},
   ): Notification {
     const notification = new Notification();
-
     notification.sender = sender;
     notification.receiver = receiver;
     notification.template = template;
+    notification.type = template.type;
+    notification.params = override.params || {};
     notification.isRead = override.isRead !== undefined ? override.isRead : false;
-
     return notification;
-  }
-
-  static createBatch(
-    senders: User[],
-    receivers: User[],
-    templates: NotificationTemplate[],
-    count: number,
-  ): Notification[] {
-    const notifications: Notification[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const sender = senders[Math.floor(Math.random() * senders.length)];
-      const receiver = receivers[Math.floor(Math.random() * receivers.length)];
-      const template = templates[Math.floor(Math.random() * templates.length)];
-
-      // Don't send notification to self
-      if (sender.id === receiver.id) continue;
-
-      // 70% unread, 30% read
-      const isRead = Math.random() > 0.7;
-
-      notifications.push(this.create(sender, receiver, template, { isRead }));
-    }
-
-    return notifications;
-  }
-
-  static createForReceiver(
-    senders: User[],
-    receiver: User,
-    templates: NotificationTemplate[],
-    count: number,
-  ): Notification[] {
-    const notifications: Notification[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const sender = senders[Math.floor(Math.random() * senders.length)];
-      const template = templates[Math.floor(Math.random() * templates.length)];
-
-      // Don't send notification to self
-      if (sender.id === receiver.id) continue;
-
-      // Recent notifications are mostly unread
-      const isRead = Math.random() > 0.8;
-
-      notifications.push(this.create(sender, receiver, template, { isRead }));
-    }
-
-    return notifications;
   }
 }
 
 export class NotificationTemplateFactory {
-  static readonly TEMPLATES_VI = [
-    { title: 'Bình luận mới', message: '{sender} đã bình luận vào bài viết của bạn' },
-    { title: 'Thích bài viết', message: '{sender} đã thích bài viết của bạn' },
-    { title: 'Theo dõi', message: '{sender} đã theo dõi bạn' },
-    { title: 'Nhắc đến', message: '{sender} đã nhắc đến bạn trong một bình luận' },
-    { title: 'Chia sẻ', message: '{sender} đã chia sẻ bài viết của bạn' },
-    { title: 'Trả lời', message: '{sender} đã trả lời bình luận của bạn' },
-    { title: 'Tham gia cộng đồng', message: '{sender} đã tham gia cộng đồng của bạn' },
-    { title: 'Mời vào cộng đồng', message: '{sender} đã mời bạn tham gia cộng đồng' },
-    { title: 'Bài viết mới', message: 'Có bài viết mới từ {sender}' },
-    { title: 'Phản ứng', message: '{sender} đã phản ứng với bài viết của bạn' },
-  ];
-
-  static readonly TEMPLATES_EN = [
-    { title: 'New Comment', message: '{sender} commented on your post' },
-    { title: 'Post Like', message: '{sender} liked your post' },
-    { title: 'New Follower', message: '{sender} started following you' },
-    { title: 'Mention', message: '{sender} mentioned you in a comment' },
-    { title: 'Share', message: '{sender} shared your post' },
-    { title: 'Reply', message: '{sender} replied to your comment' },
-    { title: 'Community Join', message: '{sender} joined your community' },
-    { title: 'Community Invite', message: '{sender} invited you to join a community' },
-    { title: 'New Post', message: 'New post from {sender}' },
-    { title: 'Reaction', message: '{sender} reacted to your post' },
-  ];
-
-  static createTemplate(title: string, message: string): NotificationTemplate {
-    const template = new NotificationTemplate();
-    template.title = title;
-    template.message = message;
-    return template;
-  }
-
-  static createAllTemplates(useVietnamese = true): NotificationTemplate[] {
-    const templates = useVietnamese ? this.TEMPLATES_VI : this.TEMPLATES_EN;
-    return templates.map((t) => this.createTemplate(t.title, t.message));
-  }
-
-  static createMixedTemplates(): NotificationTemplate[] {
-    // Mix both languages
+  static createAllTemplates(): NotificationTemplate[] {
     return [
-      ...this.TEMPLATES_VI.map((t) => this.createTemplate(t.title, t.message)),
-      ...this.TEMPLATES_EN.map((t) => this.createTemplate(t.title, t.message)),
-    ];
+      // USER_VOTED_POST
+      {
+        type: ENotificationType.USER_VOTED_POST,
+        title: 'Bình chọn mới',
+        message: 'đã bình chọn bài viết của bạn',
+      },
+      // USER_COMMENTED_POST
+      {
+        type: ENotificationType.USER_COMMENTED_POST,
+        title: 'Bình luận mới',
+        message: 'đã bình luận vào bài viết của bạn',
+      },
+      // USER_REACTED_POST
+      {
+        type: ENotificationType.USER_REACTED_POST,
+        title: 'Phản ứng mới',
+        message: 'đã phản ứng với bài viết của bạn',
+      },
+      // USER_SHARED_POST
+      {
+        type: ENotificationType.USER_SHARED_POST,
+        title: 'Chia sẻ bài viết',
+        message: 'đã chia sẻ bài viết của bạn',
+      },
+      // USER_LIKED_COMMENT
+      {
+        type: ENotificationType.USER_LIKED_COMMENT,
+        title: 'Thích bình luận',
+        message: 'đã thích bình luận của bạn',
+      },
+      // USER_REPLIED_COMMENT
+      {
+        type: ENotificationType.USER_REPLIED_COMMENT,
+        title: 'Trả lời bình luận',
+        message: 'đã trả lời bình luận của bạn',
+      },
+      // USER_FOLLOWED_USER
+      {
+        type: ENotificationType.USER_FOLLOWED_USER,
+        title: 'Người theo dõi mới',
+        message: 'đã bắt đầu theo dõi bạn',
+      },
+      // CUSTOM
+      {
+        type: ENotificationType.CUSTOM,
+        title: 'Thông báo',
+        message: 'Bạn có một thông báo mới',
+      },
+    ].map((t) => {
+      const template = new NotificationTemplate();
+      template.type = t.type;
+      template.title = t.title;
+      template.message = t.message;
+      return template;
+    });
   }
 }
