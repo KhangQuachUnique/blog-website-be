@@ -7,6 +7,7 @@ import { CommunityMember } from 'src/communities/entities/community-member.entit
 import { SavedPostList } from 'src/saved-post-list/entities/saved-post-list.entity';
 import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
+import { Community } from 'src/communities/entities/community.entity';
 
 @Entity('users')
 export class User {
@@ -45,6 +46,12 @@ export class User {
 
   @Column({ type: 'boolean', default: false })
   isPrivate: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  showEmail: boolean; // Kiểm soát hiển thị email công khai
+
+  @Column({ type: 'boolean', default: false })
+  showPhoneNumber: boolean; // Kiểm soát hiển thị số điện thoại công khai
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   joinAt: Date;
@@ -102,4 +109,7 @@ export class User {
 
   @OneToMany(() => BlogPost, (post) => post.author)
   posts: BlogPost[];
+
+  @ManyToMany(() => Community, (community) => community.bannedUsers)
+  bannedCommunities: Community[];
 }

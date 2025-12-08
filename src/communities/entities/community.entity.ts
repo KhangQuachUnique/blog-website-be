@@ -1,6 +1,7 @@
 import { Emoji } from 'src/emojis/entities/emoji.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { CommunityMember } from './community-member.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity()
 export class Community {
@@ -34,4 +35,12 @@ export class Community {
 
   @OneToMany(() => Emoji, (emoji) => emoji.community, { cascade: true })
   emojis: Emoji[];
+
+  @ManyToMany(() => User, (user) => user.bannedCommunities)
+  @JoinTable({
+    name: 'community_banned_users',
+    joinColumn: { name: 'communityId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' },
+  })
+  bannedUsers: User[];
 }
