@@ -6,7 +6,12 @@ import {
   NotificationFactory,
   NotificationTemplateFactory,
 } from '../factories/notification.factory';
-import { User } from '../../users/entities/user.entity';
+import { UserVote } from '../../user-votes/entities/user-vote.entity';
+import { Comment } from '../../comments/entities/comment.entity';
+import { ChildComment } from '../../comments/entities/child-comment.entity';
+import { UserReact } from '../../user-reacts/entities/user-react.entity';
+import { ENotificationType } from '../../notifications/enums/notification.enum';
+import { EReactTargetType } from '../../user-reacts/enums/react-target-type.enum';
 
 export class NotificationSeeder extends Seeder {
   constructor(dataSource: DataSource) {
@@ -18,48 +23,139 @@ export class NotificationSeeder extends Seeder {
 
     const notificationTemplateRepository = this.dataSource.getRepository(NotificationTemplate);
     const notificationRepository = this.dataSource.getRepository(Notification);
-    const userRepository = this.dataSource.getRepository(User);
 
     try {
-      // 1. Create notification templates (both Vi and En)
+      // 1. Create notification templates for all types
       console.log('  📝 Creating notification templates...');
-      const templates = NotificationTemplateFactory.createMixedTemplates();
+      const templates = NotificationTemplateFactory.createAllTemplates();
       const savedTemplates = await notificationTemplateRepository.save(templates);
       this.success(`Created ${savedTemplates.length} notification templates`);
 
-      // 2. Get users
-      const users = await userRepository.find();
+      // Create a map for quick template lookup
+      const templateMap = new Map<ENotificationType, NotificationTemplate>();
+      savedTemplates.forEach((t) => templateMap.set(t.type, t));
 
-      if (users.length === 0) {
-        this.error('No users found. Please run UserSeeder first.');
-        return;
-      }
-
-      // 3. Create notifications for users
-      console.log('  🔔 Creating notifications...');
+      // 2. Generate notifications from actual user actions
+      console.log('  🔔 Creating notifications from user actions...');
       const notifications: Notification[] = [];
 
-      // Each user receives 5-20 notifications
-      for (const user of users) {
-        const notificationCount = Math.floor(Math.random() * 16) + 5;
-        const userNotifications = NotificationFactory.createForReceiver(
-          users,
-          user,
-          savedTemplates,
-          notificationCount,
-        );
-        notifications.push(...userNotifications);
+      // 2a. Notifications from votes
+      const voteRepository = this.dataSource.getRepository(UserVote);
+      const votes = await voteRepository.find({
+        relations: ['user', 'post', 'post.author'],
+        take: 200, // Limit to avoid too many notifications
+      });
+
+      const voteTemplate = templateMap.get(ENotificationType.USER_VOTED_POST);
+      for (const vote of votes) {
+        if (voteTemplate) {
+          const notification = NotificationFactory.createFromVote(vote, voteTemplate);
+          if (notification) notifications.push(notification);
+        }
+      }
+      this.log(`Generated ${notifications.length} vote notifications`);
+
+      // 2b. Notifications from post comments
+      const commentRepository = this.dataSource.getRepository(Comment);
+      const comments = await commentRepository.find({
+        relations: ['commenter', 'post', 'post.author'],
+        take: 200,
+      });
+
+      const commentTemplate = templateMap.get(ENotificationType.USER_COMMENTED_POST);
+      let commentNotifCount = 0;
+      for (const comment of comments) {
+        if (commentTemplate) {
+          const notification = NotificationFactory.createFromComment(comment, commentTemplate);
+          if (notification) {
+            notifications.push(notification);
+            commentNotifCount++;
+          }
+        }
+      }
+      this.log(`Generated ${commentNotifCount} comment notifications`);
+
+      // 2c. Notifications from post reactions
+      const reactRepository = this.dataSource.getRepository(UserReact);
+      const postReacts = await reactRepository.find({
+        where: { type: EReactTargetType.POST },
+        relations: ['user', 'emoji', 'post', 'post.author'],
+        take: 200,
+      });
+
+      const reactTemplate = templateMap.get(ENotificationType.USER_REACTED_POST);
+      let reactNotifCount = 0;
+      for (const react of postReacts) {
+        if (reactTemplate) {
+          const notification = NotificationFactory.createFromReaction(react, reactTemplate);
+          if (notification) {
+            notifications.push(notification);
+            reactNotifCount++;
+          }
+        }
+      }
+      this.log(`Generated ${reactNotifCount} reaction notifications`);
+
+      // 2d. Notifications from comment reactions
+      const commentReacts = await reactRepository.find({
+        where: { type: EReactTargetType.COMMENT },
+        relations: ['user', 'emoji', 'comment', 'comment.commenter'],
+        take: 100,
+      });
+
+      const commentReactTemplate = templateMap.get(ENotificationType.USER_LIKED_COMMENT);
+      let commentReactNotifCount = 0;
+      for (const react of commentReacts) {
+        if (commentReactTemplate) {
+          const notification = NotificationFactory.createFromCommentReaction(
+            react,
+            commentReactTemplate,
+          );
+          if (notification) {
+            notifications.push(notification);
+            commentReactNotifCount++;
+          }
+        }
+      }
+      this.log(`Generated ${commentReactNotifCount} comment reaction notifications`);
+
+      // 2e. Notifications from comment replies
+      const childCommentRepository = this.dataSource.getRepository(ChildComment);
+      const childComments = await childCommentRepository.find({
+        relations: ['commentUser', 'parentComment', 'parentComment.commenter'],
+        take: 100,
+      });
+
+      const replyTemplate = templateMap.get(ENotificationType.USER_REPLIED_COMMENT);
+      let replyNotifCount = 0;
+      for (const childComment of childComments) {
+        if (replyTemplate) {
+          const notification = NotificationFactory.createFromCommentReply(
+            childComment,
+            replyTemplate,
+          );
+          if (notification) {
+            notifications.push(notification);
+            replyNotifCount++;
+          }
+        }
+      }
+      this.log(`Generated ${replyNotifCount} reply notifications`);
+
+      // 3. Save all notifications
+      if (notifications.length > 0) {
+        await notificationRepository.save(notifications);
+        this.success(`Created ${notifications.length} notifications total`);
+
+        // Statistics
+        const unreadCount = notifications.filter((n) => !n.isRead).length;
+        const readCount = notifications.filter((n) => n.isRead).length;
+        console.log(`  📊 Unread: ${unreadCount}, Read: ${readCount}`);
+      } else {
+        this.log('No notifications generated (no actions found)');
       }
 
-      await notificationRepository.save(notifications);
-      this.success(`Created ${notifications.length} notifications for ${users.length} users`);
-
-      // Statistics
-      const unreadCount = notifications.filter((n) => !n.isRead).length;
-      const readCount = notifications.filter((n) => n.isRead).length;
-      console.log(`  📊 Unread: ${unreadCount}, Read: ${readCount}`);
-
-      this.success('✓ Notifications seeded successfully');
+      this.success('Notifications seeded successfully');
     } catch (error) {
       this.error('Failed to seed notifications', error);
       throw error;
