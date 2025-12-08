@@ -22,14 +22,34 @@ export class ViewedHistoryService {
    * Dùng upsert để tránh duplicate
    */
   async recordView(userId: number, postId: number): Promise<void> {
-    await this.viewedRepo.upsert(
-      {
+    // Log for debugging to help trace why rows may not appear
+    console.log('[ViewedHistory] recordView called', { userId, postId });
+
+    try {
+      // Try to find an existing record for (user, post). If exists, update timestamp; otherwise create.
+      const existing = await this.viewedRepo.findOne({
+        where: { user: { id: userId }, post: { id: postId } },
+        relations: ['user', 'post'],
+      });
+
+      if (existing) {
+        existing.createdAt = new Date();
+        await this.viewedRepo.save(existing);
+        console.log('[ViewedHistory] updated existing view', { id: existing.id });
+        return;
+      }
+
+      const vh = this.viewedRepo.create({
         user: { id: userId } as User,
         post: { id: postId } as BlogPost,
-      },
-      ['user', 'post'], // conflict columns
-    );
-  ;
+      });
+
+      const saved = await this.viewedRepo.save(vh);
+      console.log('[ViewedHistory] inserted view', { id: saved.id });
+    } catch (err) {
+      console.error('[ViewedHistory] recordView error', err);
+      throw err;
+    }
   }
 
   /**
@@ -74,6 +94,25 @@ export class ViewedHistoryService {
 
     const result = await qb.getRawMany();
     return result.map((r) => Number(r.postId));
+  }
+
+  /**
+   * Debug helper: return recent viewed_history rows (id, userId, postId, createdAt)
+   */
+  async getRecentViews(limit = 50): Promise<{ id: number; userId: number; postId: number; createdAt: Date }[]> {
+    const result = await this.viewedRepo
+      .createQueryBuilder('vh')
+      .leftJoin('vh.user', 'user')
+      .leftJoin('vh.post', 'post')
+      .select('vh.id', 'id')
+      .addSelect('vh."createdAt"', 'createdAt')
+      .addSelect('user.id', 'userId')
+      .addSelect('post.id', 'postId')
+      .orderBy('vh."createdAt"', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return result.map((r) => ({ id: Number(r.id), userId: Number(r.userId), postId: Number(r.postId), createdAt: new Date(r.createdAt) }));
   }
 
   /**
