@@ -17,35 +17,38 @@ export class User {
   @Column({ unique: true })
   username: string;
 
-  @Column({ nullable: true, unique: true })
-  googleId: string;
+  @Column({ type: 'varchar', nullable: true, unique: true })
+  googleId: string | null;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ unique: true })
   email: string;
 
   @Column()
   password: string;
 
-  @Column({ nullable: true })
-  phoneNumber: string;
+  @Column({ type: 'varchar', nullable: true })
+  phoneNumber: string | null;
 
   @Column({ type: 'text', nullable: true })
-  bio: string;
+  bio: string | null;
 
-  @Column({ nullable: true })
-  avatarUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  avatarUrl: string | null;
 
   @Column({ type: 'date', nullable: true })
   dob: Date | null;
 
   @Column({ type: 'enum', enum: EGender, nullable: true })
-  gender: EGender;
+  gender: EGender | null;
 
   @Column({ type: 'enum', enum: EUserRole })
   type: EUserRole;
 
   @Column({ type: 'boolean', default: false })
   isPrivate: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  isBanned: boolean;
 
   @Column({ type: 'boolean', default: false })
   showEmail: boolean; // Kiểm soát hiển thị email công khai
