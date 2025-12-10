@@ -35,8 +35,9 @@ export class CommunitiesController {
   }
 
   @Get(':id/settings')
-  getSettings(@Param('id', ParseIntPipe) id: number): Promise<CommunitySettingResponseDto> {
-    return this.communitiesService.getSettings(id);
+  getSettings(@Param('id', ParseIntPipe) id: number) {
+    const fakeUserId = 53; // login user
+    return this.communitiesService.getSettings(id, fakeUserId);
   }
 
   @Get(':id')

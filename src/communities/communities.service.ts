@@ -53,9 +53,24 @@ export class CommunitiesService {
     return this.communityRepository.find();
   }
 
-  async getSettings(id: number): Promise<CommunitySettingResponseDto> {
-    const settings = await this.communityRepository.findOne({ where: { id } });
-    return plainToInstance(CommunitySettingResponseDto, settings);
+  async getSettings(id: number, userId: number): Promise<any> {
+    const community = await this.communityRepository.findOne({
+      where: { id },
+    });
+
+    if (!community) throw new NotFoundException("Community not found");
+
+    // lấy role của user trong community
+    const member = await this.memberRepository.findOne({
+      where: { community: { id }, user: { id: userId } },
+    });
+
+    const role = member?.role ?? "PENDING";  // nếu chưa tham gia → PENDING
+
+    return {
+      ...community,
+      role,
+    };
   }
 
   findOne(id: number) {
