@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { BlockResponseDto } from 'src/blocks/dto/response/block-response.dto';
+import { type GetVotesInterface } from 'src/blog-posts/blog-post.interface';
 import { EBlogPostStatus } from 'src/blog-posts/enums/blog-post-status.enum';
 import { BlogPostType } from 'src/blog-posts/enums/blog-post-type.enum';
 import { HashtagResponseDto } from 'src/hashtags/dto/response/hashtag-response.dto';
@@ -73,6 +74,13 @@ export class PostResponseDto {
   @Expose()
   @ApiProperty({ type: [HashtagResponseDto] })
   hashtags: HashtagResponseDto[];
+
+  @Expose()
+  @ApiProperty({
+    description:
+      'Votes information { upvotes: number; downvotes: number; userVoted: EVoteType | null }',
+  })
+  votes: GetVotesInterface;
 
   @Expose()
   @ApiProperty({ example: '2024-01-01T12:00:00Z' })

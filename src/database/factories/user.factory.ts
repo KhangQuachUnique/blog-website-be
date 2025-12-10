@@ -16,6 +16,8 @@ export class UserFactory {
     user.phoneNumber = override.phoneNumber || faker.phone.number();
     user.bio = override.bio || faker.lorem.paragraph();
     user.avatarUrl = override.avatarUrl || faker.image.avatar();
+    user.coverImageUrl =
+      override.coverImageUrl || faker.image.urlLoremFlickr({ category: 'nature' });
     user.dob = override.dob || faker.date.birthdate({ min: 18, max: 65, mode: 'age' });
     user.gender = override.gender || faker.helpers.enumValue(EGender);
     user.type = override.type || EUserRole.USER;
@@ -36,6 +38,7 @@ export class UserFactory {
     user.phoneNumber = override.phoneNumber || faker.phone.number();
     user.bio = override.bio || 'System Administrator';
     user.avatarUrl = override.avatarUrl || faker.image.avatar();
+    user.coverImageUrl = override.coverImageUrl || faker.image.urlLoremFlickr({ category: 'city' });
     user.dob = override.dob || faker.date.birthdate({ min: 25, max: 50, mode: 'age' });
     user.gender = override.gender || faker.helpers.enumValue(EGender);
     user.type = override.type || EUserRole.ADMIN;
