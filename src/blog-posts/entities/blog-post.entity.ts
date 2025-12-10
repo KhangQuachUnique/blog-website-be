@@ -15,7 +15,8 @@ import { EBlogPostStatus } from '../enums/blog-post-status.enum';
 import { Comment } from 'src/comments/entities/comment.entity';
 import { User } from 'src/users/entities/user.entity';
 import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
-import { UserVote } from 'src/user-votes/entities/user-vote.entity';
+import { EVoteType, UserVote } from 'src/user-votes/entities/user-vote.entity';
+import { GetVotesInterface } from '../blog-post.interface';
 
 @Entity('blog_posts')
 @TableInheritance({ column: { type: 'varchar', name: 'type' } })
@@ -69,4 +70,19 @@ export abstract class BlogPost {
 
   @OneToMany(() => UserVote, (vote) => vote.post)
   votes: UserVote[];
+
+  getVotes(userId: number): GetVotesInterface {
+    const upvotes = this.votes
+      .filter((vote) => vote.voteType === EVoteType.UPVOTE)
+      .map((vote) => vote.user.id);
+    const downvotes = this.votes
+      .filter((vote) => vote.voteType === EVoteType.DOWNVOTE)
+      .map((vote) => vote.user.id);
+    const userVote = this.votes.find((vote) => vote.user.id === userId)?.voteType || null;
+    return {
+      upvotes,
+      downvotes,
+      userVote,
+    };
+  }
 }
