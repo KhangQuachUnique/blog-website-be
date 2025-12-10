@@ -33,11 +33,10 @@ interface CursorInfo {
 }
 
 /**
- * NewsfeedService (refactored)
- * - Structure and style aligned with BlogPostsService: small private helpers,
- *   clear sequential flow in `getNewsfeed`.
- * - Keeps existing scoring, cursor pagination, hashtag personalization,
- *   viewed-history filtering and DTO mapping.
+ * NewsfeedService with Interleave Ranking Algorithm
+ * - 70% Personalized posts
+ * - 20% Trending posts
+ * - 10% Random community posts
  */
 @Injectable()
 export class NewsfeedService {
@@ -48,12 +47,7 @@ export class NewsfeedService {
   ) {}
 
   /**
-   * Public entry point for newsfeed retrieval. High-level, sequential flow:
-   * 1. validate & parse cursor
-   * 2. compute personalization inputs (hashtags, recent authors/communities)
-   * 3. build SQL and params
-   * 4. fetch raw rows and hashtags
-   * 5. map rows to DTOs and paginate
+   * Main entry point - uses interleave ranking algorithm
    */
   async getNewsfeed(
     dto: GetNewsfeedDto,
@@ -64,61 +58,35 @@ export class NewsfeedService {
     // 1) Parse cursor
     const cursor = this.parseCursor(after);
 
-    // 2) Personalization sources
-    const interestedTags = user?.id ? await this.getInterestedTags(user.id) : [];
-    const { recentAuthors, recentCommunities } =
-      user?.id && cursor.score !== null
-        ? await this.getRecentDiversity(user.id, cursor.id)
-        : { recentAuthors: [], recentCommunities: [] };
+    // 2) Fetch 3 separate lists
+    const [personalizedPosts, trendingPosts, communityPosts] = await Promise.all([
+      this.fetchPersonalizedPosts(user, cursor, limit * 2),
+      this.fetchTrendingPosts(cursor, limit),
+      this.fetchRandomCommunityPosts(user, cursor, limit),
+    ]);
 
-    // 3) Build SQL and parameter list
-    const params: unknown[] = [];
-    const parts = this.buildPersonalizationParts(
-      params,
-      interestedTags,
-      user?.id,
-      recentAuthors,
-      recentCommunities,
-    );
-
-    const cursorWhere = this.buildCursorWhere(cursor, params);
-    params.push(limit + 1);
-
-    const query = this.buildMainQuery(parts, cursorWhere, params.length);
-
-    // 4) Fetch raw posts
-    const rawPosts: RawPostRow[] = await this.postRepo.query(query, params);
-
-    // 5) Fetch hashtags for posts
-    const postIds = rawPosts.map((p) => Number(p.id));
+    // 3) Load hashtags and votes for all posts
+    const allPosts = [...personalizedPosts, ...trendingPosts, ...communityPosts];
+    const postIds = allPosts.map((p) => Number(p.id));
     const hashtagsMap = await this.fetchHashtagsForPosts(postIds);
-
-    // 5.1) Load posts with votes relation to use BlogPost.getVotes()
-    let votesMap: Record<number, { upvotes: number; downvotes: number; userVote: any }> = {};
-    if (postIds.length > 0) {
-      try {
-        const postsWithVotes = await this.postRepo.find({
-          where: { id: In(postIds) },
-          relations: ['votes', 'votes.user'],
-        });
-        for (const postEntity of postsWithVotes) {
-          // pass 0 if no user provided; getVotes expects a userId number
-          const v = postEntity.getVotes(user?.id ?? 0);
-          votesMap[Number(postEntity.id)] = { upvotes: v.upvotes, downvotes: v.downvotes, userVote: v.userVote };
-        }
-      } catch {
-        votesMap = {};
-      }
-    }
-
-    // 6) Get viewed ids (for marking viewed client-side)
+    const votesMap = await this.fetchVotesForPosts(postIds, user?.id);
     const viewedIds = user?.id ? await this.getViewedIds(user.id) : [];
 
-    // 7) Map to DTOs (use votesMap built from BlogPost.getVotes)
-    const items = this.mapRowsToDto(rawPosts, hashtagsMap, viewedIds, votesMap);
+    // 4) Map to DTOs
+    const personalizedItems = this.mapRowsToDto(personalizedPosts, hashtagsMap, viewedIds, votesMap);
+    const trendingItems = this.mapRowsToDto(trendingPosts, hashtagsMap, viewedIds, votesMap);
+    const communityItems = this.mapRowsToDto(communityPosts, hashtagsMap, viewedIds, votesMap);
 
-    // 8) Paginate and return
-    const { paginatedItems, hasMore, nextCursor } = this.paginate(items, limit);
+    // 5) Interleave ranking with 70-20-10 distribution
+    const interleavedItems = this.interleaveRanking(
+      personalizedItems,
+      trendingItems,
+      communityItems,
+      limit + 1, // fetch one extra for pagination
+    );
+
+    // 6) Paginate
+    const { paginatedItems, hasMore, nextCursor } = this.paginate(interleavedItems, limit);
 
     return {
       status: 'success',
@@ -126,9 +94,270 @@ export class NewsfeedService {
     };
   }
 
-  /* ========================= PRIVATE HELPERS ========================= */
+  /* ========================= INTERLEAVE RANKING ========================= */
 
-  // Parse base64 cursor encoded as "<id>|<score>" -> CursorInfo
+  /**
+   * Interleave posts from 3 sources with 70-20-10 distribution
+   * - 70% from personalized
+   * - 20% from trending
+   * - 10% from community
+   * With fallback logic if any source is exhausted
+   */
+  private interleaveRanking(
+    personalized: NewsfeedItemDto[],
+    trending: NewsfeedItemDto[],
+    community: NewsfeedItemDto[],
+    targetCount: number,
+  ): NewsfeedItemDto[] {
+    const result: NewsfeedItemDto[] = [];
+    const seenIds = new Set<number>();
+
+    let pIndex = 0;
+    let tIndex = 0;
+    let cIndex = 0;
+
+    while (result.length < targetCount) {
+      // Check if all sources exhausted
+      if (pIndex >= personalized.length && tIndex >= trending.length && cIndex >= community.length) {
+        break;
+      }
+
+      // Generate random number 0-99
+      const random = Math.floor(Math.random() * 100);
+
+      let selected: NewsfeedItemDto | null = null;
+
+      // Determine which source to pick from based on probability
+      if (random < 70) {
+        // 70% - Personalized
+        selected = this.getNextAvailable(personalized, pIndex, seenIds);
+        if (selected) pIndex++;
+      } else if (random < 90) {
+        // 20% - Trending
+        selected = this.getNextAvailable(trending, tIndex, seenIds);
+        if (selected) tIndex++;
+      } else {
+        // 10% - Community
+        selected = this.getNextAvailable(community, cIndex, seenIds);
+        if (selected) cIndex++;
+      }
+
+      // Fallback logic if selected source is exhausted
+      if (!selected) {
+        // Try personalized first
+        selected = this.getNextAvailable(personalized, pIndex, seenIds);
+        if (selected) {
+          pIndex++;
+        } else {
+          // Try trending
+          selected = this.getNextAvailable(trending, tIndex, seenIds);
+          if (selected) {
+            tIndex++;
+          } else {
+            // Try community as last resort
+            selected = this.getNextAvailable(community, cIndex, seenIds);
+            if (selected) cIndex++;
+          }
+        }
+      }
+
+      // Add to result if we found something
+      if (selected) {
+        result.push(selected);
+        seenIds.add(selected.id);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Get next available post from a list that hasn't been seen yet
+   */
+  private getNextAvailable(
+    list: NewsfeedItemDto[],
+    startIndex: number,
+    seenIds: Set<number>,
+  ): NewsfeedItemDto | null {
+    for (let i = startIndex; i < list.length; i++) {
+      if (!seenIds.has(list[i].id)) {
+        return list[i];
+      }
+    }
+    return null;
+  }
+
+  /* ========================= FETCH METHODS ========================= */
+
+  /**
+   * Fetch personalized posts based on user's interests and follows
+   */
+  private async fetchPersonalizedPosts(
+    user: { id: number; username?: string } | undefined,
+    cursor: CursorInfo,
+    limit: number,
+  ): Promise<RawPostRow[]> {
+    if (!user?.id) return [];
+
+    const interestedTags = await this.getInterestedTags(user.id);
+    const { recentAuthors, recentCommunities } =
+      cursor.score !== null ? await this.getRecentDiversity(user.id, cursor.id) : { recentAuthors: [], recentCommunities: [] };
+
+    const params: unknown[] = [];
+    const parts = this.buildPersonalizationParts(params, interestedTags, user.id, recentAuthors, recentCommunities);
+    const cursorWhere = this.buildCursorWhere(cursor, params);
+    params.push(limit);
+
+    const query = this.buildPersonalizedQuery(parts, cursorWhere, params.length);
+    return await this.postRepo.query(query, params);
+  }
+
+  /**
+   * Fetch trending posts (high engagement in recent time)
+   */
+  private async fetchTrendingPosts(cursor: CursorInfo, limit: number): Promise<RawPostRow[]> {
+    const params: unknown[] = [];
+    const cursorWhere = cursor.score !== null && cursor.id !== null 
+      ? `AND (trend_score < $1 OR (trend_score = $1 AND p.id < $2))` 
+      : '';
+    
+    if (cursor.score !== null && cursor.id !== null) {
+      params.push(cursor.score, cursor.id);
+    }
+    params.push(limit);
+
+    const query = `
+      WITH trending AS (
+        SELECT 
+          p.id,
+          p.title,
+          p.type as post_type,
+          p."thumbnailUrl" as thumbnail_url,
+          p."createdAt" as created_at,
+          p."authorId" as author_id,
+          u.username,
+          u."avatarUrl" as avatar_url,
+          COALESCE(r.reacts, 0)::int as total_reacts,
+          COALESCE(cm.comments, 0)::int as total_comments,
+          COALESCE(v.up_votes, 0)::int as up_votes,
+          COALESCE(v.down_votes, 0)::int as down_votes,
+          COALESCE(views.views, 0)::int as views_count,
+          comm.id as community_id,
+          comm.name as community_name,
+          comm."thumbnailUrl" as community_thumbnail,
+          (
+            20 * LN(1 + GREATEST(0, COALESCE(v.up_votes, 0) - COALESCE(v.down_votes, 0)))
+            + 15 * LN(1 + COALESCE(r.reacts, 0))
+            + 25 * LN(1 + COALESCE(cm.comments, 0))
+            + 30 / (1 + POWER(GREATEST(0.01, (EXTRACT(EPOCH FROM (NOW() - p."createdAt")) / 3600)), 1.2))
+          ) AS trend_score,
+          false as is_viewed,
+          CASE WHEN COALESCE(views.views, 0) > 0 THEN (COALESCE(cm.comments, 0)::float / COALESCE(views.views, 1)) * 100 ELSE 0 END as engagement_rate
+        FROM blog_posts p
+        LEFT JOIN users u ON u.id = p."authorId"
+        LEFT JOIN (SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId") r ON r."postId" = p.id
+        LEFT JOIN (SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId") cm ON cm."postId" = p.id
+        LEFT JOIN (
+          SELECT "postId",
+            SUM(CASE WHEN LOWER("voteType"::text) = 'upvote' THEN 1 ELSE 0 END)::int as up_votes,
+            SUM(CASE WHEN LOWER("voteType"::text) = 'downvote' THEN 1 ELSE 0 END)::int as down_votes
+          FROM user_votes GROUP BY "postId"
+        ) v ON v."postId" = p.id
+        LEFT JOIN (SELECT "postId", COUNT(DISTINCT "userId")::int as views FROM viewed_history GROUP BY "postId") views ON views."postId" = p.id
+        LEFT JOIN community comm ON comm.id = p."communityId"
+        WHERE p."isPublic" = true 
+          AND p.status = 'ACTIVE'
+          AND p."createdAt" <= NOW()
+          AND p."createdAt" > NOW() - INTERVAL '7 days'
+      )
+      SELECT * FROM trending
+      WHERE trend_score > 0
+      ${cursorWhere}
+      ORDER BY trend_score DESC, id DESC
+      LIMIT $${params.length}
+    `;
+
+    return await this.postRepo.query(query, params);
+  }
+
+  /**
+   * Fetch random posts from communities user doesn't frequently interact with
+   */
+  private async fetchRandomCommunityPosts(
+    user: { id: number; username?: string } | undefined,
+    cursor: CursorInfo,
+    limit: number,
+  ): Promise<RawPostRow[]> {
+    const params: unknown[] = [];
+    
+    // Exclude user's top communities if logged in
+    let excludeCommunities = '';
+    if (user?.id) {
+      excludeCommunities = `
+        AND p."communityId" NOT IN (
+          SELECT DISTINCT p2."communityId"
+          FROM blog_posts p2
+          JOIN viewed_history vh ON vh."postId" = p2.id
+          WHERE vh."userId" = $${params.length + 1}
+            AND vh."createdAt" > NOW() - INTERVAL '30 days'
+          GROUP BY p2."communityId"
+          ORDER BY COUNT(*) DESC
+          LIMIT 5
+        )
+      `;
+      params.push(user.id);
+    }
+
+    params.push(limit);
+
+    const query = `
+      SELECT 
+        p.id,
+        p.title,
+        p.type as post_type,
+        p."thumbnailUrl" as thumbnail_url,
+        p."createdAt" as created_at,
+        p."authorId" as author_id,
+        u.username,
+        u."avatarUrl" as avatar_url,
+        COALESCE(r.reacts, 0)::int as total_reacts,
+        COALESCE(cm.comments, 0)::int as total_comments,
+        COALESCE(v.up_votes, 0)::int as up_votes,
+        COALESCE(v.down_votes, 0)::int as down_votes,
+        COALESCE(views.views, 0)::int as views_count,
+        comm.id as community_id,
+        comm.name as community_name,
+        comm."thumbnailUrl" as community_thumbnail,
+        0 as score,
+        false as is_viewed,
+        CASE WHEN COALESCE(views.views, 0) > 0 THEN (COALESCE(cm.comments, 0)::float / COALESCE(views.views, 1)) * 100 ELSE 0 END as engagement_rate
+      FROM blog_posts p
+      LEFT JOIN users u ON u.id = p."authorId"
+      LEFT JOIN (SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId") r ON r."postId" = p.id
+      LEFT JOIN (SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId") cm ON cm."postId" = p.id
+      LEFT JOIN (
+        SELECT "postId",
+          SUM(CASE WHEN LOWER("voteType"::text) = 'upvote' THEN 1 ELSE 0 END)::int as up_votes,
+          SUM(CASE WHEN LOWER("voteType"::text) = 'downvote' THEN 1 ELSE 0 END)::int as down_votes
+        FROM user_votes GROUP BY "postId"
+      ) v ON v."postId" = p.id
+      LEFT JOIN (SELECT "postId", COUNT(DISTINCT "userId")::int as views FROM viewed_history GROUP BY "postId") views ON views."postId" = p.id
+      LEFT JOIN community comm ON comm.id = p."communityId"
+      WHERE p."isPublic" = true 
+        AND p.status = 'ACTIVE'
+        AND p."createdAt" <= NOW()
+        AND p."createdAt" > NOW() - INTERVAL '14 days'
+        AND p."communityId" IS NOT NULL
+        ${excludeCommunities}
+      ORDER BY RANDOM()
+      LIMIT $${params.length}
+    `;
+
+    return await this.postRepo.query(query, params);
+  }
+
+  /* ========================= HELPER METHODS ========================= */
+
   private parseCursor(after?: string | null): CursorInfo {
     if (!after) return { id: null, score: null };
     try {
@@ -139,7 +368,6 @@ export class NewsfeedService {
     }
   }
 
-  // Get user's top hashtags for personalization
   private async getInterestedTags(userId: number): Promise<string[]> {
     try {
       const top = await this.viewedHistoryService.getTopHashtags(userId, 25, 14);
@@ -149,7 +377,6 @@ export class NewsfeedService {
     }
   }
 
-  // Get recent authors and communities for simple diversity heuristics
   private async getRecentDiversity(userId: number, cursorId: number | null) {
     const recentAuthors: number[] = [];
     const recentCommunities: number[] = [];
@@ -168,10 +395,6 @@ export class NewsfeedService {
     return { recentAuthors, recentCommunities };
   }
 
-  /**
-   * Build personalization SQL snippets and append needed parameters.
-   * Returns textual SQL pieces to be injected into main query and the mutated params array.
-   */
   private buildPersonalizationParts(
     params: unknown[],
     interestedTags: string[],
@@ -179,7 +402,6 @@ export class NewsfeedService {
     recentAuthors: number[] = [],
     recentCommunities: number[] = [],
   ) {
-    // Tag bonus
     let tagBonus = '0';
     if (interestedTags.length > 0) {
       tagBonus = `
@@ -197,7 +419,6 @@ export class NewsfeedService {
       params.push(interestedTags);
     }
 
-    // Follow bonus
     let followBonus = '0';
     if (userId) {
       followBonus = `
@@ -211,7 +432,6 @@ export class NewsfeedService {
       params.push(userId);
     }
 
-    // Viewed penalty and is_viewed check
     let viewedPenalty = '0';
     let isViewedCheck = 'false';
     if (userId) {
@@ -227,8 +447,7 @@ export class NewsfeedService {
       `;
       params.push(userId);
 
-      // reuse the same param index for existence check
-      const userParamIndex = params.length; // 1-based index in $n
+      const userParamIndex = params.length;
       isViewedCheck = `EXISTS(
         SELECT 1 FROM viewed_history vh 
         WHERE vh."userId" = $${userParamIndex}
@@ -236,7 +455,6 @@ export class NewsfeedService {
       )`;
     }
 
-    // Diversity penalty
     let diversityPenalty = '0';
     if (recentAuthors.length > 0 || recentCommunities.length > 0) {
       const conditions: string[] = [];
@@ -254,8 +472,7 @@ export class NewsfeedService {
     return { tagBonus, followBonus, viewedPenalty, isViewedCheck, diversityPenalty };
   }
 
-  // Build main SQL query using personalization parts. 'limitParamIndex' is 1-based index where LIMIT will be ($n)
-  private buildMainQuery(
+  private buildPersonalizedQuery(
     parts: {
       tagBonus: string;
       followBonus: string;
@@ -301,21 +518,15 @@ export class NewsfeedService {
           CASE WHEN COALESCE(views.views, 0) > 0 THEN (COALESCE(cm.comments, 0)::float / COALESCE(views.views, 1)) * 100 ELSE 0 END as engagement_rate
         FROM blog_posts p
         LEFT JOIN users u ON u.id = p."authorId"
-        LEFT JOIN (
-          SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId"
-        ) r ON r."postId" = p.id
-        LEFT JOIN (
-          SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId"
-        ) cm ON cm."postId" = p.id
+        LEFT JOIN (SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId") r ON r."postId" = p.id
+        LEFT JOIN (SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId") cm ON cm."postId" = p.id
         LEFT JOIN (
           SELECT "postId",
             SUM(CASE WHEN LOWER("voteType"::text) = 'upvote' THEN 1 ELSE 0 END)::int as up_votes,
             SUM(CASE WHEN LOWER("voteType"::text) = 'downvote' THEN 1 ELSE 0 END)::int as down_votes
           FROM user_votes GROUP BY "postId"
         ) v ON v."postId" = p.id
-        LEFT JOIN (
-          SELECT "postId", COUNT(DISTINCT "userId")::int as views FROM viewed_history GROUP BY "postId"
-        ) views ON views."postId" = p.id
+        LEFT JOIN (SELECT "postId", COUNT(DISTINCT "userId")::int as views FROM viewed_history GROUP BY "postId") views ON views."postId" = p.id
         LEFT JOIN community comm ON comm.id = p."communityId"
         WHERE p."isPublic" = true 
           AND p.status = 'ACTIVE'
@@ -329,18 +540,15 @@ export class NewsfeedService {
     `;
   }
 
-  // Build cursor WHERE clause and push cursor params into params array
   private buildCursorWhere(cursor: CursorInfo, params: unknown[]) {
     if (cursor.score !== null && cursor.id !== null) {
       params.push(cursor.score, cursor.id);
-      const index = params.length - 1; // score param index (0-based), but used only for ordering here
-      // The SQL uses the $n placeholders created earlier when building parts.
+      const index = params.length - 1;
       return `WHERE score < $${index} OR (score = $${index} AND id < $${index + 1})`;
     }
     return '';
   }
 
-  // Fetch hashtags for a list of posts and return a map postId -> hashtag[]
   private async fetchHashtagsForPosts(postIds: number[]) {
     if (postIds.length === 0) return {} as Record<string, { id: number; name: string }[]>;
     const hashtagsQuery = `
@@ -363,7 +571,30 @@ export class NewsfeedService {
     }, {} as Record<string, { id: number; name: string }[]>);
   }
 
-  // Get viewed post ids within last 30 days for marking
+  private async fetchVotesForPosts(postIds: number[], userId?: number) {
+    if (postIds.length === 0) return {};
+    
+    try {
+      const postsWithVotes = await this.postRepo.find({
+        where: { id: In(postIds) },
+        relations: ['votes', 'votes.user'],
+      });
+      
+      const votesMap: Record<number, { upvotes: number; downvotes: number; userVote: any }> = {};
+      for (const postEntity of postsWithVotes) {
+        const v = postEntity.getVotes(userId ?? 0);
+        votesMap[Number(postEntity.id)] = { 
+          upvotes: v.upvotes, 
+          downvotes: v.downvotes, 
+          userVote: v.userVote 
+        };
+      }
+      return votesMap;
+    } catch {
+      return {};
+    }
+  }
+
   private async getViewedIds(userId: number) {
     try {
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -373,7 +604,6 @@ export class NewsfeedService {
     }
   }
 
-  // Map raw DB rows to `NewsfeedItemDto` instances
   private mapRowsToDto(
     rawPosts: RawPostRow[],
     hashtagsMap: Record<string, { id: number; name: string }[]>,
@@ -414,29 +644,13 @@ export class NewsfeedService {
     });
   }
 
-  // Cursor-based pagination: returns paginated items, hasMore flag and nextCursor
   private paginate(items: NewsfeedItemDto[], limit: number) {
     const hasMore = items.length > limit;
     const paginatedItems = hasMore ? items.slice(0, limit) : items;
     const lastItem = paginatedItems[paginatedItems.length - 1];
-    const nextCursor = hasMore && lastItem ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score}`).toString('base64') : null;
+    const nextCursor = hasMore && lastItem 
+      ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score}`).toString('base64') 
+      : null;
     return { paginatedItems, hasMore, nextCursor };
-  }
-
-  // Optional: retained helper from previous implementation for quality scoring
-  private calculateQualityScore(
-    upVotes: number,
-    downVotes: number,
-    reacts: number,
-    comments: number,
-  ): number {
-    const n = upVotes + downVotes;
-    if (n === 0) return 0;
-    const z = 1.96;
-    const phat = upVotes / n;
-    return (
-      (phat + (z * z) / (2 * n) - z * Math.sqrt((phat * (1 - phat) + (z * z) / (4 * n)) / n)) /
-      (1 + (z * z) / n)
-    );
   }
 }
