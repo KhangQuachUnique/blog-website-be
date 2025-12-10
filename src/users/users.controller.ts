@@ -21,6 +21,13 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
 
+interface RequestWithUser extends Request {
+  user: {
+    userId: number;
+    email: string;
+  };
+}
+
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -57,7 +64,7 @@ export class UsersController {
    */
   @Get('me/profile')
   @UseGuards(JwtAuthGuard)
-  async getMyProfile(@Request() req: any) {
+  async getMyProfile(@Request() req: RequestWithUser) {
     const userId = req.user.userId;
     return this.usersService.getProfile(userId);
   }
@@ -80,7 +87,7 @@ export class UsersController {
    */
   @Patch('me/profile')
   @UseGuards(JwtAuthGuard)
-  async updateMyProfile(@Request() req: any, @Body() updateProfileDto: UpdateProfileDto) {
+  async updateMyProfile(@Request() req: RequestWithUser, @Body() updateProfileDto: UpdateProfileDto) {
     const userId = req.user.userId;
     return this.usersService.updateProfile(userId, updateProfileDto);
   }
@@ -92,7 +99,7 @@ export class UsersController {
   @Post('me/change-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async changePassword(@Request() req: any, @Body() changePasswordDto: ChangePasswordDto) {
+  async changePassword(@Request() req: RequestWithUser, @Body() changePasswordDto: ChangePasswordDto) {
     const userId = req.user.userId;
     return this.usersService.changePassword(userId, changePasswordDto);
   }
@@ -104,7 +111,7 @@ export class UsersController {
   @Post('me/change-email')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async requestChangeEmail(@Request() req: any, @Body() requestDto: RequestChangeEmailDto) {
+  async requestChangeEmail(@Request() req: RequestWithUser, @Body() requestDto: RequestChangeEmailDto) {
     const userId = req.user.userId;
     return this.usersService.requestChangeEmail(userId, requestDto);
   }
@@ -116,7 +123,7 @@ export class UsersController {
   @Post('me/verify-email')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async verifyEmail(@Request() req: any, @Body() verifyDto: VerifyEmailDto) {
+  async verifyEmail(@Request() req: RequestWithUser, @Body() verifyDto: VerifyEmailDto) {
     const userId = req.user.userId;
     return this.usersService.verifyAndChangeEmail(userId, verifyDto);
   }
@@ -127,7 +134,7 @@ export class UsersController {
    */
   @Patch('me/privacy')
   @UseGuards(JwtAuthGuard)
-  async togglePrivacy(@Request() req: any) {
+  async togglePrivacy(@Request() req: RequestWithUser) {
     const userId = req.user.userId;
     return this.usersService.togglePrivacy(userId);
   }
@@ -139,7 +146,7 @@ export class UsersController {
   @Post(':id/block')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async blockUser(@Request() req: any, @Param('id', ParseIntPipe) targetUserId: number) {
+  async blockUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
     const userId = req.user.userId;
     return this.usersService.blockUser(userId, targetUserId);
   }
@@ -151,7 +158,7 @@ export class UsersController {
   @Delete(':id/block')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async unblockUser(@Request() req: any, @Param('id', ParseIntPipe) targetUserId: number) {
+  async unblockUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
     const userId = req.user.userId;
     return this.usersService.unblockUser(userId, targetUserId);
   }
@@ -162,7 +169,7 @@ export class UsersController {
    */
   @Get('me/blocked')
   @UseGuards(JwtAuthGuard)
-  async getBlockedUsers(@Request() req: any) {
+  async getBlockedUsers(@Request() req: RequestWithUser) {
     const userId = req.user.userId;
     return this.usersService.getBlockedUsers(userId);
   }
@@ -174,7 +181,7 @@ export class UsersController {
   @Delete('me/account')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async deleteAccount(@Request() req: any) {
+  async deleteAccount(@Request() req: RequestWithUser) {
     const userId = req.user.userId;
     return this.usersService.deleteAccount(userId);
   }
