@@ -10,12 +10,16 @@ export class Emoji {
   @Column({ type: 'enum', enum: EEmojiType, default: EEmojiType.CUSTOM })
   type: EEmojiType;
 
+  // URL for custom emojis, unicode emojis do not have this
   @Column({ type: 'varchar', nullable: true })
   emojiUrl: string | null;
 
+  // Unicode codepoint for standard emojis, custom emojis do not have this
   @Column({ type: 'varchar', nullable: true })
   codepoint: string | null;
 
+  // Relations
+  // Unicode emojis do not belong to any community
   @ManyToOne(() => Community, (community) => community.emojis, {
     onDelete: 'CASCADE',
     nullable: true,
