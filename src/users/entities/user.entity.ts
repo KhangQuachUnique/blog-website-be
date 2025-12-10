@@ -35,6 +35,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   avatarUrl: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  coverImageUrl: string | null;
+
   @Column({ type: 'date', nullable: true })
   dob: Date | null;
 
