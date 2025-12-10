@@ -85,7 +85,6 @@ export class BlogPostsService {
           excludeExtraneousValues: true,
         });
         response.type = BlogPostType.PERSONAL;
-        await this.notificationService.sendCustomToClientNotification(54, 1, {});
         return response;
       }
 
