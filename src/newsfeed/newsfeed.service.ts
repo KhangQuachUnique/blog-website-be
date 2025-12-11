@@ -30,8 +30,6 @@ type RawPostRow = {
 interface CursorInfo {
   id: number | null;
   score: number | null;
-  // New: sessionSeed for consistent pagination within a session but variability across reloads
-  sessionSeed?: number | null;
 }
 
 /**
@@ -84,16 +82,13 @@ export class NewsfeedService {
     dto: GetNewsfeedDto,
     user?: { id: number; username?: string },
   ): Promise<{ status: string; data: GetNewsfeedResponseDto }> {
-    const { limit = 15, after } = dto;
+    const { limit = 15, after, seed } = dto;
 
     // 1) Parse cursor (now includes sessionSeed)
     const cursor = this.parseCursor(after);
 
-    // QUAN TRỌNG: chỉ tạo sessionSeed mới khi là lần tải đầu tiên / reload (không có cursor)
-    const isFreshLoad = !after || !cursor.id;
-    if (isFreshLoad) {
-      cursor.sessionSeed = Math.random(); // Between 0 and 1 for SETSEED
-    }
+    // Use client-provided seed for deterministic ordering, or fallback to Math.random()
+    const sessionSeed = seed ?? Math.random();
 
     // 3) Personalization sources
     const interestedTags = user?.id ? await this.getInterestedTags(user.id) : [];
@@ -112,21 +107,19 @@ export class NewsfeedService {
       recentCommunityCounts,
     );
 
-    const cursorWhere = this.buildCursorWhere(cursor, params);
-    params.push(limit + 1);
+    // If client provided a seed we will apply deterministic ordering in Node.
+    // In that case, fetch a larger superset and do NOT apply SQL cursor filtering.
+    const useSeeded = seed !== undefined;
+    const fetchCount = useSeeded ? Math.max(200, limit * 20) : limit + 1;
 
-    // Normalize sessionSeed to `number | null` (cursor.sessionSeed may be undefined)
-    const sessionSeed: number | null = cursor.sessionSeed ?? null;
+    const cursorWhereForQuery = useSeeded ? '' : this.buildCursorWhere(cursor, params);
+    params.push(fetchCount);
 
-    const query = this.buildMainQuery(parts, cursorWhere, params.length, sessionSeed, isFreshLoad);
-
-    // Execute SETSEED only when it's a fresh load and we have a seed (avoid unnecessary calls)
-    if (isFreshLoad && sessionSeed !== null) {
-      await this.postRepo.query(`SELECT SETSEED(${sessionSeed});`);
-    }
+    // Build main query without SQL-side jitter (we'll apply seeded noise in Node)
+    const query = this.buildMainQuery(parts, cursorWhereForQuery, params.length, null, false);
 
     // 5) Fetch raw posts
-    const rawPosts: RawPostRow[] = await this.postRepo.query(query, params);
+    let rawPosts: RawPostRow[] = await this.postRepo.query(query, params);
 
     // 6) Fetch hashtags for posts
     const postIds = rawPosts.map((p) => Number(p.id));
@@ -136,10 +129,49 @@ export class NewsfeedService {
     const viewedIds = user?.id ? await this.getViewedIds(user.id) : [];
 
     // 8) Map to DTOs
+    // Apply deterministic seeded noise to each post and sort by noise ascending
+    const seededNoise = (id: number, seedVal: number) => {
+      try {
+        return ((Math.sin(id * 1000 + seedVal * 10000) + 1) * 10000) % 1;
+      } catch {
+        return 0;
+      }
+    };
+
+    const seedValue = sessionSeed; // computed earlier from dto.seed or Math.random()
+    rawPosts.forEach((p) => {
+      const nid = Number(p.id);
+      // store computed noise in `score` so mapping/pagination uses it as final_score
+      (p as any).score = seededNoise(nid, seedValue);
+    });
+
+    rawPosts.sort((a, b) => {
+      const na = Number(a.score ?? 0);
+      const nb = Number(b.score ?? 0);
+      if (na !== nb) return na - nb; // ascending
+      return Number(a.id) - Number(b.id);
+    });
+
+    // If using seeded ordering and a cursor was provided, perform node-side cursor offset
+    if (useSeeded && cursor.score !== null && cursor.id !== null) {
+      const cs = Number(cursor.score);
+      const cid = Number(cursor.id);
+      const startIndex = rawPosts.findIndex((p) => {
+        const ps = Number(p.score ?? 0);
+        const pid = Number(p.id);
+        return ps > cs || (ps === cs && pid > cid);
+      });
+      if (startIndex >= 0) {
+        rawPosts = rawPosts.slice(startIndex);
+      } else {
+        rawPosts = [];
+      }
+    }
+
     const items = this.mapRowsToDto(rawPosts, hashtagsMap, viewedIds);
 
-    // 9) Paginate and include sessionSeed in nextCursor
-    const { paginatedItems, hasMore, nextCursor } = this.paginate(items, limit, sessionSeed);
+    // 9) Paginate (cursor does NOT include seed)
+    const { paginatedItems, hasMore, nextCursor } = this.paginate(items, limit);
 
     return {
       status: 'success',
@@ -149,18 +181,17 @@ export class NewsfeedService {
 
   /* ========================= PRIVATE HELPERS ========================= */
 
-  // Parse base64 cursor encoded as "<id>|<score>|<sessionSeed>" -> CursorInfo
+  // Parse base64 cursor encoded as "<id>|<score>" -> CursorInfo
   private parseCursor(after?: string | null): CursorInfo {
-    if (!after) return { id: null, score: null, sessionSeed: null };
+    if (!after) return { id: null, score: null };
     try {
-      const [idStr, scoreStr, seedStr] = Buffer.from(after, 'base64').toString('utf-8').split('|');
+      const [idStr, scoreStr] = Buffer.from(after, 'base64').toString('utf-8').split('|');
       return {
         id: Number(idStr) || null,
         score: Number(scoreStr) || null,
-        sessionSeed: Number(seedStr) || null,
       };
     } catch {
-      return { id: null, score: null, sessionSeed: null };
+      return { id: null, score: null };
     }
   }
 
@@ -467,12 +498,12 @@ export class NewsfeedService {
     }));
   }
 
-  // Paginate with sessionSeed in cursor
-  private paginate(items: NewsfeedItemDto[], limit: number, sessionSeed: number | null) {
+  // Paginate (cursor: '<id>|<score>') — do NOT include seed
+  private paginate(items: NewsfeedItemDto[], limit: number) {
     const hasMore = items.length > limit;
     const paginatedItems = hasMore ? items.slice(0, limit) : items;
     const lastItem = paginatedItems[paginatedItems.length - 1];
-    const nextCursor = hasMore && lastItem ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score}|${sessionSeed}`).toString('base64') : null;
+    const nextCursor = hasMore && lastItem ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score}`).toString('base64') : null;
     return { paginatedItems, hasMore, nextCursor };
   }
 
