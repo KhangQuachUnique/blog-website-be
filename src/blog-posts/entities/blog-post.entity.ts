@@ -71,7 +71,7 @@ export abstract class BlogPost {
   @OneToMany(() => UserVote, (vote) => vote.post)
   votes: UserVote[];
 
-  getVotes(userId: number): GetVotesInterface {
+  getVotes(userId?: number): GetVotesInterface {
     const upvotes = this.votes
       .filter((vote) => vote.voteType === EVoteType.UPVOTE)
       .map((vote) => vote.user.id);
