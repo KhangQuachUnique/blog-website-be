@@ -56,6 +56,7 @@ export class CommunitiesService {
   async getSettings(id: number, userId: number): Promise<any> {
     const community = await this.communityRepository.findOne({
       where: { id },
+      relations: ['members'],
     });
 
     if (!community) throw new NotFoundException("Community not found");
@@ -70,6 +71,7 @@ export class CommunitiesService {
     return {
       ...community,
       role,
+      memberCount: community.members?.length ?? 0,
     };
   }
 
