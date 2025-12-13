@@ -39,6 +39,13 @@ export class ViewedHistoryService {
         return;
       }
 
+      // Ensure the referenced post exists to avoid FK constraint errors
+      const postExists = await this.postRepo.findOne({ where: { id: postId } });
+      if (!postExists) {
+        console.warn('[ViewedHistory] post not found, skipping recordView', { postId });
+        return;
+      }
+
       const vh = this.viewedRepo.create({
         user: { id: userId } as User,
         post: { id: postId } as BlogPost,
