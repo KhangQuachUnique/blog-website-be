@@ -1,6 +1,6 @@
 import { IsEnum, IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { EBlockType } from '../enums/block-type.enum';
+import { EBlockType, ObjectFit } from '../enums/block-type.enum';
 
 export class CreateBlockDto {
   @ApiProperty({ description: 'Vị trí x', example: 0, minimum: 0 })
@@ -42,4 +42,22 @@ export class CreateBlockDto {
   @IsString()
   @IsNotEmpty()
   content: string;
+
+  @ApiProperty({
+    description: 'Chú thích ảnh',
+    example: 'Đây là chú thích ảnh',
+    nullable: true,
+  })
+  @IsString()
+  imageCaption: string | null;
+
+  @ApiProperty({
+    description: 'Thuộc tính object fit cho block ảnh',
+    example: 'COVER',
+    nullable: true,
+  })
+  @IsEnum(ObjectFit, {
+    message: 'Object fit must be CONTAIN, COVER, or FILL',
+  })
+  objectFit: ObjectFit | null;
 }
