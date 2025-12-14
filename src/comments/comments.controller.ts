@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
@@ -37,8 +37,11 @@ export class CommentsController {
   // ========== POST/BLOCK COMMENTS ==========
 
   @Get('post/:postId')
-  findByPost(@Param('postId', ParseIntPipe) postId: number) {
-    return this.commentsService.findByPost(postId);
+  findByPost(
+    @Param('postId', ParseIntPipe) postId: number,
+    @Query('sortBy') sortBy?: string // Thêm dòng này để bắt ?sortBy=...
+  ) {
+    return this.commentsService.findByPost(postId, sortBy);
   }
 
   @Get('block/:blockId')
@@ -50,5 +53,4 @@ export class CommentsController {
   countByPost(@Param('postId', ParseIntPipe) postId: number) {
     return this.commentsService.countByPost(postId);
   }
-
 }
