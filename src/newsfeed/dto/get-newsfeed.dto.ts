@@ -28,4 +28,8 @@ export class GetNewsfeedDto {
   @IsOptional()
   @Type(() => Number)
   seed?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  includeOriginal?: boolean = false;
 }
