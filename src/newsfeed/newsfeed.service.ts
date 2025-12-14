@@ -8,6 +8,7 @@ import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
 type RawPostRow = {
   id: number | string;
   title?: string | null;
+  shortDescription?: string | null;
   post_type?: string | null;
   thumbnail_url?: string | null;
   up_votes?: number | string | null;
@@ -25,6 +26,9 @@ type RawPostRow = {
   author_id?: number | string | null;
   engagement_rate?: number | string | null;
   views_count?: number | string | null;
+  is_public?: boolean | null;
+  status?: string | null;
+  original_post_id?: number | string | null;
 };
 
 interface CursorInfo {
@@ -82,7 +86,7 @@ export class NewsfeedService {
     dto: GetNewsfeedDto,
     user?: { id: number; username?: string },
   ): Promise<{ status: string; data: GetNewsfeedResponseDto }> {
-    const { limit = 15, after, seed } = dto;
+    const { limit = 15, after, seed, includeOriginal } = dto;
 
     // 1) Parse cursor (now includes sessionSeed)
     const cursor = this.parseCursor(after);
@@ -168,9 +172,90 @@ export class NewsfeedService {
       }
     }
 
+    // If includeOriginal requested, fetch original posts for repost items
+    let originalMap: Record<number, NewsfeedItemDto> = {};
+    if (includeOriginal) {
+      const repostOriginalIds = Array.from(
+        new Set(
+          rawPosts
+            .filter((r) => String(r.post_type)?.toUpperCase() === 'REPOST' && (r as any).original_post_id)
+            .map((r) => Number((r as any).original_post_id)),
+        ),
+      ).filter(Boolean) as number[];
+
+      if (repostOriginalIds.length > 0) {
+        const origQuery = `
+          SELECT
+            p.id,
+            p.title,
+            p."shortDescription" as shortDescription,
+            p."thumbnailUrl" as thumbnail_url,
+            p."isPublic" as is_public,
+            p.status,
+            p.type as post_type,
+            p."createdAt" as created_at,
+            u.id as author_id,
+            u.username,
+            u."avatarUrl" as avatar_url,
+            comm.id as community_id,
+            comm.name as community_name,
+            comm."thumbnailUrl" as community_thumbnail,
+            COALESCE(v.up_votes, 0)::int as up_votes,
+            COALESCE(v.down_votes, 0)::int as down_votes,
+            COALESCE(r.reacts, 0)::int as total_reacts,
+            COALESCE(cm.comments, 0)::int as total_comments
+          FROM blog_posts p
+          LEFT JOIN users u ON u.id = p."authorId"
+          LEFT JOIN (
+            SELECT "postId", COUNT(*)::int AS reacts FROM user_reacts GROUP BY "postId"
+          ) r ON r."postId" = p.id
+          LEFT JOIN (
+            SELECT "postId", COUNT(*)::int AS comments FROM comments GROUP BY "postId"
+          ) cm ON cm."postId" = p.id
+          LEFT JOIN (
+            SELECT "postId",
+              SUM(CASE WHEN LOWER("voteType"::text) = 'upvote' THEN 1 ELSE 0 END)::int as up_votes,
+              SUM(CASE WHEN LOWER("voteType"::text) = 'downvote' THEN 1 ELSE 0 END)::int as down_votes
+            FROM user_votes GROUP BY "postId"
+          ) v ON v."postId" = p.id
+          LEFT JOIN community comm ON comm.id = p."communityId"
+          WHERE p.id = ANY($1::bigint[])
+        `;
+        const origRows: RawPostRow[] = await this.postRepo.query(origQuery, [repostOriginalIds]);
+        const origHashtags = await this.fetchHashtagsForPosts(repostOriginalIds);
+        const origDtos = this.mapRowsToDto(origRows, origHashtags, []);
+        origDtos.forEach((d) => (originalMap[d.id] = d));
+      }
+    }
+
     const items = this.mapRowsToDto(rawPosts, hashtagsMap, viewedIds);
 
     // 9) Paginate (cursor does NOT include seed)
+    // Attach originalPost / preview for repost items
+    items.forEach((it, idx) => {
+      const raw = rawPosts[idx] as any;
+      const isRepost = String(raw.post_type)?.toUpperCase() === 'REPOST';
+      const origId = raw.original_post_id ? Number(raw.original_post_id) : null;
+      if (isRepost && origId) {
+        it.originalPostId = origId;
+        const orig = originalMap[origId];
+        if (orig) {
+          if (includeOriginal) {
+            it.originalPost = orig;
+          } else {
+            it.originalPostPreview = {
+              id: orig.id,
+              title: orig.title,
+              thumbnailUrl: orig.thumbnailUrl || null,
+              author: orig.author,
+              hashtags: orig.hashtags,
+              createdAt: orig.createdAt,
+            };
+          }
+        }
+      }
+    });
+
     const { paginatedItems, hasMore, nextCursor } = this.paginate(items, limit);
 
     return {
@@ -363,8 +448,12 @@ export class NewsfeedService {
         SELECT 
           p.id,
           p.title,
+          p."shortDescription" as short_description,
           p.type as post_type,
           p."thumbnailUrl" as thumbnail_url,
+          p."isPublic" as is_public,
+          p.status as status,
+          p."originalPostId" as original_post_id,
           p."createdAt" as created_at,
           p."authorId" as author_id,
           u.username,
@@ -473,7 +562,11 @@ export class NewsfeedService {
     return rawPosts.map((p) => ({
       id: Number(p.id),
       title: p.title || 'Untitled',
+      shortDescription: (p as any).short_description || null,
       thumbnailUrl: p.thumbnail_url || null,
+      isPublic: Boolean((p as any).is_public ?? true),
+      status: (p as any).status || 'ACTIVE',
+      type: String(p.post_type || 'PERSONAL').toUpperCase(),
       upVotes: Number(p.up_votes ?? 0),
       downVotes: Number(p.down_votes ?? 0),
       createdAt: p.created_at ? new Date(p.created_at).toISOString() : new Date().toISOString(),
