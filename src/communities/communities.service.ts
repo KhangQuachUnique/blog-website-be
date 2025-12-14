@@ -68,10 +68,18 @@ export class CommunitiesService {
 
     const role = member?.role ?? "PENDING";  // nếu chưa tham gia → PENDING
 
+    // ✅ chỉ đếm member đã duyệt
+    const memberCount = await this.memberRepository.count({
+      where: {
+        community: { id },
+        role: Not(ECommunityRole.PENDING),
+      },
+    });
+
     return {
       ...community,
       role,
-      memberCount: community.members?.length ?? 0,
+      memberCount,
     };
   }
 
@@ -102,15 +110,23 @@ export class CommunitiesService {
       order: { joinedAt: 'DESC' },
     });
 
-    return memberships.map((m) => ({
-      id: m.community.id,
-      name: m.community.name,
-      description: m.community.description,
-      thumbnailUrl: m.community.thumbnailUrl,
-      isPublic: m.community.isPublic,
-      role: m.role,
-      memberCount: m.community.members ? m.community.members.length : 0,
-    }));
+    return Promise.all(
+      memberships.map(async (m) => {
+        const memberCount = await this.memberRepository.count({
+          where: { community: { id: m.community.id }, role: Not(ECommunityRole.PENDING) },
+        });
+
+        return {
+          id: m.community.id,
+          name: m.community.name,
+          description: m.community.description,
+          thumbnailUrl: m.community.thumbnailUrl,
+          isPublic: m.community.isPublic,
+          role: m.role,
+          memberCount,
+        };
+      })
+    );
   }
 
   // ====== PHẦN QUẢN LÝ MEMBERS ======

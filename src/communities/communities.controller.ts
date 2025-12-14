@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { CommunitiesService } from './communities.service';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
@@ -59,10 +59,13 @@ export class CommunitiesController {
 
   // GET /communities/:id/members
   @Get(':id/members')
-  getMembers(@Param('id', ParseIntPipe) id: number, role?: ECommunityRole) {
+  getMembers(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('role') role?: ECommunityRole,
+  ) {
     return this.communitiesService.getMembers(id, role);
   }
-
+  
   // PATCH /communities/:id/members/:memberId/role
   @Patch(':id/members/:memberId/role')
   updateMemberRole(
