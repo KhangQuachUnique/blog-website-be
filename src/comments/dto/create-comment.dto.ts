@@ -20,4 +20,13 @@ export class CreateCommentDto {
   @ValidateIf((o) => o.type === ECommentType.BLOCK)
   @IsNumber()
   blockId?: number;
+
+  // Gộp các trường reply
+  @IsOptional()
+  @IsNumber()
+  parentCommentId?: number;
+
+  @IsOptional()
+  @IsNumber()
+  replyToUserId?: number;
 }
