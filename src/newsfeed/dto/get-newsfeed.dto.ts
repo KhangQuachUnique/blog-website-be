@@ -24,4 +24,8 @@ export class GetNewsfeedDto {
   @IsString()
   @Length(4, 500) // giới hạn độ dài hợp lý, tránh spam
   guestHashtags?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  seed?: number;
 }

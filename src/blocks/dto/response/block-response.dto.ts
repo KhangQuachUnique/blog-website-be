@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { EBlockType } from 'src/blocks/enums/block-type.enum';
+import { EBlockType, ObjectFit } from 'src/blocks/enums/block-type.enum';
 
 export class BlockResponseDto {
   @ApiProperty({ example: 1, description: 'The unique identifier of the block' })
@@ -22,4 +22,18 @@ export class BlockResponseDto {
 
   @ApiProperty({ example: 'This is a text block.', description: 'The content of the block' })
   content: string;
+
+  @ApiProperty({
+    example: 'An image caption',
+    description: 'The caption of the image block',
+    nullable: true,
+  })
+  imageCaption?: string | null;
+
+  @ApiProperty({
+    example: 'COVER',
+    description: 'The object fit property for image blocks',
+    nullable: true,
+  })
+  objectFit?: ObjectFit | null;
 }
