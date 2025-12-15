@@ -22,9 +22,9 @@ export class NotificationsGateWay implements OnGatewayConnection, OnGatewayDisco
   handleConnection(client: Socket) {
     console.log('=== WebSocket Connection Attempt ===');
     console.log('Client ID:', client.id);
-    console.log('Query params:', client.handshake.query);
+    console.log('Query params:', client.handshake.auth.userId);
 
-    const userId = Number(client.handshake.query.userId);
+    const userId = Number(client.handshake.auth.userId);
 
     if (!userId || isNaN(userId)) {
       console.warn(`Invalid userId from client ${client.id}`);
@@ -42,10 +42,10 @@ export class NotificationsGateWay implements OnGatewayConnection, OnGatewayDisco
 
   emitToClient(userId: number, notification: Notification) {
     const socketId = this.socketUsers.getSocket(userId);
-    if (socketId) this.server.to(socketId).emit('notification', notification);
+    if (socketId) this.server.to(socketId).emit('notification:new', notification);
   }
 
   emitAllClient(notification: Notification) {
-    this.server.emit('notification', notification);
+    this.server.emit('notification:new', notification);
   }
 }
