@@ -49,8 +49,8 @@ export class AuthService {
       throw new UnauthorizedException('Email chưa được xác thực. Vui lòng xác thực email trước khi đăng nhập.');
     }
 
-    // Generate JWT token
-    const payload = { sub: user.id, email: user.email, username: user.username };
+    // Generate JWT token with role
+    const payload = { sub: user.id, email: user.email, username: user.username, role: user.type };
     const accessToken = this.jwtService.sign(payload);
 
     return {
@@ -59,6 +59,7 @@ export class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
+        role: user.type,
       },
     };
   }
@@ -93,8 +94,8 @@ export class AuthService {
     // Save user
     const savedUser = await this.userRepository.save(newUser);
 
-    // Generate JWT token
-    const payload = { sub: savedUser.id, email: savedUser.email, username: savedUser.username };
+    // Generate JWT token with role
+    const payload = { sub: savedUser.id, email: savedUser.email, username: savedUser.username, role: savedUser.type };
     const accessToken = this.jwtService.sign(payload);
 
     return {
@@ -103,6 +104,7 @@ export class AuthService {
         id: savedUser.id,
         username: savedUser.username,
         email: savedUser.email,
+        role: savedUser.type,
       },
     };
   }
