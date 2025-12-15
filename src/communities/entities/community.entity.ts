@@ -17,6 +17,9 @@ export class Community {
   @Column()
   thumbnailUrl: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  coverImageUrl: string;
+
   @Column()
   isPublic: boolean;
 
