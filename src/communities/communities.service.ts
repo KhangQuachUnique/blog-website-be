@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Not, Repository } from "typeorm";
 
@@ -45,40 +50,92 @@ export class CommunitiesService {
     return this.communityRepository.find();
   }
 
-  async getSettings(id: number, userId: number): Promise<any> {
+  async findOne(id: number) {
+    const community = await this.communityRepository.findOne({
+      where: { id },
+      relations: ["members", "emojis"],
+    });
+
+    if (!community) throw new NotFoundException("Community not found");
+    return community;
+  }
+
+  async getSettings(id: number, userId?: number): Promise<any> {
     const community = await this.communityRepository.findOne({
       where: { id },
       relations: ["members"],
     });
-
     if (!community) throw new NotFoundException("Community not found");
+
+    // ✅ chưa login => NONE
+    if (!userId) {
+      const memberCount = await this.memberRepository.count({
+        where: { community: { id }, role: Not(ECommunityRole.PENDING) },
+      });
+      return { ...community, role: "NONE", memberCount };
+    }
 
     const member = await this.memberRepository.findOne({
       where: { community: { id }, user: { id: userId } },
     });
 
-    const role = member?.role ?? "PENDING";
+    const role = member?.role ?? "NONE";
 
     const memberCount = await this.memberRepository.count({
-      where: {
-        community: { id },
-        role: Not(ECommunityRole.PENDING),
-      },
+      where: { community: { id }, role: Not(ECommunityRole.PENDING) },
     });
 
     return { ...community, role, memberCount };
   }
 
-  findOne(id: number) {
-    return this.communityRepository.findOne({
-      where: { id },
-      relations: ["members", "emojis"],
-    });
-  }
-
   async update(id: number, updateCommunityDto: UpdateCommunityDto) {
     await this.communityRepository.update(id, updateCommunityDto);
     return this.findOne(id);
+  }
+
+  /**
+   * ✅ JOIN community
+   * - Public + không require approval => MEMBER ngay
+   * - Private hoặc requireMemberApproval => PENDING
+   */
+  async joinCommunity(communityId: number, userId: number) {
+    const community = await this.communityRepository.findOne({
+      where: { id: communityId },
+    });
+    if (!community) throw new NotFoundException("Community not found");
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const existing = await this.memberRepository.findOne({
+      where: { community: { id: communityId }, user: { id: userId } },
+    });
+
+    if (existing) {
+      // đã có record thì không tạo lại
+      return {
+        ok: true,
+        role: existing.role,
+        status: existing.role === ECommunityRole.PENDING ? "PENDING" : "JOINED",
+      };
+    }
+
+    const shouldPending = !community.isPublic || community.requireMemberApproval;
+    const roleToSet = shouldPending ? ECommunityRole.PENDING : ECommunityRole.MEMBER;
+
+    const newMember = this.memberRepository.create({
+      community,
+      user,
+      role: roleToSet,
+    });
+
+    await this.memberRepository.save(newMember);
+
+    return {
+      ok: true,
+      role: roleToSet,
+      status: roleToSet === ECommunityRole.PENDING ? "PENDING" : "JOINED",
+    };
   }
 
   /**
@@ -93,7 +150,6 @@ export class CommunitiesService {
       throw new NotFoundException("Bạn chưa tham gia cộng đồng này.");
     }
 
-    // (khuyến nghị) chặn admin cuối cùng rời
     if (member.role === ECommunityRole.ADMIN) {
       const adminCount = await this.memberRepository.count({
         where: { community: { id: communityId }, role: ECommunityRole.ADMIN },
@@ -126,7 +182,6 @@ export class CommunitiesService {
       throw new ForbiddenException("Chỉ Admin mới có thể xóa cộng đồng.");
     }
 
-    // xóa members trước để tránh lỗi FK (an toàn hơn)
     await this.memberRepository.delete({ community: { id: communityId } });
     await this.communityRepository.delete(communityId);
 
@@ -135,10 +190,7 @@ export class CommunitiesService {
 
   async getMyCommunities(userId: number): Promise<MyCommunityResponseDto[]> {
     const memberships = await this.memberRepository.find({
-      where: {
-        user: { id: userId },
-        role: Not(ECommunityRole.PENDING),
-      },
+      where: { user: { id: userId }, role: Not(ECommunityRole.PENDING) },
       relations: ["community", "community.members"],
       order: { joinedAt: "DESC" },
     });
@@ -146,10 +198,7 @@ export class CommunitiesService {
     return Promise.all(
       memberships.map(async (m) => {
         const memberCount = await this.memberRepository.count({
-          where: {
-            community: { id: m.community.id },
-            role: Not(ECommunityRole.PENDING),
-          },
+          where: { community: { id: m.community.id }, role: Not(ECommunityRole.PENDING) },
         });
 
         return {
@@ -165,7 +214,21 @@ export class CommunitiesService {
     );
   }
 
-  async getMembers(communityId: number, role?: ECommunityRole): Promise<CommunityMember[]> {
+  async getMembers(communityId: number, role?: ECommunityRole, userId?: number) {
+    const community = await this.communityRepository.findOne({ where: { id: communityId } });
+    if (!community) throw new NotFoundException("Community not found");
+
+    // ✅ private => phải login + đã được duyệt mới xem
+    if (!community.isPublic) {
+      if (!userId) throw new ForbiddenException("Cộng đồng riêng tư. Vui lòng tham gia để xem.");
+      const me = await this.memberRepository.findOne({
+        where: { community: { id: communityId }, user: { id: userId } },
+      });
+      if (!me || me.role === ECommunityRole.PENDING) {
+        throw new ForbiddenException("Cộng đồng riêng tư. Vui lòng tham gia để xem.");
+      }
+    }
+
     return this.memberRepository.find({
       where: {
         community: { id: communityId },
