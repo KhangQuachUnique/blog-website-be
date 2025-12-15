@@ -15,14 +15,14 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { EUserRole } from './enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
-
-// TODO: Import và sử dụng JwtAuthGuard khi có auth module
-// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('users')
 export class UsersController {
@@ -190,5 +190,44 @@ export class UsersController {
   async deleteAccount(@Request() req: any) {
     const userId = req.user.userId;
     return this.usersService.deleteAccount(userId);
+  }
+
+  // ==================== ADMIN ROUTES ====================
+
+  /**
+   * Lấy tất cả users (Admin only)
+   * GET /users/admin/all
+   */
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN)
+  async getAllUsersAdmin() {
+    return this.usersService.findAll();
+  }
+
+  /**
+   * Xóa user bất kỳ (Admin only)
+   * DELETE /users/admin/:id
+   */
+  @Delete('admin/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN)
+  async deleteUserByAdmin(@Param('id', ParseIntPipe) userId: number) {
+    return this.usersService.deleteAccount(userId);
+  }
+
+  /**
+   * Cập nhật role của user (Admin only)
+   * PATCH /users/admin/:id/role
+   */
+  @Patch('admin/:id/role')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN)
+  async updateUserRole(
+    @Param('id', ParseIntPipe) userId: number,
+    @Body('role') role: EUserRole,
+  ) {
+    return this.usersService.updateUserRole(userId, role);
   }
 }
