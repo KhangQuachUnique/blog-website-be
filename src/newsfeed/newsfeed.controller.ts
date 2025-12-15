@@ -12,9 +12,11 @@ export class NewsfeedController {
   @Get()
   async getNewsfeed(
     @Query() query: GetNewsfeedDto,
-    @Req() request: Request & { user?: { id: number; username?: string } },
+    @Query('seed') seedParam?: string,
+    @Req() request?: Request & { user?: { id: number; username?: string } },
   ): Promise<{ status: string; data: GetNewsfeedResponseDto }> {
-    const user = request.user;
-    return this.newsfeedService.getNewsfeed(query, user as any);
+    const user = request?.user;
+    const seed = seedParam ? parseFloat(seedParam) : undefined;
+    return this.newsfeedService.getNewsfeed({ ...query, seed }, user as any);
   }
 }
