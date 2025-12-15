@@ -2,7 +2,7 @@ import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'ty
 
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Comment } from 'src/comments/entities/comment.entity';
-import { EBlockType } from '../enums/block-type.enum';
+import { EBlockType, ObjectFit } from '../enums/block-type.enum';
 
 @Entity('blocks')
 export class Block {
@@ -26,6 +26,12 @@ export class Block {
 
   @Column({ type: 'text' })
   content: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  imageCaption: string | null;
+
+  @Column({ type: 'enum', enum: ObjectFit, nullable: true })
+  objectFit: ObjectFit | null;
 
   // Relations
   @ManyToOne(() => BlogPost, (post) => post.blocks, {
