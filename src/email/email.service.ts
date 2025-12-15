@@ -38,4 +38,25 @@ export class EmailService {
 
     await this.transporter.sendMail(mailOptions);
   }
+
+  async sendResetPasswordOtpEmail(to: string, otp: string): Promise<void> {
+    const mailOptions = {
+      from: this.configService.get<string>('MAIL_FROM', 'Blogie <noreply@blogie.com>'),
+      to,
+      subject: 'Đặt lại mật khẩu - Mã OTP của bạn',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Đặt lại mật khẩu</h2>
+          <p>Bạn đã yêu cầu đặt lại mật khẩu. Mã OTP của bạn là:</p>
+          <div style="background-color: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">
+            ${otp}
+          </div>
+          <p style="color: #666; margin-top: 20px;">Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
+          <p style="color: #999; font-size: 12px;">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
+        </div>
+      `,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
 }

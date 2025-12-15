@@ -24,11 +24,14 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const { email, password } = loginDto;
+    const { emailOrUsername, password } = loginDto;
 
-    // Find user by email
+    // Find user by email or username
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: [
+        { email: emailOrUsername },
+        { username: emailOrUsername },
+      ],
     });
 
     if (!user) {
@@ -220,5 +223,44 @@ export class AuthService {
     await this.userRepository.save(user);
 
     return { message: 'Xác thực email thành công' };
+  }
+
+  // Forgot password - send OTP
+  async sendResetOtp(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    const otp = this.generateOtp();
+    user.resetPasswordOtp = otp;
+    await this.userRepository.save(user);
+
+    // Gửi email chứa OTP
+    await this.emailService.sendResetPasswordOtpEmail(email, otp);
+
+    return { message: 'Mã OTP đặt lại mật khẩu đã được gửi đến email của bạn' };
+  }
+
+  // Reset password with OTP
+  async resetPassword(email: string, otp: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    if (!user.resetPasswordOtp || user.resetPasswordOtp !== otp) {
+      throw new UnauthorizedException('OTP không hợp lệ');
+    }
+
+    // Hash new password and save
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.resetPasswordOtp = null; // Clear OTP after use
+    await this.userRepository.save(user);
+
+    return { message: 'Đặt lại mật khẩu thành công' };
   }
 }
