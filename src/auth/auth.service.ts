@@ -10,6 +10,7 @@ import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { SavedPostList } from '../saved-post-list/entities/saved-post-list.entity';
 import { EUserRole } from '../users/enums/role.enum';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     @InjectRepository(SavedPostList)
     private savedPostListRepository: Repository<SavedPostList>,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
@@ -37,6 +39,11 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check if email is verified
+    if (user.isVerified !== 'verified') {
+      throw new UnauthorizedException('Email chưa được xác thực. Vui lòng xác thực email trước khi đăng nhập.');
     }
 
     // Generate JWT token
@@ -166,5 +173,52 @@ export class AuthService {
     }
 
     return null;
+  }
+
+  // OTP verification
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  async sendOtp(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    if (user.isVerified === 'verified') {
+      throw new ConflictException('Email đã được xác thực');
+    }
+
+    const otp = this.generateOtp();
+    user.isVerified = otp;
+    await this.userRepository.save(user);
+
+    // Gửi email chứa OTP
+    await this.emailService.sendOtpEmail(email, otp);
+
+    return { message: 'OTP đã được gửi đến email của bạn' };
+  }
+
+  async verifyOtp(email: string, otp: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    if (user.isVerified === 'verified') {
+      throw new ConflictException('Email đã được xác thực');
+    }
+
+    if (!user.isVerified || user.isVerified !== otp) {
+      throw new UnauthorizedException('OTP không hợp lệ');
+    }
+
+    user.isVerified = 'verified';
+    await this.userRepository.save(user);
+
+    return { message: 'Xác thực email thành công' };
   }
 }
