@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { User } from '../users/entities/user.entity';
 import { SavedPostList } from '../saved-post-list/entities/saved-post-list.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       signOptions: { expiresIn: '7d' }, // Token expires in 7 days
     }),
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
