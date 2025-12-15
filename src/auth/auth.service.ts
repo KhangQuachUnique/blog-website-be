@@ -124,14 +124,22 @@ export class AuthService {
   async getCurrentUser(userId: number) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'username', 'email', 'avatarUrl', 'bio', 'phoneNumber'],
+      select: ['id', 'username', 'email', 'avatarUrl', 'bio', 'phoneNumber', 'type'],
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    return user;
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      phoneNumber: user.phoneNumber,
+      role: user.type,
+    };
   }
 
   // Refresh token utilities
