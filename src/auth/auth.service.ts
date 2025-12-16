@@ -121,7 +121,15 @@ export class AuthService {
     return user;
   }
 
-  async getCurrentUser(userId: number) {
+  async getCurrentUser(userId: number): Promise<{
+    id: number;
+    username: string;
+    email: string;
+    role: EUserRole;
+    avatarUrl: string | null;
+    bio: string | null;
+    phoneNumber: string | null;
+  }> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: ['id', 'username', 'email', 'avatarUrl', 'bio', 'phoneNumber', 'type'],
