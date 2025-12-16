@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { UserReact } from '../entities/user-react.entity';
 import { ToggleReactDto } from '../dto/toggle-react.dto';
 import { Emoji } from '../../emojis/entities/emoji.entity';
@@ -8,12 +8,12 @@ import { EEmojiType } from '../../emojis/enums/emoji.enum';
 
 /**
  * 🎯 UserReactCommandService - Handle write operations
- * 
+ *
  * Responsibilities (GRASP - Information Expert):
  * - Toggle reactions (insert/delete)
  * - Tìm/tạo emoji unicode tự động từ codepoint
  * - Validate business rules trước khi thao tác DB
- * 
+ *
  * Design Principles:
  * - Không query reactions (để QueryService lo)
  * - Để DB unique constraint handle duplicates
@@ -98,14 +98,14 @@ export class UserReactCommandService {
     // Dùng insert thay vì save để nhanh hơn, để DB handle unique violation
     try {
       await this.userReactRepo.insert({
-        user: { id: dto.userId } as any,
-        emoji: { id: emojiId } as any,
-        post: { id: dto.postId } as any,
+        user: { id: dto.userId },
+        emoji: { id: emojiId },
+        post: { id: dto.postId },
         comment: null,
       });
-    } catch (error: any) {
-      // Unique constraint violation → Ignore (race condition)
-      if (error.code === '23505') {
+    } catch (error: unknown) {
+      if (error instanceof QueryFailedError && error.name === '23505') {
+        // Unique constraint violation → ignore
         return;
       }
       throw error;
@@ -138,13 +138,13 @@ export class UserReactCommandService {
 
     try {
       await this.userReactRepo.insert({
-        user: { id: dto.userId } as any,
-        emoji: { id: emojiId } as any,
+        user: { id: dto.userId },
+        emoji: { id: emojiId },
         post: null,
-        comment: { id: dto.commentId } as any,
+        comment: { id: dto.commentId },
       });
-    } catch (error: any) {
-      if (error.code === '23505') {
+    } catch (error: unknown) {
+      if (error instanceof QueryFailedError && error.name === '23505') {
         return;
       }
       throw error;

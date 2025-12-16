@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UserReact } from '../entities/user-react.entity';
 import { EmojiSummaryDto, UserReactSummaryDto } from '../dto/response/user-react-summary.dto';
 
 /**
  * 🔍 UserReactQueryService - Handle read operations
- * 
+ *
  * 🎯 QUAN TRỌNG: Service này là interface duy nhất để các module khác query reactions
- * 
+ *
  * Responsibilities (GRASP - Information Expert):
  * - Aggregate reactions by emoji
  * - Check if current user reacted
  * - Optimize queries với index
- * 
+ *
  * Design Principles (Low Coupling):
  * - BlogPostService, CommentService ❌ KHÔNG query trực tiếp bảng user_reacts
  * - ✅ CHỈ gọi qua UserReactQueryService
@@ -28,20 +28,17 @@ export class UserReactQueryService {
 
   /**
    * 📊 Lấy reaction summary cho 1 POST
-   * 
+   *
    * Query tối ưu:
    * - Dùng index IDX_user_react_post
    * - GROUP BY emoji
    * - Single query, không N+1
-   * 
+   *
    * @param postId - ID của post
    * @param currentUserId - ID của user hiện tại (để check đã react chưa)
    * @returns Summary gồm: emoji, count, isReactedByMe
    */
-  async getUserReactForPost(
-    postId: number,
-    currentUserId?: number,
-  ): Promise<UserReactSummaryDto> {
+  async getUserReactForPost(postId: number, currentUserId?: number): Promise<UserReactSummaryDto> {
     // Query tất cả reactions của post
     const reactions = await this.userReactRepo
       .createQueryBuilder('react')
@@ -57,10 +54,10 @@ export class UserReactQueryService {
 
   /**
    * 📊 Lấy reaction summary cho NHIỀU POSTS (batch query)
-   * 
+   *
    * Use case: Newsfeed cần reactions của 20 posts
    * → Batch query thay vì N queries
-   * 
+   *
    * @param postIds - Array các post IDs
    * @param currentUserId - ID của user hiện tại
    * @returns Map<postId, ReactionSummary>
@@ -100,10 +97,7 @@ export class UserReactQueryService {
     const result = new Map<number, UserReactSummaryDto>();
     postIds.forEach((postId) => {
       const postReactions = reactionsByPost.get(postId) || [];
-      result.set(
-        postId,
-        this.aggregateReactions(postReactions, 'post', postId, currentUserId),
-      );
+      result.set(postId, this.aggregateReactions(postReactions, 'post', postId, currentUserId));
     });
 
     return result;
@@ -185,10 +179,7 @@ export class UserReactQueryService {
     targetId: number,
     currentUserId?: number,
   ): UserReactSummaryDto {
-    const emojiMap = new Map<
-      number,
-      { dto: EmojiSummaryDto; firstSeenAt: number }
-    >();
+    const emojiMap = new Map<number, { dto: EmojiSummaryDto; firstSeenAt: number }>();
 
     reactions.forEach((reaction, index) => {
       const emojiId = reaction.emoji.id;
