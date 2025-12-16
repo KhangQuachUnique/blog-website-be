@@ -173,6 +173,8 @@ export class NewsfeedService {
     // 9) Paginate (cursor does NOT include seed)
     const { paginatedItems, hasMore, nextCursor } = this.paginate(items, limit);
 
+    this. 
+
     return {
       status: 'success',
       data: { items: paginatedItems, pagination: { hasMore, nextCursor } },
