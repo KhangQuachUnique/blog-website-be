@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { BlogPost } from '../blog-posts/entities/blog-post.entity';
 import { GetNewsfeedDto, GetNewsfeedResponseDto, NewsfeedItemDto } from './dto';
 import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
+import { HashtagsService } from '../hashtags/hashtags.service';
 
 type RawPostRow = {
   id: number | string;
@@ -55,6 +56,7 @@ export class NewsfeedService {
   constructor(
     @InjectRepository(BlogPost)
     private readonly postRepo: Repository<BlogPost>,
+    private readonly hashtagsService: HashtagsService,
     private readonly viewedHistoryService: ViewedHistoryService,
   ) {}
 
@@ -127,7 +129,7 @@ export class NewsfeedService {
 
     // 6) Fetch hashtags for posts
     const postIds = rawPosts.map((p) => Number(p.id));
-    const hashtagsMap = await this.fetchHashtagsForPosts(postIds);
+    const hashtagsMap = await this.hashtagsService.fetchForPosts(postIds);
 
     // 7) Get viewed ids
     const viewedIds = user?.id ? await this.getViewedIds(user.id) : [];
@@ -222,7 +224,7 @@ export class NewsfeedService {
           WHERE p.id = ANY($1::bigint[])
         `;
         const origRows: RawPostRow[] = await this.postRepo.query(origQuery, [repostOriginalIds]);
-        const origHashtags = await this.fetchHashtagsForPosts(repostOriginalIds);
+        const origHashtags = await this.hashtagsService.fetchForPosts(repostOriginalIds);
         const origDtos = this.mapRowsToDto(origRows, origHashtags, []);
         origDtos.forEach((d) => (originalMap[d.id] = d));
       }
@@ -520,29 +522,7 @@ export class NewsfeedService {
     return '';
   }
 
-  // Fetch hashtags (unchanged)
-  private async fetchHashtagsForPosts(postIds: number[]) {
-    if (postIds.length === 0) return {} as Record<string, { id: number; name: string }[]>;
-    const hashtagsQuery = `
-      SELECT ph."postId" as post_id, h.id, h.name
-      FROM post_hashtags ph
-      JOIN hashtags h ON h.id = ph."hashtagId"
-      WHERE ph."postId" = ANY($1::bigint[])
-      ORDER BY ph."postId", h.name
-    `;
-    const hashtagsResult: { post_id: number; id: number; name: string }[] =
-      await this.postRepo.query(hashtagsQuery, [postIds]);
-
-    return hashtagsResult.reduce(
-      (acc, row) => {
-        const postId = String(row.post_id);
-        if (!acc[postId]) acc[postId] = [];
-        acc[postId].push({ id: Number(row.id), name: row.name });
-        return acc;
-      },
-      {} as Record<string, { id: number; name: string }[]>,
-    );
-  }
+  
 
   // Get viewed ids (unchanged)
   private async getViewedIds(userId: number) {
