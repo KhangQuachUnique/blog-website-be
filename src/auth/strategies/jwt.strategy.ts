@@ -2,22 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from '../auth.service';
-import { EUserRole } from '../../users/enums/role.enum';
-
-interface JwtPayload {
-  sub: number;
-  email: string;
-  username: string;
-  role: EUserRole;
-}
-
-export interface JwtUser {
-  userId: number;
-  id: number;
-  email: string;
-  username: string;
-  role: EUserRole;
-}
+import { JwtUser, JwtPayload } from '../dto/validate-payload.dto';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -29,24 +14,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<JwtUser> {
+  validate(payload: JwtPayload): JwtUser {
     // Payload contains: { sub: userId, email, username, role }
     // Return user info for controllers
     try {
-      console.log('[JwtStrategy] validate payload', { 
-        sub: payload.sub, 
-        email: payload.email, 
-        role: payload.role 
+      console.log('[JwtStrategy] validate payload', {
+        sub: payload.sub,
+        email: payload.email,
+        role: payload.role,
       });
     } catch (e) {
       // ignore logging errors
     }
 
     // Return userId, id, email, username, role for compatibility
-    return { 
-      userId: payload.sub, 
-      id: payload.sub, 
-      email: payload.email, 
+    return {
+      userId: payload.sub,
+      id: payload.sub,
+      email: payload.email,
       username: payload.username,
       role: payload.role,
     };

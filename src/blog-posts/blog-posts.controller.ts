@@ -22,6 +22,7 @@ import { PostResponseDto } from './dto/response/blog-post-response.dto';
 import { DetailPersonalPostResponseDto } from './dto/response/blog-post-response.dto';
 import { DetailCommunityPostResponseDto } from './dto/response/blog-post-response.dto';
 import { BlogPostType } from './enums/blog-post-type.enum';
+import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 
 @ApiTags('Blog Posts')
 @Controller('blog-posts')
@@ -84,12 +85,12 @@ export class BlogPostsController {
     @Req() req: Request,
   ): Promise<DetailPersonalPostResponseDto | DetailCommunityPostResponseDto> {
     const postId = +id;
-    console.log('[BlogPostsController] findOne', { postId, user: (req.user as any)?.userId });
+    console.log('[BlogPostsController] findOne', { postId, user: req.user });
     // If user is present, record viewed history (fire-and-forget)
-    const userAny = req.user as any;
-    if (userAny?.userId) {
+    const userAny = req.user as JwtUser;
+    if (userAny.id) {
       this.viewedHistoryService
-        .recordView(Number(userAny.userId), postId)
+        .recordView(Number(userAny.id), postId)
         .catch((err) => console.error('ViewedHistory.recordView error', err));
     }
 
