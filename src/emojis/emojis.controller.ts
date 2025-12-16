@@ -20,7 +20,7 @@ export class EmojisController {
 
   @Get('user/:userId/communities')
   async findByUserCommunities(@Param('userId', ParseIntPipe) userId: number): Promise<Emoji[]> {
-    return this.emojisService.findByUserCommunities(userId);
+    return await this.emojisService.findByUserCommunities(userId);
   }
 
   @Get('community/:communityId')
