@@ -1,5 +1,6 @@
 // src/newsfeed/dto/response/newsfeed-response.dto.ts
 import { Type } from 'class-transformer';
+import { UserReactSummaryDto } from '../../../user-reacts/dto/response/user-react-summary.dto';
 
 export class AuthorDto {
   id: number;
@@ -32,6 +33,8 @@ export class NewsfeedItemDto {
   isViewed: boolean = false;
   totalReacts: number = 0;
   totalComments: number = 0;
+  // Reaction summary (emoji bar) provided by UserReactQueryService
+  userReacts?: UserReactSummaryDto | null;
 
   // Repost support
   originalPostId?: number | null;
