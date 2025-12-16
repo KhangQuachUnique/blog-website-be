@@ -1,18 +1,35 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
+import { Emoji } from '../emojis/entities/emoji.entity';
 import { UserReact } from './entities/user-react.entity';
-import { UserReactsService } from './user-reacts.service';
+import { UserReactCommandService } from './services/user-react-command.service';
+import { UserReactQueryService } from './services/user-react-query.service';
 import { UserReactsController } from './user-reacts.controller';
-import { User } from 'src/users/entities/user.entity';
-import { Emoji } from 'src/emojis/entities/emoji.entity';
-import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
-import { Comment } from 'src/comments/entities/comment.entity';
 
+/**
+ * 🏗️ UserReactsModule - Clean Architecture
+ *
+ * Structure:
+ * ├── entities/          # Domain models
+ * ├── dto/               # Data transfer objects
+ * ├── services/
+ * │   ├── command.service.ts  # Write operations
+ * │   └── query.service.ts    # Read operations
+ * └── controller.ts      # HTTP endpoints
+ *
+ * Exports:
+ * - UserReactQueryService: Để các module khác query reactions
+ * - ❌ KHÔNG export CommandService (chỉ dùng internal qua Controller)
+ *
+ * Design rationale:
+ * - CQRS: Tách command/query rõ ràng
+ * - Low Coupling: Các module khác chỉ phụ thuộc vào QueryService
+ * - Information Expert: user-react module biết về reactions
+ */
 @Module({
-  imports: [TypeOrmModule.forFeature([UserReact, User, Emoji, BlogPost, Comment])],
+  imports: [TypeOrmModule.forFeature([UserReact, Emoji])],
   controllers: [UserReactsController],
-  providers: [UserReactsService],
-  exports: [UserReactsService],
+  providers: [UserReactCommandService, UserReactQueryService],
+  exports: [UserReactQueryService], // ✅ Chỉ export QueryService
 })
 export class UserReactsModule {}
