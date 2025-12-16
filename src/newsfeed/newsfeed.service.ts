@@ -217,8 +217,8 @@ export class NewsfeedService {
     rawPosts.sort((a, b) => {
       const na = Number(a.score ?? 0);
       const nb = Number(b.score ?? 0);
-      if (na !== nb) return na - nb; // ascending
-      return Number(a.id) - Number(b.id);
+      if (na !== nb) return nb - na; // descending (highest score first)
+      return Number(b.id) - Number(a.id);
     });
 
     // If using seeded ordering and a cursor was provided, perform node-side cursor offset
@@ -228,7 +228,7 @@ export class NewsfeedService {
       const startIndex = rawPosts.findIndex((p) => {
         const ps = Number(p.score ?? 0);
         const pid = Number(p.id);
-        return ps > cs || (ps === cs && pid > cid);
+        return ps < cs || (ps === cs && pid < cid); // descending: find first item with lower score
       });
       if (startIndex >= 0) {
         rawPosts = rawPosts.slice(startIndex);
@@ -638,10 +638,18 @@ export class NewsfeedService {
       };
 
       const dto = plainToInstance(PostResponseDto, postPlain, { excludeExtraneousValues: true }) as unknown as NewsfeedItemDto;
-      // attach newsfeed-specific fields
-      (dto as any).final_score = Number(p.score ?? 0);
+      
+      // Calculate quality score including emoji reactions
+      const upVotes = Number(p.up_votes ?? 0);
+      const downVotes = Number(p.down_votes ?? 0);
+      const totalReacts = Number(p.total_reacts ?? 0);
+      const totalComments = Number(p.total_comments ?? 0);
+      const qualityScore = this.calculateQualityScore(upVotes, downVotes, totalReacts, totalComments);
+      
+      // attach newsfeed-specific fields (final_score now includes quality score)
+      (dto as any).final_score = Number(p.score ?? 0) + qualityScore * 0.3; // weight quality score
       (dto as any).isViewed = Boolean(p.is_viewed) || viewedIds.includes(id);
-      (dto as any).totalComments = Number(p.total_comments ?? 0);
+      (dto as any).totalComments = totalComments;
       return dto;
     });
   }
