@@ -35,21 +35,17 @@ export class UserVotesService {
       const user = await manager.findOneBy(User, { id: userId });
       if (!user) throw new NotFoundException('User not found');
 
-      // Lock the post row first to prevent concurrent modifications.
-      // Load the votes in a separate query to avoid FOR UPDATE on an outer join
-      // which Postgres doesn't allow.
+      // Lock the post without loading votes relation (to avoid LEFT JOIN + FOR UPDATE conflict)
       const post = await manager.findOne(BlogPost, {
         where: { id: postId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!post) throw new NotFoundException('Post not found');
 
-      // Load votes separately (no lock) within the same transaction
+      // Load votes separately after locking the post
       const votes = await manager.find(UserVote, {
         where: { post: { id: postId } },
       });
-      // attach votes to post for downstream logic that expects post.votes
-      (post as any).votes = votes;
 
       // Tìm vote hiện tại của user
       const existingVote = await manager.findOne(UserVote, {
@@ -60,7 +56,7 @@ export class UserVotesService {
         // Nếu vote cùng loại -> xóa vote (toggle off)
         if (existingVote.voteType === voteType) {
           await manager.remove(existingVote);
-          const updatedVotes = post.votes.filter((v) => v.id !== existingVote.id);
+          const updatedVotes = votes.filter((v) => v.id !== existingVote.id);
           const { upVotes, downVotes } = this.getVoteCounts(updatedVotes);
           return {
             message: 'Vote removed',
@@ -74,7 +70,7 @@ export class UserVotesService {
         existingVote.voteType = voteType;
         await manager.save(existingVote);
         const { upVotes, downVotes } = this.getVoteCounts(
-          post.votes.map((v) => (v.id === existingVote.id ? existingVote : v)),
+          votes.map((v) => (v.id === existingVote.id ? existingVote : v)),
         );
         return {
           message: 'Vote changed',
@@ -92,7 +88,7 @@ export class UserVotesService {
       });
       await manager.save(newVote);
 
-      const updatedVotes = [...post.votes, newVote];
+      const updatedVotes = [...votes, newVote];
       const { upVotes, downVotes } = this.getVoteCounts(updatedVotes);
 
       return {

@@ -10,6 +10,7 @@ import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { SavedPostList } from '../saved-post-list/entities/saved-post-list.entity';
 import { EUserRole } from '../users/enums/role.enum';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -19,14 +20,18 @@ export class AuthService {
     @InjectRepository(SavedPostList)
     private savedPostListRepository: Repository<SavedPostList>,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const { email, password } = loginDto;
+    const { emailOrUsername, password } = loginDto;
 
-    // Find user by email
+    // Find user by email or username
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: [
+        { email: emailOrUsername },
+        { username: emailOrUsername },
+      ],
     });
 
     if (!user) {
@@ -39,8 +44,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Generate JWT token
-    const payload = { sub: user.id, email: user.email, username: user.username };
+    // Check if email is verified
+    if (user.isVerified !== 'verified') {
+      throw new UnauthorizedException('Email chưa được xác thực. Vui lòng xác thực email trước khi đăng nhập.');
+    }
+
+    // Generate JWT token with role
+    const payload = { sub: user.id, email: user.email, username: user.username, role: user.type };
     const accessToken = this.jwtService.sign(payload);
 
     return {
@@ -49,6 +59,7 @@ export class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
+        role: user.type,
       },
     };
   }
@@ -83,8 +94,8 @@ export class AuthService {
     // Save user
     const savedUser = await this.userRepository.save(newUser);
 
-    // Generate JWT token
-    const payload = { sub: savedUser.id, email: savedUser.email, username: savedUser.username };
+    // Generate JWT token with role
+    const payload = { sub: savedUser.id, email: savedUser.email, username: savedUser.username, role: savedUser.type };
     const accessToken = this.jwtService.sign(payload);
 
     return {
@@ -93,6 +104,7 @@ export class AuthService {
         id: savedUser.id,
         username: savedUser.username,
         email: savedUser.email,
+        role: savedUser.type,
       },
     };
   }
@@ -112,14 +124,22 @@ export class AuthService {
   async getCurrentUser(userId: number) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'username', 'email', 'avatarUrl', 'bio', 'phoneNumber'],
+      select: ['id', 'username', 'email', 'avatarUrl', 'bio', 'phoneNumber', 'type'],
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    return user;
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      phoneNumber: user.phoneNumber,
+      role: user.type,
+    };
   }
 
   // Refresh token utilities
@@ -166,5 +186,91 @@ export class AuthService {
     }
 
     return null;
+  }
+
+  // OTP verification
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  async sendOtp(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    if (user.isVerified === 'verified') {
+      throw new ConflictException('Email đã được xác thực');
+    }
+
+    const otp = this.generateOtp();
+    user.isVerified = otp;
+    await this.userRepository.save(user);
+
+    // Gửi email chứa OTP
+    await this.emailService.sendOtpEmail(email, otp);
+
+    return { message: 'OTP đã được gửi đến email của bạn' };
+  }
+
+  async verifyOtp(email: string, otp: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    if (user.isVerified === 'verified') {
+      throw new ConflictException('Email đã được xác thực');
+    }
+
+    if (!user.isVerified || user.isVerified !== otp) {
+      throw new UnauthorizedException('OTP không hợp lệ');
+    }
+
+    user.isVerified = 'verified';
+    await this.userRepository.save(user);
+
+    return { message: 'Xác thực email thành công' };
+  }
+
+  // Forgot password - send OTP
+  async sendResetOtp(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    const otp = this.generateOtp();
+    user.resetPasswordOtp = otp;
+    await this.userRepository.save(user);
+
+    // Gửi email chứa OTP
+    await this.emailService.sendResetPasswordOtpEmail(email, otp);
+
+    return { message: 'Mã OTP đặt lại mật khẩu đã được gửi đến email của bạn' };
+  }
+
+  // Reset password with OTP
+  async resetPassword(email: string, otp: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Email không tồn tại');
+    }
+
+    if (!user.resetPasswordOtp || user.resetPasswordOtp !== otp) {
+      throw new UnauthorizedException('OTP không hợp lệ');
+    }
+
+    // Hash new password and save
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.resetPasswordOtp = null; // Clear OTP after use
+    await this.userRepository.save(user);
+
+    return { message: 'Đặt lại mật khẩu thành công' };
   }
 }
