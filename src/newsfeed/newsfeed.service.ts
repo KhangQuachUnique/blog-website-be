@@ -5,6 +5,7 @@ import { BlogPost } from '../blog-posts/entities/blog-post.entity';
 import { GetNewsfeedDto, GetNewsfeedResponseDto, NewsfeedItemDto } from './dto';
 import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
 import { HashtagsService } from '../hashtags/hashtags.service';
+import { UserReactQueryService } from '../user-reacts/services/user-react-query.service';
 
 type RawPostRow = {
   id: number | string;
@@ -57,6 +58,7 @@ export class NewsfeedService {
     @InjectRepository(BlogPost)
     private readonly postRepo: Repository<BlogPost>,
     private readonly hashtagsService: HashtagsService,
+    private readonly userReactQueryService: UserReactQueryService,
     private readonly viewedHistoryService: ViewedHistoryService,
   ) {}
 
@@ -133,6 +135,65 @@ export class NewsfeedService {
 
     // 7) Get viewed ids
     const viewedIds = user?.id ? await this.getViewedIds(user.id) : [];
+
+    // 8) Fetch reaction summaries (emoji bar) for posts in batch
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(postIds, user?.id);
+
+    // Fallback: if UserReactQueryService returned empty for posts that have total_reacts>0,
+    // perform a lightweight SQL aggregate to ensure we show emojis/counts.
+    const missingPostIds: number[] = [];
+    rawPosts.forEach((p) => {
+      const pid = Number(p.id);
+      const totalReacts = Number(p.total_reacts ?? 0);
+      const summary = reactsMap.get(pid);
+      if (totalReacts > 0 && (!summary || (summary && summary.totalReactions === 0))) {
+        missingPostIds.push(pid);
+      }
+    });
+
+    if (missingPostIds.length > 0) {
+      const aggQuery = `
+        SELECT ur."postId" as post_id,
+               e.id as emoji_id,
+               e.type as emoji_type,
+               e.codepoint,
+               e."emojiUrl" as emoji_url,
+               COUNT(*)::int as cnt,
+               BOOL_OR(ur."userId" = $2) as reacted_by_me
+        FROM user_reacts ur
+        JOIN emojis e ON e.id = ur."emojiId"
+        WHERE ur."postId" = ANY($1::bigint[])
+        GROUP BY ur."postId", e.id, e.type, e.codepoint, e."emojiUrl"
+        ORDER BY ur."postId"
+      `;
+
+      // currentUser may be undefined -> pass null
+      const aggRows: { post_id: number; emoji_id: number; emoji_type: string; codepoint?: string; emoji_url?: string; cnt: number; reacted_by_me: boolean }[] =
+        await this.postRepo.query(aggQuery, [missingPostIds, user?.id ?? null]);
+
+      // build map
+      const fallbackMap = new Map<number, any>();
+      const totals = new Map<number, number>();
+      aggRows.forEach((r) => {
+        const pid = Number(r.post_id);
+        if (!fallbackMap.has(pid)) fallbackMap.set(pid, { targetId: pid, targetType: 'post', emojis: [], totalReactions: 0 });
+        const entry = fallbackMap.get(pid);
+        entry.emojis.push({
+          emojiId: Number(r.emoji_id),
+          type: String(r.emoji_type),
+          codepoint: r.codepoint ?? undefined,
+          emojiUrl: r.emoji_url ?? undefined,
+          totalCount: Number(r.cnt),
+          reactedByCurrentUser: Boolean(r.reacted_by_me),
+        });
+        entry.totalReactions += Number(r.cnt);
+      });
+
+      // set into reactsMap for missing ids
+      missingPostIds.forEach((pid) => {
+        if (fallbackMap.has(pid)) reactsMap.set(pid, fallbackMap.get(pid));
+      });
+    }
 
     // 8) Map to DTOs
     // Apply deterministic seeded noise to each post and sort by noise ascending
@@ -225,12 +286,13 @@ export class NewsfeedService {
         `;
         const origRows: RawPostRow[] = await this.postRepo.query(origQuery, [repostOriginalIds]);
         const origHashtags = await this.hashtagsService.fetchForPosts(repostOriginalIds);
-        const origDtos = this.mapRowsToDto(origRows, origHashtags, []);
+        const origReactsMap = await this.userReactQueryService.getUserReactForPosts(repostOriginalIds, user?.id);
+        const origDtos = this.mapRowsToDto(origRows, origHashtags, [], origReactsMap);
         origDtos.forEach((d) => (originalMap[d.id] = d));
       }
     }
 
-    const items = this.mapRowsToDto(rawPosts, hashtagsMap, viewedIds);
+    const items = this.mapRowsToDto(rawPosts, hashtagsMap, viewedIds, reactsMap);
 
     // 9) Paginate (cursor does NOT include seed)
     // Attach originalPost / preview for repost items
@@ -539,6 +601,7 @@ export class NewsfeedService {
     rawPosts: RawPostRow[],
     hashtagsMap: Record<string, { id: number; name: string }[]>,
     viewedIds: number[],
+    reactsMap?: Map<number, any>,
   ): NewsfeedItemDto[] {
     return rawPosts.map((p) => ({
       id: Number(p.id),
@@ -569,6 +632,7 @@ export class NewsfeedService {
       totalReacts: Number(p.total_reacts ?? 0),
       totalComments: Number(p.total_comments ?? 0),
       engagementRate: Number(p.engagement_rate ?? 0),
+      userReacts: reactsMap?.get(Number(p.id)) ?? null,
     }));
   }
 
