@@ -28,10 +28,7 @@ export class AuthService {
 
     // Find user by email or username
     const user = await this.userRepository.findOne({
-      where: [
-        { email: emailOrUsername },
-        { username: emailOrUsername },
-      ],
+      where: [{ email: emailOrUsername }, { username: emailOrUsername }],
     });
 
     if (!user) {
@@ -46,7 +43,9 @@ export class AuthService {
 
     // Check if email is verified
     if (user.isVerified !== 'verified') {
-      throw new UnauthorizedException('Email chưa được xác thực. Vui lòng xác thực email trước khi đăng nhập.');
+      throw new UnauthorizedException(
+        'Email chưa được xác thực. Vui lòng xác thực email trước khi đăng nhập.',
+      );
     }
 
     // Generate JWT token with role
@@ -95,7 +94,12 @@ export class AuthService {
     const savedUser = await this.userRepository.save(newUser);
 
     // Generate JWT token with role
-    const payload = { sub: savedUser.id, email: savedUser.email, username: savedUser.username, role: savedUser.type };
+    const payload = {
+      sub: savedUser.id,
+      email: savedUser.email,
+      username: savedUser.username,
+      role: savedUser.type,
+    };
     const accessToken = this.jwtService.sign(payload);
 
     return {
@@ -165,12 +169,12 @@ export class AuthService {
 
   async saveRefreshToken(userId: number, refreshToken: string): Promise<void> {
     const hashedToken = await this.hashToken(refreshToken);
-    
+
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new Error(`User ${userId} not found`);
     }
-    
+
     user.refreshTokenHash = hashedToken;
     await this.userRepository.save(user);
   }
@@ -262,7 +266,11 @@ export class AuthService {
   }
 
   // Reset password with OTP
-  async resetPassword(email: string, otp: string, newPassword: string): Promise<{ message: string }> {
+  async resetPassword(
+    email: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
