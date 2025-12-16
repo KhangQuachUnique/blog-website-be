@@ -45,7 +45,7 @@ export class UserReactQueryService {
       .leftJoinAndSelect('react.emoji', 'emoji')
       .leftJoinAndSelect('emoji.community', 'community')
       .leftJoinAndSelect('react.user', 'user')
-      .where('react.post_id = :postId', { postId })
+      .where('react.postId = :postId', { postId })
       .orderBy('react.createdAt', 'ASC') // Maintain order
       .getMany();
 
@@ -77,7 +77,7 @@ export class UserReactQueryService {
       .leftJoinAndSelect('emoji.community', 'community')
       .leftJoinAndSelect('react.user', 'user')
       .leftJoinAndSelect('react.post', 'post')
-      .where('react.post_id IN (:...postIds)', { postIds })
+      .where('react.postId IN (:...postIds)', { postIds })
       .orderBy('react.createdAt', 'ASC')
       .getMany();
 
@@ -115,7 +115,7 @@ export class UserReactQueryService {
       .leftJoinAndSelect('react.emoji', 'emoji')
       .leftJoinAndSelect('emoji.community', 'community')
       .leftJoinAndSelect('react.user', 'user')
-      .where('react.comment_id = :commentId', { commentId })
+      .where('react.commentId = :commentId', { commentId })
       .orderBy('react.createdAt', 'ASC')
       .getMany();
 
@@ -139,7 +139,7 @@ export class UserReactQueryService {
       .leftJoinAndSelect('emoji.community', 'community')
       .leftJoinAndSelect('react.user', 'user')
       .leftJoinAndSelect('react.comment', 'comment')
-      .where('react.comment_id IN (:...commentIds)', { commentIds })
+      .where('react.commentId IN (:...commentIds)', { commentIds })
       .orderBy('react.createdAt', 'ASC')
       .getMany();
 

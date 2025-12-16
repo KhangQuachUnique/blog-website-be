@@ -5,6 +5,7 @@ import { type GetVotesInterface } from 'src/blog-posts/blog-post.interface';
 import { EBlogPostStatus } from 'src/blog-posts/enums/blog-post-status.enum';
 import { BlogPostType } from 'src/blog-posts/enums/blog-post-type.enum';
 import { HashtagResponseDto } from 'src/hashtags/dto/response/hashtag-response.dto';
+import { UserReactSummaryDto } from 'src/user-reacts/dto/response/user-react-summary.dto';
 
 export class CommunityDto {
   @Expose()
@@ -72,15 +73,19 @@ export class PostResponseDto {
   type: BlogPostType;
 
   @Expose()
+  @Type(() => HashtagResponseDto)
   @ApiProperty({ type: [HashtagResponseDto] })
   hashtags: HashtagResponseDto[];
 
   @Expose()
   @ApiProperty({
-    description:
-      'Votes information { upvotes: number; downvotes: number; userVoted: EVoteType | null }',
+    example: { upvotes: 10, downvotes: 2, userVoted: null },
   })
   votes: GetVotesInterface;
+
+  @Expose()
+  @ApiProperty({ type: UserReactSummaryDto })
+  reacts: UserReactSummaryDto;
 
   @Expose()
   @ApiProperty({ example: '2024-01-01T12:00:00Z' })
@@ -106,6 +111,7 @@ export class CommunityPostResponseDto extends PostResponseDto {
  */
 export class RepostPostResponseDto extends PostResponseDto {
   @Expose()
+  @Type(() => PostResponseDto)
   @ApiPropertyOptional({ type: PostResponseDto })
   originalPost?: PostResponseDto;
 }
@@ -115,6 +121,7 @@ export class RepostPostResponseDto extends PostResponseDto {
  */
 export class DetailPersonalPostResponseDto extends PersonalPostResponseDto {
   @Expose()
+  @Type(() => BlockResponseDto)
   @ApiProperty({
     type: [BlockResponseDto],
     description: 'List of blocks associated with the blog post',
@@ -127,6 +134,7 @@ export class DetailPersonalPostResponseDto extends PersonalPostResponseDto {
  */
 export class DetailCommunityPostResponseDto extends CommunityPostResponseDto {
   @Expose()
+  @Type(() => BlockResponseDto)
   @ApiProperty({
     type: [BlockResponseDto],
     description: 'List of blocks associated with the blog post',

@@ -8,7 +8,7 @@ import { UserReactsController } from './user-reacts.controller';
 
 /**
  * 🏗️ UserReactsModule - Clean Architecture
- * 
+ *
  * Structure:
  * ├── entities/          # Domain models
  * ├── dto/               # Data transfer objects
@@ -16,11 +16,11 @@ import { UserReactsController } from './user-reacts.controller';
  * │   ├── command.service.ts  # Write operations
  * │   └── query.service.ts    # Read operations
  * └── controller.ts      # HTTP endpoints
- * 
+ *
  * Exports:
  * - UserReactQueryService: Để các module khác query reactions
  * - ❌ KHÔNG export CommandService (chỉ dùng internal qua Controller)
- * 
+ *
  * Design rationale:
  * - CQRS: Tách command/query rõ ràng
  * - Low Coupling: Các module khác chỉ phụ thuộc vào QueryService
