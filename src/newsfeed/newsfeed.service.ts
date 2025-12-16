@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BlogPost } from '../blog-posts/entities/blog-post.entity';
 import { GetNewsfeedDto, GetNewsfeedResponseDto, NewsfeedItemDto } from './dto';
+import { PostResponseDto } from '../blog-posts/dto/response/blog-post-response.dto';
+import { plainToInstance } from 'class-transformer';
 import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
 import { HashtagsService } from '../hashtags/hashtags.service';
 import { UserReactQueryService } from '../user-reacts/services/user-react-query.service';
@@ -313,7 +315,7 @@ export class NewsfeedService {
               thumbnailUrl: orig.thumbnailUrl || null,
               author: orig.author,
               hashtags: orig.hashtags,
-              createdAt: orig.createdAt,
+              createdAt: orig.createdAt instanceof Date ? orig.createdAt.toISOString() : (orig.createdAt as any) || new Date().toISOString(),
             };
           }
         }
@@ -603,37 +605,45 @@ export class NewsfeedService {
     viewedIds: number[],
     reactsMap?: Map<number, any>,
   ): NewsfeedItemDto[] {
-    return rawPosts.map((p) => ({
-      id: Number(p.id),
-      title: p.title || 'Untitled',
-      shortDescription: (p as any).short_description || null,
-      thumbnailUrl: p.thumbnail_url || null,
-      isPublic: Boolean((p as any).is_public ?? true),
-      status: (p as any).status || 'ACTIVE',
-      type: String(p.post_type || 'PERSONAL').toUpperCase(),
-      upVotes: Number(p.up_votes ?? 0),
-      downVotes: Number(p.down_votes ?? 0),
-      createdAt: p.created_at ? new Date(p.created_at).toISOString() : new Date().toISOString(),
-      author: {
-        id: p.author_id ? Number(p.author_id) : 0,
-        username: p.username || 'Anonymous',
-        avatarUrl: p.avatar_url || null,
-      },
-      community: p.community_id
-        ? {
-            id: Number(p.community_id),
-            name: p.community_name || '',
-            thumbnailUrl: p.community_thumbnail || null,
-          }
-        : null,
-      hashtags: hashtagsMap[String(p.id)] || [],
-      final_score: Number(p.score ?? 0),
-      isViewed: Boolean(p.is_viewed) || viewedIds.includes(Number(p.id)),
-      totalReacts: Number(p.total_reacts ?? 0),
-      totalComments: Number(p.total_comments ?? 0),
-      engagementRate: Number(p.engagement_rate ?? 0),
-      userReacts: reactsMap?.get(Number(p.id)) ?? null,
-    }));
+    return rawPosts.map((p) => {
+      const id = Number(p.id);
+      const postPlain: any = {
+        id,
+        title: p.title || 'Untitled',
+        shortDescription: (p as any).short_description || null,
+        thumbnailUrl: p.thumbnail_url || null,
+        isPublic: Boolean((p as any).is_public ?? true),
+        status: (p as any).status || 'ACTIVE',
+        type: String(p.post_type || 'PERSONAL'),
+        createdAt: p.created_at ? new Date(p.created_at) : new Date(),
+        author: {
+          id: p.author_id ? Number(p.author_id) : 0,
+          username: p.username || 'Anonymous',
+          avatarUrl: p.avatar_url || null,
+        },
+        community: p.community_id
+          ? {
+              id: Number(p.community_id),
+              name: p.community_name || '',
+              thumbnailUrl: p.community_thumbnail || null,
+            }
+          : undefined,
+        hashtags: hashtagsMap[String(p.id)] || [],
+        votes: {
+          upvotes: Number(p.up_votes ?? 0),
+          downvotes: Number(p.down_votes ?? 0),
+          userVote: null,
+        },
+        reacts: reactsMap?.get(id) ?? null,
+      };
+
+      const dto = plainToInstance(PostResponseDto, postPlain, { excludeExtraneousValues: true }) as unknown as NewsfeedItemDto;
+      // attach newsfeed-specific fields
+      (dto as any).final_score = Number(p.score ?? 0);
+      (dto as any).isViewed = Boolean(p.is_viewed) || viewedIds.includes(id);
+      (dto as any).totalComments = Number(p.total_comments ?? 0);
+      return dto;
+    });
   }
 
   // Paginate (cursor: '<id>|<score>') — do NOT include seed
