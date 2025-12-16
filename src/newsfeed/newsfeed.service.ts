@@ -35,11 +35,11 @@ interface CursorInfo {
 /**
  * NewsfeedService (improved for diversity, customizability, and variability on reload)
  * - Added configurable scoring weights via a private config object for easy tuning.
- * - Improved diversity: 
+ * - Improved diversity:
  *   - Penalize based on count of recent appearances (not just presence).
  *   - Fetch more recent items (up to 10) and use a map to count occurrences per author/community.
  *   - Exponential penalty scaling for repeated authors/communities.
- * - Added variability on reload: 
+ * - Added variability on reload:
  *   - Introduce a small random jitter to scores using RANDOM() * jitterFactor in SQL.
  *   - To maintain pagination consistency, include a sessionSeed in the cursor (generated on initial fetch).
  *   - Use sessionSeed to seed RANDOM() via SETSEED for reproducible randomness within a "session" (pagination chain).
@@ -441,17 +441,18 @@ export class NewsfeedService {
       WHERE ph."postId" = ANY($1::bigint[])
       ORDER BY ph."postId", h.name
     `;
-    const hashtagsResult: { post_id: number; id: number; name: string }[] = await this.postRepo.query(
-      hashtagsQuery,
-      [postIds],
-    );
+    const hashtagsResult: { post_id: number; id: number; name: string }[] =
+      await this.postRepo.query(hashtagsQuery, [postIds]);
 
-    return hashtagsResult.reduce((acc, row) => {
-      const postId = String(row.post_id);
-      if (!acc[postId]) acc[postId] = [];
-      acc[postId].push({ id: Number(row.id), name: row.name });
-      return acc;
-    }, {} as Record<string, { id: number; name: string }[]>);
+    return hashtagsResult.reduce(
+      (acc, row) => {
+        const postId = String(row.post_id);
+        if (!acc[postId]) acc[postId] = [];
+        acc[postId].push({ id: Number(row.id), name: row.name });
+        return acc;
+      },
+      {} as Record<string, { id: number; name: string }[]>,
+    );
   }
 
   // Get viewed ids (unchanged)
@@ -503,7 +504,10 @@ export class NewsfeedService {
     const hasMore = items.length > limit;
     const paginatedItems = hasMore ? items.slice(0, limit) : items;
     const lastItem = paginatedItems[paginatedItems.length - 1];
-    const nextCursor = hasMore && lastItem ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score}`).toString('base64') : null;
+    const nextCursor =
+      hasMore && lastItem
+        ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score}`).toString('base64')
+        : null;
     return { paginatedItems, hasMore, nextCursor };
   }
 

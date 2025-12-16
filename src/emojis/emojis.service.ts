@@ -128,4 +128,23 @@ export class EmojisService {
     const emoji = await this.findOne(id);
     await this.emojiRepository.remove(emoji);
   }
+
+  /**
+   * Lấy tất cả emojis từ các community user đã tham gia
+   * @param userId ID của user
+   * @returns Danh sách emojis từ các community user đã join
+   */
+  async findByUserCommunities(userId: number): Promise<Emoji[]> {
+    const emojis = await this.emojiRepository
+      .createQueryBuilder('emoji')
+      .leftJoinAndSelect('emoji.community', 'community')
+      .leftJoin('community.members', 'member')
+      .where('member.userId = :userId', { userId })
+      .andWhere('emoji.type = :type', { type: 'CUSTOM' })
+      .orderBy('community.name', 'ASC')
+      .addOrderBy('emoji.id', 'ASC')
+      .getMany();
+
+    return emojis;
+  }
 }
