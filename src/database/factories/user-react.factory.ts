@@ -3,7 +3,6 @@ import { User } from '../../users/entities/user.entity';
 import { BlogPost } from '../../blog-posts/entities/blog-post.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 import { Emoji } from '../../emojis/entities/emoji.entity';
-import { EReactTargetType } from '../../user-reacts/enums/react-target-type.enum';
 
 export class UserReactFactory {
   static createPostReact(user: User, post: BlogPost, emoji: Emoji): UserReact {
@@ -11,16 +10,16 @@ export class UserReactFactory {
     react.user = user;
     react.post = post;
     react.emoji = emoji;
-    react.type = EReactTargetType.POST;
+    react.comment = null;
     return react;
   }
 
   static createCommentReact(user: User, comment: Comment, emoji: Emoji): UserReact {
     const react = new UserReact();
     react.user = user;
+    react.post = null;
     react.comment = comment;
     react.emoji = emoji;
-    react.type = EReactTargetType.COMMENT;
     return react;
   }
 

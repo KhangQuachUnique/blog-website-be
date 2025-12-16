@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import { Seeder } from '../seeder.base';
 import { NotificationTemplate } from '../../notifications/entities/notification-template.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
@@ -10,7 +10,6 @@ import { UserVote } from '../../user-votes/entities/user-vote.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 import { UserReact } from '../../user-reacts/entities/user-react.entity';
 import { ENotificationType } from '../../notifications/enums/notification.enum';
-import { EReactTargetType } from '../../user-reacts/enums/react-target-type.enum';
 
 export class NotificationSeeder extends Seeder {
   constructor(dataSource: DataSource) {
@@ -76,11 +75,15 @@ export class NotificationSeeder extends Seeder {
 
       // 2c. Notifications from post reactions
       const reactRepository = this.dataSource.getRepository(UserReact);
-      const postReacts = await reactRepository.find({
-        where: { type: EReactTargetType.POST },
-        relations: ['user', 'emoji', 'post', 'post.author'],
-        take: 200,
-      });
+      const postReacts = await reactRepository
+        .createQueryBuilder('react')
+        .leftJoinAndSelect('react.user', 'user')
+        .leftJoinAndSelect('react.emoji', 'emoji')
+        .leftJoinAndSelect('react.post', 'post')
+        .leftJoinAndSelect('post.author', 'author')
+        .where('react.post_id IS NOT NULL')
+        .take(200)
+        .getMany();
 
       const reactTemplate = templateMap.get(ENotificationType.USER_REACTED_POST);
       let reactNotifCount = 0;
@@ -96,11 +99,15 @@ export class NotificationSeeder extends Seeder {
       this.log(`Generated ${reactNotifCount} reaction notifications`);
 
       // 2d. Notifications from comment reactions
-      const commentReacts = await reactRepository.find({
-        where: { type: EReactTargetType.COMMENT },
-        relations: ['user', 'emoji', 'comment', 'comment.commenter'],
-        take: 100,
-      });
+      const commentReacts = await reactRepository
+        .createQueryBuilder('react')
+        .leftJoinAndSelect('react.user', 'user')
+        .leftJoinAndSelect('react.emoji', 'emoji')
+        .leftJoinAndSelect('react.comment', 'comment')
+        .leftJoinAndSelect('comment.commenter', 'commenter')
+        .where('react.comment_id IS NOT NULL')
+        .take(100)
+        .getMany();
 
       const commentReactTemplate = templateMap.get(ENotificationType.USER_LIKED_COMMENT);
       let commentReactNotifCount = 0;
