@@ -22,6 +22,7 @@ import { plainToInstance } from 'class-transformer';
 import { BlogPostType } from './enums/blog-post-type.enum';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
 
 @Injectable()
 export class BlogPostsService {
@@ -29,6 +30,8 @@ export class BlogPostsService {
     private readonly hashtagService: HashtagsService,
 
     private readonly notificationService: NotificationsService,
+
+    private readonly userReactQueryService: UserReactQueryService,
 
     @InjectRepository(Block)
     private readonly blockRepository: Repository<Block>,
@@ -206,6 +209,13 @@ export class BlogPostsService {
       },
     });
 
+    // Lấy reacts cho tất cả các bài viết
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
+
+    for (const post of posts) {
+      post['reacts'] = reactsMap.get(post.id);
+    }
+
     return posts.map((post) => plainToInstance(PostResponseDto, post));
   }
 
@@ -215,6 +225,13 @@ export class BlogPostsService {
       relations: ['author', 'community', 'hashtags', 'originalPost'],
     });
 
+    // Lấy reacts cho tất cả các bài viết
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
+
+    for (const post of posts) {
+      post['reacts'] = reactsMap.get(post.id);
+    }
+
     return posts.map((post) => {
       const response = plainToInstance(PostResponseDto, post, {
         excludeExtraneousValues: true,
@@ -223,11 +240,33 @@ export class BlogPostsService {
     });
   }
 
-  findOne(id: number) {
-    return this.blogPostRepository.findOne({
+  async findOne(
+    id: number,
+  ): Promise<DetailPersonalPostResponseDto | DetailCommunityPostResponseDto> {
+    const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community', 'blocks', 'hashtags'],
     });
+
+    if (!post) {
+      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
+    }
+
+    // Lấy reacts cho bài viết
+    const reacts = await this.userReactQueryService.getUserReactForPost(id);
+
+    post['reacts'] = reacts;
+
+    if (post instanceof PersonalBlogPost) {
+      return plainToInstance(DetailPersonalPostResponseDto, post, {
+        excludeExtraneousValues: true,
+      });
+    } else if (post instanceof CommunityBlogPost) {
+      return plainToInstance(DetailCommunityPostResponseDto, post, {
+        excludeExtraneousValues: true,
+      });
+    }
+    throw new NotFoundException(`Blog post with ID: ${id} is neither Personal nor Community type.`);
   }
 
   /**

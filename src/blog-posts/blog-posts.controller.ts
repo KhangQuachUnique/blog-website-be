@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { BlogPostsService } from './blog-posts.service';
 import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
@@ -8,6 +19,8 @@ import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
 import { UpdateBlogStatusDto } from './dto/update-blog-post-status.dto';
 import { PostResponseDto } from './dto/response/blog-post-response.dto';
+import { DetailPersonalPostResponseDto } from './dto/response/blog-post-response.dto';
+import { DetailCommunityPostResponseDto } from './dto/response/blog-post-response.dto';
 import { BlogPostType } from './enums/blog-post-type.enum';
 
 @ApiTags('Blog Posts')
@@ -66,7 +79,10 @@ export class BlogPostsController {
 
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
-  async findOne(@Param('id') id: string, @Req() req: Request) {
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<DetailPersonalPostResponseDto | DetailCommunityPostResponseDto> {
     const postId = +id;
     console.log('[BlogPostsController] findOne', { postId, user: (req.user as any)?.userId });
     // If user is present, record viewed history (fire-and-forget)

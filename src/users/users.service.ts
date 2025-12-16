@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { plainToInstance } from 'class-transformer';
 
 import { User } from './entities/user.entity';
+import { EUserRole } from './enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
@@ -399,5 +400,24 @@ export class UsersService {
     await this.userRepository.remove(user);
 
     return { message: 'Tài khoản đã được xóa thành công' };
+  }
+
+  /**
+   * Cập nhật role của user (Admin only)
+   */
+  async updateUserRole(userId: number, role: EUserRole): Promise<{ message: string; user: User }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    user.type = role;
+    await this.userRepository.save(user);
+
+    return { 
+      message: `Đã cập nhật role của người dùng thành ${role}`,
+      user 
+    };
   }
 }

@@ -18,14 +18,19 @@ export class EmojisController {
     return this.emojisService.findAll();
   }
 
-  @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<Emoji> {
-    return this.emojisService.findOne(id);
+  @Get('user/:userId/communities')
+  async findByUserCommunities(@Param('userId', ParseIntPipe) userId: number): Promise<Emoji[]> {
+    return await this.emojisService.findByUserCommunities(userId);
   }
 
   @Get('community/:communityId')
   async findByCommunity(@Param('communityId', ParseIntPipe) communityId: number): Promise<Emoji[]> {
     return this.emojisService.findByCommunity(communityId);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<Emoji> {
+    return this.emojisService.findOne(id);
   }
 
   @Patch(':id')
