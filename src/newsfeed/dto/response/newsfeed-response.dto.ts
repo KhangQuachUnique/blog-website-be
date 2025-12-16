@@ -1,45 +1,17 @@
 // src/newsfeed/dto/response/newsfeed-response.dto.ts
 import { Type } from 'class-transformer';
-import { UserReactSummaryDto } from '../../../user-reacts/dto/response/user-react-summary.dto';
+import { PostResponseDto } from '../../../blog-posts/dto/response/blog-post-response.dto';
 
-export class AuthorDto {
-  id: number;
-  username?: string;
-  avatarUrl?: string | null;
-}
+export class NewsfeedItemDto extends PostResponseDto {
+  // Extra newsfeed-specific fields
+  final_score?: number;
+  isViewed?: boolean;
+  totalComments?: number;
 
-export class CommunityDto {
-  id: number;
-  name: string;
-  thumbnailUrl?: string | null;
-}
-
-export class NewsfeedItemDto {
-  id: number;
-  title: string;
-  shortDescription?: string | null;
-  thumbnailUrl?: string | null;
-  isPublic: boolean = true;
-  status: string = 'ACTIVE';
-  type: string = 'PERSONAL';
-  upVotes: number;
-  downVotes: number;
-  createdAt: string;
-  @Type(() => AuthorDto)
-  author: AuthorDto;
-  community?: CommunityDto | null;
-  hashtags: { id: number; name: string }[] = [];
-  final_score: number;
-  isViewed: boolean = false;
-  totalReacts: number = 0;
-  totalComments: number = 0;
-  // Reaction summary (emoji bar) provided by UserReactQueryService
-  userReacts?: UserReactSummaryDto | null;
-
-  // Repost support
+  // Repost support (originalPost typed as PostResponseDto)
   originalPostId?: number | null;
-  originalPost?: NewsfeedItemDto | null;
-  originalPostPreview?: { id: number; title: string; thumbnailUrl?: string | null; author: AuthorDto; hashtags?: { id: number; name: string }[]; createdAt: string } | null;
+  originalPost?: PostResponseDto | null;
+  originalPostPreview?: { id: number; title: string; thumbnailUrl?: string | null; author: PostResponseDto['author']; hashtags?: { id: number; name: string }[]; createdAt: string } | null;
 }
 
 export class PaginationDto {
