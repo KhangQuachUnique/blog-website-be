@@ -270,7 +270,7 @@ export class BlogPostsService {
   }
 
   /**
-   * Cập nhật bài viết theo ID
+   * Update Blog Post by ID
    * @param id
    * @param dto
    * @returns
@@ -308,7 +308,7 @@ export class BlogPostsService {
   }
 
   /**
-   * Xóa bài viết theo ID
+   * Remove blog post by ID
    * @param id
    * @returns
    */
@@ -317,7 +317,7 @@ export class BlogPostsService {
   }
 
   /**
-   * Cập nhật trạng thái bài viết
+   * Update blog post status
    * @param id
    * @param dto
    * @returns
