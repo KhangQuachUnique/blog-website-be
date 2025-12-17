@@ -211,7 +211,7 @@ export class NewsfeedService {
 
       // build map
       const fallbackMap = new Map<number, UserReactSummaryDto>();
-      const totals = new Map<number, number>();
+      // const totals = new Map<number, number>();
       aggRows.forEach((r) => {
         const pid = Number(r.post_id);
         if (!fallbackMap.has(pid)) fallbackMap.set(pid, { targetId: pid, targetType: 'post', emojis: [], totalReactions: 0 });
@@ -278,7 +278,7 @@ export class NewsfeedService {
     }
 
     // If includeOriginal requested, fetch original posts for repost items
-    let originalMap: Record<number, NewsfeedItemDto> = {};
+    const originalMap: Record<number, NewsfeedItemDto> = {};
     if (includeOriginal) {
       const repostOriginalIds = Array.from(
         new Set(
@@ -286,7 +286,7 @@ export class NewsfeedService {
             .filter((r) => String(r.post_type)?.toUpperCase() === 'REPOST' && r.original_post_id)
             .map((r) => Number(r.original_post_id)),
         ),
-      ).filter(Boolean) as number[];
+      ).filter(Boolean);
 
       if (repostOriginalIds.length > 0) {
         const origQuery = `
