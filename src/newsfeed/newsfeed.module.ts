@@ -5,8 +5,10 @@ import { NewsfeedController } from './newsfeed.controller';
 import { NewsfeedService } from './newsfeed.service';
 import { BlogPost } from '../blog-posts/entities/blog-post.entity';
 import { ViewedHistoryModule } from '../viewed-history/viewed-history.module';
+import { HashtagsModule } from '../hashtags/hashtags.module';
+import { UserReactsModule } from '../user-reacts/user-reacts.module';
 @Module({
-  imports: [TypeOrmModule.forFeature([BlogPost]), ViewedHistoryModule],
+  imports: [TypeOrmModule.forFeature([BlogPost]), ViewedHistoryModule, HashtagsModule, UserReactsModule],
   controllers: [NewsfeedController],
   providers: [NewsfeedService],
 })
