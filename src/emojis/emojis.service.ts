@@ -6,6 +6,9 @@ import { Emoji } from './entities/emoji.entity';
 import { CreateEmojiDto } from './dto/create-emoji.dto';
 import { UpdateEmojiDto } from './dto/update-emoji.dto';
 import { Community } from 'src/communities/entities/community.entity';
+import { EmojiCommunityResponseDto } from './dto/response/emoji-response.dto';
+import { plainToInstance } from 'class-transformer';
+import { EEmojiType } from './enums/emoji.enum';
 
 @Injectable()
 export class EmojisService {
@@ -28,9 +31,7 @@ export class EmojisService {
     });
 
     if (!community) {
-      throw new NotFoundException(
-        `Không tìm thấy community với ID: ${createEmojiDto.communityId}`,
-      );
+      throw new NotFoundException(`Không tìm thấy community với ID: ${createEmojiDto.communityId}`);
     }
 
     const emoji = this.emojiRepository.create({
@@ -134,17 +135,47 @@ export class EmojisService {
    * @param userId ID của user
    * @returns Danh sách emojis từ các community user đã join
    */
-  async findByUserCommunities(userId: number): Promise<Emoji[]> {
+  async findByUserCommunities(userId: number): Promise<EmojiCommunityResponseDto[]> {
     const emojis = await this.emojiRepository
       .createQueryBuilder('emoji')
-      .leftJoinAndSelect('emoji.community', 'community')
-      .leftJoin('community.members', 'member')
+      .innerJoinAndSelect('emoji.community', 'community')
+      .innerJoin('community.members', 'member')
       .where('member.userId = :userId', { userId })
-      .andWhere('emoji.type = :type', { type: 'CUSTOM' })
+      .andWhere('emoji.type = :type', { type: EEmojiType.CUSTOM })
       .orderBy('community.name', 'ASC')
       .addOrderBy('emoji.id', 'ASC')
       .getMany();
 
-    return emojis;
+    const communityMap = new Map<number, EmojiCommunityResponseDto>();
+
+    for (const emoji of emojis) {
+      const community = emoji.community;
+      if (!community) continue;
+
+      if (!communityMap.has(community.id)) {
+        communityMap.set(community.id, {
+          community: {
+            id: community.id,
+            name: community.name,
+            thumbnailUrl: community.thumbnailUrl,
+          },
+          emojis: [],
+        });
+      }
+
+      communityMap.get(community.id)!.emojis.push({
+        id: emoji.id,
+        type: emoji.type,
+        codepoint: emoji.codepoint ?? undefined,
+        emojiUrl: emoji.emojiUrl ?? undefined,
+        communityId: community.id,
+      });
+    }
+
+    const result = Array.from(communityMap.values());
+
+    return plainToInstance(EmojiCommunityResponseDto, result, {
+      excludeExtraneousValues: true,
+    });
   }
 }
