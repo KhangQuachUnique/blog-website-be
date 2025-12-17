@@ -49,16 +49,16 @@ export class ProfileResponseDto {
   phoneNumber?: string; // Optional: chỉ hiện nếu user cho phép
 
   @Expose()
-  bio: string;
+  bio?: string;
 
   @Expose()
-  avatarUrl: string;
+  avatarUrl?: string;
 
   @Expose()
-  dob: Date;
+  dob?: Date;
 
   @Expose()
-  gender: EGender;
+  gender?: EGender;
 
   @Expose()
   isPrivate: boolean;

@@ -80,10 +80,12 @@ export class UsersService {
       }
     }
 
+    // Kiểm tra xem có phải chính chủ đang xem profile của mình không
+    const isOwner = viewerId === userId;
+
     // Kiểm tra chế độ riêng tư
-    if (user.isPrivate && viewerId !== userId) {
-      throw new ForbiddenException('Hồ sơ này ở chế độ riêng tư');
-    }
+    // Nếu profile ở chế độ riêng tư và người xem không phải chính chủ
+    const isPrivateAndNotOwner = user.isPrivate && !isOwner;
 
     // Query blog posts của user
     // Nếu xem profile của người khác, chỉ hiển thị bài viết public
@@ -94,8 +96,14 @@ export class UsersService {
       .where('user.id = :userId', { userId });
 
     // Chỉ lấy bài viết public nếu không phải chính mình
-    if (viewerId !== userId) {
-      queryBuilder.andWhere('post.isPublic = true');
+    // Hoặc nếu profile riêng tư thì không hiển thị bài viết cho người khác
+    if (!isOwner) {
+      if (isPrivateAndNotOwner) {
+        // Không load posts cho private profile
+        queryBuilder.andWhere('1 = 0'); // Điều kiện luôn false để không load posts
+      } else {
+        queryBuilder.andWhere('post.isPublic = true');
+      }
     }
 
     const userWithPosts = await queryBuilder
@@ -118,15 +126,18 @@ export class UsersService {
     });
 
     // Map communities từ CommunityMember
-    profileDto.communities =
-      user.communitiesMemberOf?.map((member) => ({
-        id: member.community.id,
-        name: member.community.name,
-        thumbnailUrl: member.community.thumbnailUrl,
-      })) || [];
+    // Nếu private và không phải chính chủ, ẩn communities
+    profileDto.communities = isPrivateAndNotOwner
+      ? []
+      : user.communitiesMemberOf?.map((member) => ({
+          id: member.community.id,
+          name: member.community.name,
+          thumbnailUrl: member.community.thumbnailUrl,
+        })) || [];
 
-    profileDto.followersCount = user.followers?.length || 0;
-    profileDto.followingCount = user.following?.length || 0;
+    // Followers/Following count - ẩn nếu private và không phải chính chủ
+    profileDto.followersCount = isPrivateAndNotOwner ? 0 : (user.followers?.length || 0);
+    profileDto.followingCount = isPrivateAndNotOwner ? 0 : (user.following?.length || 0);
 
     // Map posts và tính upVotes/downVotes từ votes relationship
     profileDto.posts = (userWithPosts?.posts || []).map((post) => ({
@@ -137,12 +148,17 @@ export class UsersService {
 
     // Kiểm soát hiển thị email và phone
     // Nếu không phải chính mình xem và user không cho phép hiển thị, ẩn thông tin
-    if (viewerId !== userId) {
-      if (!user.showEmail) {
+    // Hoặc nếu private profile, luôn ẩn với người khác
+    if (!isOwner) {
+      if (!user.showEmail || isPrivateAndNotOwner) {
         profileDto.email = undefined;
       }
-      if (!user.showPhoneNumber) {
+      if (!user.showPhoneNumber || isPrivateAndNotOwner) {
         profileDto.phoneNumber = undefined;
+      }
+      // Ẩn bio nếu private
+      if (isPrivateAndNotOwner) {
+        profileDto.bio = undefined;
       }
     }
 

@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { EUserRole } from './enums/role.enum';
@@ -74,14 +75,17 @@ export class UsersController {
 
   /**
    * Xem profile của user bất kỳ (public hoặc có auth optional)
+   * Sử dụng OptionalJwtAuthGuard để tự động lấy viewerId nếu user đã đăng nhập
    */
   @Get(':id/profile')
+  @UseGuards(OptionalJwtAuthGuard)
   async getProfile(
     @Param('id', ParseIntPipe) userId: number,
-    @Query('viewerId') viewerId?: string,
+    @Request() req: RequestWithUser,
   ) {
-    const parsedViewerId = viewerId ? parseInt(viewerId) : undefined;
-    return this.usersService.getProfile(userId, parsedViewerId);
+    // Nếu user đã đăng nhập, lấy viewerId từ token
+    const viewerId = req.user?.userId;
+    return this.usersService.getProfile(userId, viewerId);
   }
 
   /**
