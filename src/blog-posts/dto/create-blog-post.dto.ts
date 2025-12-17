@@ -22,8 +22,8 @@ export class CreateBlogPostDto {
     maxLength: 255,
   })
   @IsString()
-  @IsNotEmpty({ message: 'Title is required' })
-  @MaxLength(255, { message: 'Title must be at most 255 characters' })
+  @IsNotEmpty({ message: 'Tiêu đề bài viết là bắt buộc' })
+  @MaxLength(255, { message: 'Tiêu đề bài viết không được vượt quá 255 ký tự' })
   title: string;
 
   @ApiProperty({
@@ -31,8 +31,9 @@ export class CreateBlogPostDto {
     example: 'Đây là mô tả ngắn của bài viết đầu tiên của tôi.',
   })
   @IsString()
-  @IsNotEmpty({ message: 'Short description is required' })
-  shortDescription: string;
+  @IsNotEmpty({ message: 'Mô tả ngắn là bắt buộc' })
+  @IsOptional()
+  shortDescription?: string;
 
   @ApiPropertyOptional({
     description: 'URL ảnh thumbnail',
@@ -67,7 +68,7 @@ export class CreateBlogPostDto {
     example: 1,
   })
   @IsInt()
-  @IsNotEmpty({ message: 'Author ID is required' })
+  @IsNotEmpty({ message: 'ID của tác giả là bắt buộc' })
   authorId: number;
 
   @ApiPropertyOptional({
@@ -75,8 +76,8 @@ export class CreateBlogPostDto {
     example: 1,
   })
   @ValidateIf((o: CreateBlogPostDto) => o.type === BlogPostType.COMMUNITY)
-  @IsInt({ message: 'Community ID must be a number' })
-  @IsNotEmpty({ message: 'Community ID is required for community posts' })
+  @IsInt({ message: 'ID community phải là một số' })
+  @IsNotEmpty({ message: 'ID community là bắt buộc đối với bài viết cộng đồng' })
   communityId?: number;
 
   @ApiPropertyOptional({
