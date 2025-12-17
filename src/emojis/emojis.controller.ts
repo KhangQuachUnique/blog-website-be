@@ -3,6 +3,7 @@ import { EmojisService } from './emojis.service';
 import { CreateEmojiDto } from './dto/create-emoji.dto';
 import { UpdateEmojiDto } from './dto/update-emoji.dto';
 import { Emoji } from './entities/emoji.entity';
+import { EmojiCommunityResponseDto } from './dto/response/emoji-response.dto';
 
 @Controller('emojis')
 export class EmojisController {
@@ -19,7 +20,9 @@ export class EmojisController {
   }
 
   @Get('user/:userId/communities')
-  async findByUserCommunities(@Param('userId', ParseIntPipe) userId: number): Promise<Emoji[]> {
+  async findByUserCommunities(
+    @Param('userId', ParseIntPipe) userId: number,
+  ): Promise<EmojiCommunityResponseDto[]> {
     return await this.emojisService.findByUserCommunities(userId);
   }
 
