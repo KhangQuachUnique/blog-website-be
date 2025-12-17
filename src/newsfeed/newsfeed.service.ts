@@ -685,7 +685,7 @@ export class NewsfeedService {
         };
       }
       
-      // Calculate quality score including emoji reactions
+      // Calculate quality score including emoji reactions and comments
       const upVotes = Number(p.up_votes ?? 0);
       const downVotes = Number(p.down_votes ?? 0);
       const totalReacts = Number(p.total_reacts ?? 0);
@@ -714,21 +714,29 @@ export class NewsfeedService {
     return { paginatedItems, hasMore, nextCursor };
   }
 
-  // Calculate quality score using Wilson score interval
+  // Calculate quality score using Wilson score interval + engagement bonuses
   private calculateQualityScore(
     upVotes: number,
     downVotes: number,
     reacts: number,
     comments: number,
   ): number {
+    // Wilson score interval (confidence interval for upvote ratio)
     const n = upVotes + downVotes;
-    if (n === 0) return 0;
-    const z = 1.96;
-    const phat = upVotes / n;
-    return (
-      (phat + (z * z) / (2 * n) - z * Math.sqrt((phat * (1 - phat) + (z * z) / (4 * n)) / n)) /
-      (1 + (z * z) / n)
-    );
+    let wilsonScore = 0;
+    if (n > 0) {
+      const z = 1.96;
+      const phat = upVotes / n;
+      wilsonScore =
+        (phat + (z * z) / (2 * n) - z * Math.sqrt((phat * (1 - phat) + (z * z) / (4 * n)) / n)) /
+        (1 + (z * z) / n);
+    }
+
+    // Add engagement bonuses (logarithmic scale to avoid dominating)
+    const reactsBonus = 0.1 * Math.log(reacts + 1);
+    const commentsBonus = 0.15 * Math.log(comments + 1);
+
+    return wilsonScore + reactsBonus + commentsBonus;
   }
 }
 
