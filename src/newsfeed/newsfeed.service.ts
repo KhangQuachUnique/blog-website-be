@@ -8,11 +8,16 @@ import { plainToInstance } from 'class-transformer';
 import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
 import { HashtagsService } from '../hashtags/hashtags.service';
 import { UserReactQueryService } from '../user-reacts/services/user-react-query.service';
+import { UserReactSummaryDto } from '../user-reacts/dto/response/user-react-summary.dto';
+import { EEmojiType } from '../emojis/enums/emoji.enum';
+import { EBlogPostStatus } from '../blog-posts/enums/blog-post-status.enum';
+import { BlogPostType } from '../blog-posts/enums/blog-post-type.enum';
 
 type RawPostRow = {
   id: number | string;
   title?: string | null;
   shortDescription?: string | null;
+  short_description?: string | null;
   post_type?: string | null;
   thumbnail_url?: string | null;
   up_votes?: number | string | null;
@@ -35,9 +40,40 @@ type RawPostRow = {
   original_post_id?: number | string | null;
 };
 
+// Type-safe version of RawPostRow with computed score for sorting
+type RawPostRowWithScore = RawPostRow & {
+  score: number;
+};
+
 interface CursorInfo {
   id: number | null;
   score: number | null;
+}
+
+// Emoji aggregation query result
+interface EmojiAggregationRow {
+  post_id: number;
+  emoji_id: number;
+  emoji_type: string;
+  codepoint?: string;
+  emoji_url?: string;
+  cnt: number;
+  reacted_by_me: boolean;
+}
+
+// Recent diversity query result
+interface RecentDiversityRow {
+  authorId: number;
+  communityId: number;
+}
+
+// Personalization query parts (SQL snippets)
+interface PersonalizationParts {
+  tagBonus: string;
+  followBonus: string;
+  viewedPenalty: string;
+  isViewedCheck: string;
+  diversityPenalty: string;
 }
 
 /**
@@ -170,19 +206,22 @@ export class NewsfeedService {
       `;
 
       // currentUser may be undefined -> pass null
-      const aggRows: { post_id: number; emoji_id: number; emoji_type: string; codepoint?: string; emoji_url?: string; cnt: number; reacted_by_me: boolean }[] =
+      const aggRows: EmojiAggregationRow[] =
         await this.postRepo.query(aggQuery, [missingPostIds, user?.id ?? null]);
 
       // build map
-      const fallbackMap = new Map<number, any>();
+      const fallbackMap = new Map<number, UserReactSummaryDto>();
       const totals = new Map<number, number>();
       aggRows.forEach((r) => {
         const pid = Number(r.post_id);
         if (!fallbackMap.has(pid)) fallbackMap.set(pid, { targetId: pid, targetType: 'post', emojis: [], totalReactions: 0 });
-        const entry = fallbackMap.get(pid);
+        const entry = fallbackMap.get(pid)!;
+        const emojiType = (Object.values(EEmojiType).includes(r.emoji_type as EEmojiType) 
+          ? r.emoji_type 
+          : EEmojiType.UNICODE) as EEmojiType;
         entry.emojis.push({
           emojiId: Number(r.emoji_id),
-          type: String(r.emoji_type),
+          type: emojiType,
           codepoint: r.codepoint ?? undefined,
           emojiUrl: r.emoji_url ?? undefined,
           totalCount: Number(r.cnt),
@@ -193,7 +232,8 @@ export class NewsfeedService {
 
       // set into reactsMap for missing ids
       missingPostIds.forEach((pid) => {
-        if (fallbackMap.has(pid)) reactsMap.set(pid, fallbackMap.get(pid));
+        const entry = fallbackMap.get(pid);
+        if (entry) reactsMap.set(pid, entry);
       });
     }
 
@@ -208,18 +248,18 @@ export class NewsfeedService {
     };
 
     const seedValue = sessionSeed; // computed earlier from dto.seed or Math.random()
-    rawPosts.forEach((p) => {
-      const nid = Number(p.id);
-      // store computed noise in `score` so mapping/pagination uses it as final_score
-      (p as any).score = seededNoise(nid, seedValue);
-    });
+    const postsWithScore: RawPostRowWithScore[] = rawPosts.map((p) => ({
+      ...p,
+      score: seededNoise(Number(p.id), seedValue),
+    }));
 
-    rawPosts.sort((a, b) => {
-      const na = Number(a.score ?? 0);
-      const nb = Number(b.score ?? 0);
-      if (na !== nb) return nb - na; // descending (highest score first)
+    postsWithScore.sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score; // descending (highest score first)
       return Number(b.id) - Number(a.id);
     });
+
+    // Replace rawPosts with typed version
+    rawPosts = postsWithScore as unknown as RawPostRow[];
 
     // If using seeded ordering and a cursor was provided, perform node-side cursor offset
     if (useSeeded && cursor.score !== null && cursor.id !== null) {
@@ -243,8 +283,8 @@ export class NewsfeedService {
       const repostOriginalIds = Array.from(
         new Set(
           rawPosts
-            .filter((r) => String(r.post_type)?.toUpperCase() === 'REPOST' && (r as any).original_post_id)
-            .map((r) => Number((r as any).original_post_id)),
+            .filter((r) => String(r.post_type)?.toUpperCase() === 'REPOST' && r.original_post_id)
+            .map((r) => Number(r.original_post_id)),
         ),
       ).filter(Boolean) as number[];
 
@@ -299,7 +339,7 @@ export class NewsfeedService {
     // 9) Paginate (cursor does NOT include seed)
     // Attach originalPost / preview for repost items
     items.forEach((it, idx) => {
-      const raw = rawPosts[idx] as any;
+      const raw = rawPosts[idx] as RawPostRowWithScore;
       const isRepost = String(raw.post_type)?.toUpperCase() === 'REPOST';
       const origId = raw.original_post_id ? Number(raw.original_post_id) : null;
       if (isRepost && origId) {
@@ -315,7 +355,7 @@ export class NewsfeedService {
               thumbnailUrl: orig.thumbnailUrl || null,
               author: orig.author,
               hashtags: orig.hashtags,
-              createdAt: orig.createdAt instanceof Date ? orig.createdAt.toISOString() : (orig.createdAt as any) || new Date().toISOString(),
+              createdAt: orig.createdAt instanceof Date ? orig.createdAt.toISOString() : orig.createdAt as string || new Date().toISOString(),
             };
           }
         }
@@ -369,9 +409,9 @@ export class NewsfeedService {
       ORDER BY p.id DESC
       LIMIT ${this.scoringConfig.recentDiversityLimit}
     `;
-    const recent = await this.postRepo.query(recentQuery, [cursorId || 0]);
+    const recent: RecentDiversityRow[] = await this.postRepo.query(recentQuery, [cursorId || 0]);
 
-    recent.forEach((r: any) => {
+    recent.forEach((r) => {
       const authorId = Number(r.authorId);
       const communityId = Number(r.communityId);
       if (authorId) {
@@ -392,7 +432,7 @@ export class NewsfeedService {
     userId?: number,
     recentAuthorCounts: Map<number, number> = new Map(),
     recentCommunityCounts: Map<number, number> = new Map(),
-  ) {
+  ): PersonalizationParts {
     const config = this.scoringConfig;
 
     // Tag bonus
@@ -493,18 +533,12 @@ export class NewsfeedService {
 
   // Build main SQL query with config and jitter
   private buildMainQuery(
-    parts: {
-      tagBonus: string;
-      followBonus: string;
-      viewedPenalty: string;
-      isViewedCheck: string;
-      diversityPenalty: string;
-    },
+    parts: PersonalizationParts,
     cursorWhere: string,
     limitParamIndex: number,
     sessionSeed: number | null, // Not used here, but set before query
     isFreshLoad: boolean, // if true, enable jitter/randomness for fresh session
-  ) {
+  ): string {
     const { tagBonus, followBonus, viewedPenalty, isViewedCheck, diversityPenalty } = parts;
     const config = this.scoringConfig;
     const jitter = isFreshLoad ? ` + (RANDOM() * ${this.scoringConfig.jitterFactor})` : ` + 0`;
@@ -577,7 +611,7 @@ export class NewsfeedService {
   }
 
   // Build cursor WHERE
-  private buildCursorWhere(cursor: CursorInfo, params: unknown[]) {
+  private buildCursorWhere(cursor: CursorInfo, params: unknown[]): string {
     if (cursor.score !== null && cursor.id !== null) {
       params.push(cursor.score, cursor.id);
       const index = params.length - 1;
@@ -588,8 +622,8 @@ export class NewsfeedService {
 
   
 
-  // Get viewed ids (unchanged)
-  private async getViewedIds(userId: number) {
+  // Get viewed ids
+  private async getViewedIds(userId: number): Promise<number[]> {
     try {
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       return await this.viewedHistoryService.getViewedPostIds(userId, since);
@@ -598,46 +632,58 @@ export class NewsfeedService {
     }
   }
 
-  // Map rows to DTO (unchanged)
+  // Map rows to DTO
   private mapRowsToDto(
     rawPosts: RawPostRow[],
     hashtagsMap: Record<string, { id: number; name: string }[]>,
     viewedIds: number[],
-    reactsMap?: Map<number, any>,
+    reactsMap?: Map<number, UserReactSummaryDto | null>,
   ): NewsfeedItemDto[] {
     return rawPosts.map((p) => {
       const id = Number(p.id);
-      const postPlain: any = {
+      
+      // Type-safe enum conversions
+      const status = (Object.values(EBlogPostStatus).includes(p.status as EBlogPostStatus) 
+        ? p.status 
+        : EBlogPostStatus.ACTIVE) as EBlogPostStatus;
+      const type = (Object.values(BlogPostType).includes(p.post_type as BlogPostType) 
+        ? p.post_type 
+        : BlogPostType.PERSONAL) as BlogPostType;
+      
+      // Create plain object for class-transformer
+      const postPlain = {
         id,
         title: p.title || 'Untitled',
-        shortDescription: (p as any).short_description || null,
-        thumbnailUrl: p.thumbnail_url || null,
-        isPublic: Boolean((p as any).is_public ?? true),
-        status: (p as any).status || 'ACTIVE',
-        type: String(p.post_type || 'PERSONAL'),
+        shortDescription: p.shortDescription || p.short_description || undefined,
+        thumbnailUrl: p.thumbnail_url || undefined,
+        isPublic: Boolean(p.is_public ?? true),
+        status: status,
+        type: type,
         createdAt: p.created_at ? new Date(p.created_at) : new Date(),
         author: {
           id: p.author_id ? Number(p.author_id) : 0,
           username: p.username || 'Anonymous',
-          avatarUrl: p.avatar_url || null,
+          avatarUrl: p.avatar_url || '',
         },
-        community: p.community_id
-          ? {
-              id: Number(p.community_id),
-              name: p.community_name || '',
-              thumbnailUrl: p.community_thumbnail || null,
-            }
-          : undefined,
         hashtags: hashtagsMap[String(p.id)] || [],
         votes: {
           upvotes: Number(p.up_votes ?? 0),
           downvotes: Number(p.down_votes ?? 0),
           userVote: null,
         },
-        reacts: reactsMap?.get(id) ?? null,
+        reacts: reactsMap?.get(id) || undefined,
       };
 
-      const dto = plainToInstance(PostResponseDto, postPlain, { excludeExtraneousValues: true }) as unknown as NewsfeedItemDto;
+      const dto = plainToInstance(PostResponseDto, postPlain, { excludeExtraneousValues: true }) as NewsfeedItemDto;
+      
+      // Add community separately since it's not in PostResponseDto
+      if (p.community_id) {
+        (dto as any).community = {
+          id: Number(p.community_id),
+          name: p.community_name || '',
+          thumbnailUrl: p.community_thumbnail || '',
+        };
+      }
       
       // Calculate quality score including emoji reactions
       const upVotes = Number(p.up_votes ?? 0);
@@ -646,11 +692,12 @@ export class NewsfeedService {
       const totalComments = Number(p.total_comments ?? 0);
       const qualityScore = this.calculateQualityScore(upVotes, downVotes, totalReacts, totalComments);
       
-      // attach newsfeed-specific fields (final_score now includes quality score)
-      (dto as any).final_score = Number(p.score ?? 0) + qualityScore * 0.3; // weight quality score
-      (dto as any).isViewed = Boolean(p.is_viewed) || viewedIds.includes(id);
-      (dto as any).totalComments = totalComments;
-      return dto;
+      // attach newsfeed-specific fields with proper typing
+      const typedDto = dto as NewsfeedItemDto & { final_score: number; isViewed: boolean; totalComments: number };
+      typedDto.final_score = Number(p.score ?? 0) + qualityScore * 0.3; // weight quality score
+      typedDto.isViewed = Boolean(p.is_viewed) || viewedIds.includes(id);
+      typedDto.totalComments = totalComments;
+      return typedDto;
     });
   }
 
@@ -659,14 +706,15 @@ export class NewsfeedService {
     const hasMore = items.length > limit;
     const paginatedItems = hasMore ? items.slice(0, limit) : items;
     const lastItem = paginatedItems[paginatedItems.length - 1];
+    const lastItemFinal = lastItem as NewsfeedItemDto & { final_score: number };
     const nextCursor =
       hasMore && lastItem
-        ? Buffer.from(`${lastItem.id}|${(lastItem as any).final_score}`).toString('base64')
+        ? Buffer.from(`${lastItem.id}|${lastItemFinal.final_score}`).toString('base64')
         : null;
     return { paginatedItems, hasMore, nextCursor };
   }
 
-  // Optional quality score (unchanged)
+  // Calculate quality score using Wilson score interval
   private calculateQualityScore(
     upVotes: number,
     downVotes: number,
@@ -683,3 +731,4 @@ export class NewsfeedService {
     );
   }
 }
+
