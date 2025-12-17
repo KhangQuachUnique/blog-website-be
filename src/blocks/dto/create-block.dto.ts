@@ -30,7 +30,7 @@ export class CreateBlockDto {
     example: EBlockType.TEXT,
   })
   @IsEnum(EBlockType, {
-    message: 'Block type must be TEXT or IMAGE',
+    message: 'Khối loại phải là văn bản hoặc hình ảnh',
   })
   @IsNotEmpty()
   type: EBlockType;
@@ -40,7 +40,7 @@ export class CreateBlockDto {
     example: 'Đây là nội dung block text',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Khối phải có nội dung' })
   content: string;
 
   @ApiProperty({
@@ -58,7 +58,7 @@ export class CreateBlockDto {
     nullable: true,
   })
   @IsEnum(ObjectFit, {
-    message: 'Object fit must be CONTAIN, COVER, or FILL',
+    message: 'Thuộc tính object fit phải là CONTAIN, COVER, FILL',
   })
   @IsOptional()
   objectFit?: ObjectFit | null;
