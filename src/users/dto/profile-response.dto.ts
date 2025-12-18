@@ -55,6 +55,9 @@ export class ProfileResponseDto {
   avatarUrl?: string;
 
   @Expose()
+  coverImageUrl?: string;
+
+  @Expose()
   dob?: Date;
 
   @Expose()

@@ -29,6 +29,11 @@ export class UpdateProfileDto {
   avatarUrl?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.coverImageUrl !== '' && o.coverImageUrl !== null)
+  @IsUrl()
+  coverImageUrl?: string;
+
+  @IsOptional()
   @IsString()
   @MinLength(10)
   @MaxLength(15)

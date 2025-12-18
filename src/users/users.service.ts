@@ -194,6 +194,9 @@ export class UsersService {
     if ('avatarUrl' in updateProfileDto) {
       user.avatarUrl = updateProfileDto.avatarUrl || null;
     }
+    if ('coverImageUrl' in updateProfileDto) {
+      user.coverImageUrl = updateProfileDto.coverImageUrl || null;
+    }
     if ('phoneNumber' in updateProfileDto) {
       user.phoneNumber = updateProfileDto.phoneNumber || null;
     }
