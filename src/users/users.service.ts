@@ -36,8 +36,8 @@ export class UsersService {
    */
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
-      select: ['id', 'username', 'email', 'type', 'isPrivate', 'createdAt'],
-      order: { createdAt: 'DESC' },
+      select: ['id', 'username', 'email', 'type', 'isPrivate', 'joinAt'],
+      order: { joinAt: 'DESC' },
     });
   }
 
@@ -148,6 +148,10 @@ export class UsersService {
       if (isPrivateAndNotOwner) {
         profileDto.bio = undefined;
       }
+    } else {
+      // Nếu là chính mình xem, luôn hiển thị email và phone
+      profileDto.email = user.email;
+      profileDto.phoneNumber = user.phoneNumber ?? undefined;
     }
 
     return profileDto;

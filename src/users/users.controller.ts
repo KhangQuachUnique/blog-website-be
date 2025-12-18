@@ -43,7 +43,8 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@Request() req: RequestWithUser) {
     const userId = req.user.userId;
-    return this.usersService.getProfile(userId);
+    // Truyền userId vào cả 2 tham số để service biết đây là owner
+    return this.usersService.getProfile(userId, userId);
   }
 
   /**
