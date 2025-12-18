@@ -8,6 +8,6 @@ export const AppDataSource = new DataSource({
   url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
   database: 'postgres',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: false, // Don't auto-sync in production
+  synchronize: true, // Auto-sync to create new ban columns
   logging: false,
 });

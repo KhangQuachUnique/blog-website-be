@@ -23,6 +23,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
+import { BanUserDto, UnbanUserDto } from './dto/ban-user.dto';
 
 @Controller('users')
 export class UsersController {
@@ -34,8 +35,8 @@ export class UsersController {
   }
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query('search') search?: string, @Query('status') status?: string) {
+    return this.usersService.findAll(search, status);
   }
 
   @Get(':id')
@@ -229,5 +230,45 @@ export class UsersController {
     @Body('role') role: EUserRole,
   ) {
     return this.usersService.updateUserRole(userId, role);
+  }
+
+  /**
+   * Khóa/Ban user (Admin only)
+   * POST /users/:id/ban
+   */
+  @Post(':id/ban')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN)
+  async banUser(
+    @Param('id', ParseIntPipe) userId: number,
+    @Body() banUserDto: BanUserDto,
+  ) {
+    return this.usersService.banUser(userId, banUserDto);
+  }
+
+  /**
+   * Bỏ khóa/Unban user (Admin only)
+   * POST /users/:id/unban
+   */
+  @Post(':id/unban')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(EUserRole.ADMIN)
+  async unbanUser(
+    @Param('id', ParseIntPipe) userId: number,
+    @Body() unbanUserDto?: UnbanUserDto,
+  ) {
+    return this.usersService.unbanUser(userId, unbanUserDto);
+  }
+
+  /**
+   * Kiểm tra user có bị ban hay không
+   * GET /users/:id/ban-status
+   */
+  @Get(':id/ban-status')
+  async checkBanStatus(@Param('id', ParseIntPipe) userId: number) {
+    const isBanned = await this.usersService.isUserBanned(userId);
+    return { isBanned };
   }
 }

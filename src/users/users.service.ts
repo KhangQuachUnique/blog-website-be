@@ -18,6 +18,7 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
+import { BanUserDto, UnbanUserDto } from './dto/ban-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -32,24 +33,165 @@ export class UsersService {
     private userRepository: Repository<User>,
   ) {}
 
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  /**
+   * Tạo user mới (Admin hoặc Auth service)
+   */
+  async create(createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
+    const { username, email, password, type, ...rest } = createUserDto;
+
+    // Kiểm tra username đã tồn tại
+    const existingUsername = await this.userRepository.findOne({
+      where: { username },
+    });
+    if (existingUsername) {
+      throw new BadRequestException('Username đã tồn tại');
+    }
+
+    // Kiểm tra email đã tồn tại
+    const existingEmail = await this.userRepository.findOne({
+      where: { email },
+    });
+    if (existingEmail) {
+      throw new BadRequestException('Email đã tồn tại');
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Tạo user mới với role USER mặc định (hoặc admin có thể chỉ định)
+    const user = this.userRepository.create({
+      username,
+      email,
+      password: hashedPassword,
+      type: type || 'USER', // Mặc định là USER, admin có thể sửa
+      ...rest,
+    } as any);
+
+    const savedUser = await this.userRepository.save(user);
+    
+    // Trả về user không có password field
+    return (savedUser as any) as Omit<User, 'password'>;
   }
 
-  findAll() {
-    return `This action returns all users`;
+  /**
+   * Lấy tất cả users (cho admin)
+   */
+  async findAll(search?: string, status?: string) {
+    let query = this.userRepository.createQueryBuilder('user');
+
+    // Filter by search (username, email)
+    if (search && search.trim()) {
+      query = query.where(
+        'user.username ILIKE :search OR user.email ILIKE :search',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Filter by status (ACTIVE = not banned, BANNED = banned)
+    if (status && status !== 'ALL') {
+      const isBanned = status === 'BANNED';
+      query = query.andWhere('user.isBanned = :isBanned', { isBanned });
+    }
+
+    const users = await query
+      .select([
+        'user.id',
+        'user.username',
+        'user.email',
+        'user.phoneNumber',
+        'user.type',
+        'user.isBanned',
+        'user.avatarUrl',
+        'user.joinAt',
+      ])
+      .orderBy('user.id', 'ASC')
+      .getMany();
+
+    return users;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  /**
+   * Lấy thông tin chi tiết của user
+   */
+  async findOne(id: number) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: [
+        'id',
+        'username',
+        'email',
+        'phoneNumber',
+        'bio',
+        'avatarUrl',
+        'dob',
+        'gender',
+        'type',
+        'isBanned',
+        'showEmail',
+        'showPhoneNumber',
+        'isPrivate',
+        'joinAt',
+      ],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User với ID ${id} không tồn tại`);
+    }
+
+    return user;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  /**
+   * Cập nhật thông tin user (Admin)
+   */
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User với ID ${id} không tồn tại`);
+    }
+
+    // Nếu cập nhật email, kiểm tra trùng lặp
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const existingEmail = await this.userRepository.findOne({
+        where: { email: updateUserDto.email },
+      });
+      if (existingEmail) {
+        throw new BadRequestException('Email đã tồn tại');
+      }
+    }
+
+    // Nếu cập nhật password, hash nó
+    if (updateUserDto.password) {
+      const saltRounds = 10;
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, saltRounds);
+    }
+
+    Object.assign(user, updateUserDto);
+    const updatedUser = await this.userRepository.save(user);
+
+    // Không return password
+    const { password: _, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  /**
+   * Xóa user (Admin)
+   */
+  async remove(id: number) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User với ID ${id} không tồn tại`);
+    }
+
+    await this.userRepository.remove(user);
+    return { message: 'User đã được xóa thành công' };
   }
 
   /**
@@ -416,5 +558,56 @@ export class UsersService {
       message: `Đã cập nhật role của người dùng thành ${role}`,
       user 
     };
+  }
+  /** 
+   * Khóa/Ban user (Admin only) 
+   */
+  async banUser(userId: number, banUserDto: BanUserDto): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException(`User với ID ${userId} không tồn tại`);
+    }
+
+    if (user.isBanned) {
+      throw new BadRequestException('User này đã bị khóa rồi');
+    }
+
+    user.isBanned = true;
+    await this.userRepository.save(user);
+
+    return { message: `User ${user.username} đã được khóa` };
+  }
+
+  /**
+   * Bỏ khóa/Unban user (Admin only) 
+   */
+  async unbanUser(userId: number, unbanUserDto?: UnbanUserDto): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException(`User với ID ${userId} không tồn tại`);
+    }
+
+    if (!user.isBanned) {
+      throw new BadRequestException('User này không bị khóa');
+    }
+
+    user.isBanned = false;
+    await this.userRepository.save(user);
+
+    return { message: `User ${user.username} đã được mở khóa` };
+  }
+
+  /**
+   * Kiểm tra xem user có bị ban hay không
+   */
+  async isUserBanned(userId: number): Promise<boolean> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['isBanned'],
+    });
+
+    return user?.isBanned || false;
   }
 }

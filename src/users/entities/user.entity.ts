@@ -53,6 +53,15 @@ export class User {
   @Column({ type: 'boolean', default: false })
   isBanned: boolean;
 
+  @Column({ type: 'text', nullable: true })
+  banReason: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  bannedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  bannedUntil: Date | null; // null = permanent ban
+
   @Column({ type: 'boolean', default: false })
   showEmail: boolean; // Kiểm soát hiển thị email công khai
 

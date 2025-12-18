@@ -7,12 +7,20 @@ export class UploadFileServiceS3 {
   private readonly s3_client: S3Client;
 
   constructor(private readonly config: ConfigService) {
+    const region = this.config.get<string>('AWS_REGION') || 'ap-northeast-1';
+    const accessKeyId = this.config.get<string>('AWS_ACCESS_KEY_ID');
+    const secretAccessKey = this.config.get<string>('AWS_SECRET_ACCESS_KEY');
+
     this.s3_client = new S3Client({
-      region: this.config.getOrThrow<string>('AWS_REGION'),
-      credentials: {
-        accessKeyId: this.config.getOrThrow<string>('AWS_ACCESS_KEY_ID'),
-        secretAccessKey: this.config.getOrThrow<string>('AWS_SECRET_ACCESS_KEY'),
-      },
+      region,
+      ...(accessKeyId && secretAccessKey
+        ? {
+            credentials: {
+              accessKeyId,
+              secretAccessKey,
+            },
+          }
+        : {}),
     });
   }
 

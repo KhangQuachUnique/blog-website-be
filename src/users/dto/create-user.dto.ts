@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { EGender } from '../enums/gender.enum';
+import { EUserRole } from '../enums/role.enum';
 
 export class CreateUserDto {
   @IsString()
@@ -43,4 +44,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(EGender)
   gender?: EGender;
+
+  @IsOptional()
+  @IsEnum(EUserRole)
+  type?: EUserRole; // Admin có thể chỉ định role, mặc định sẽ là USER
 }
