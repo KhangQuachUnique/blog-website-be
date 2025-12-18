@@ -65,6 +65,12 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   refreshTokenHash: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  isVerified: string | null; // null = chưa gửi OTP, "123456" = mã OTP đang chờ verify, "verified" = đã xác thực
+
+  @Column({ type: 'varchar', nullable: true })
+  resetPasswordOtp: string | null; // null = không có yêu cầu reset, "123456" = mã OTP đang chờ verify
+
   //Relations
   @OneToMany(() => CommunityMember, (member) => member.user)
   communitiesMemberOf: CommunityMember[];

@@ -14,15 +14,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // Payload contains: { sub: userId, email, username }
-    // Return `id` so controllers that read `req.user?.id` work consistently
+    // Payload contains: { sub: userId, email, username, role }
+    // Return user info for controllers
     try {
-      console.log('[JwtStrategy] validate payload', { sub: payload.sub, email: payload.email });
+      console.log('[JwtStrategy] validate payload', { sub: payload.sub, email: payload.email, role: payload.role });
     } catch (e) {
       // ignore logging errors
     }
 
-    // Return both `userId` and `id` for compatibility with existing code
-    return { userId: payload.sub, id: payload.sub, email: payload.email, username: payload.username };
+    // Return userId, id, email, username, role for compatibility
+    return { 
+      userId: payload.sub, 
+      id: payload.sub, 
+      email: payload.email, 
+      username: payload.username,
+      role: payload.role,
+    };
   }
 }
