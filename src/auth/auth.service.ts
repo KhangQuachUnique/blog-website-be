@@ -48,6 +48,13 @@ export class AuthService {
       );
     }
 
+    // Check if user is banned
+    if (user.isBanned) {
+      throw new UnauthorizedException(
+        'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ admin.',
+      );
+    }
+
     // Generate JWT token with role
     const payload = { sub: user.id, email: user.email, username: user.username, role: user.type };
     const accessToken = this.jwtService.sign(payload);
@@ -288,5 +295,13 @@ export class AuthService {
     await this.userRepository.save(user);
 
     return { message: 'Đặt lại mật khẩu thành công' };
+  }
+
+  async isUserBanned(userId: number): Promise<boolean> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'isBanned'],
+    });
+    return user?.isBanned || false;
   }
 }

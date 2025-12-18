@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from '../auth.service';
@@ -14,7 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload): JwtUser {
+  async validate(payload: JwtPayload): Promise<JwtUser> {
     // Payload contains: { sub: userId, email, username, role }
     // Return user info for controllers
     try {
@@ -25,6 +25,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
     } catch (e) {
       // ignore logging errors
+    }
+
+    // Check if user is banned
+    const isBanned = await this.authService.isUserBanned(payload.sub);
+    if (isBanned) {
+      throw new UnauthorizedException('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ admin.');
     }
 
     // Return userId, id, email, username, role for compatibility
