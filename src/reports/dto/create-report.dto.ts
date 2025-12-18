@@ -3,9 +3,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EReportType } from '../enums/report-type.enum';
 
 export class CreateReportDto {
-  @ApiProperty({ example: 1, description: 'ID của người báo cáo' })
+  @ApiPropertyOptional({ example: 1, description: 'ID của người báo cáo (tự động lấy từ token)' })
+  @IsOptional()
   @IsNumber()
-  reporterId: number;
+  reporterId?: number;
 
   @ApiProperty({ example: 'Nội dung không phù hợp', description: 'Lý do báo cáo' })
   @IsString()
