@@ -20,6 +20,7 @@ import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadFileModule } from './files/upload-file.module';
 import { UserVotesModule } from './user-votes/user-votes.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { UserVotesModule } from './user-votes/user-votes.module';
     NewsfeedModule,
     UploadFileModule,
     UserVotesModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
