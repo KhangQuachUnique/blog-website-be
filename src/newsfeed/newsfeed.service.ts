@@ -76,20 +76,6 @@ interface PersonalizationParts {
   diversityPenalty: string;
 }
 
-/**
- * NewsfeedService (improved for diversity, customizability, and variability on reload)
- * - Added configurable scoring weights via a private config object for easy tuning.
- * - Improved diversity:
- *   - Penalize based on count of recent appearances (not just presence).
- *   - Fetch more recent items (up to 10) and use a map to count occurrences per author/community.
- *   - Exponential penalty scaling for repeated authors/communities.
- * - Added variability on reload:
- *   - Introduce a small random jitter to scores using RANDOM() * jitterFactor in SQL.
- *   - To maintain pagination consistency, include a sessionSeed in the cursor (generated on initial fetch).
- *   - Use sessionSeed to seed RANDOM() via SETSEED for reproducible randomness within a "session" (pagination chain).
- *   - On full reload (no cursor), generate a new seed, causing different ordering.
- * - Structure remains sequential with small helpers.
- */
 @Injectable()
 export class NewsfeedService {
   constructor(
