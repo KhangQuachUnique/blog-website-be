@@ -167,6 +167,30 @@ export class UsersController {
     return this.usersService.deleteAccount(userId);
   }
 
+  /**
+   * Follow người dùng
+   * POST /users/:id/follow
+   */
+  @Post(':id/follow')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async followUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
+    const userId = req.user.userId;
+    return this.usersService.followUser(userId, targetUserId);
+  }
+
+  /**
+   * Unfollow người dùng
+   * DELETE /users/:id/follow
+   */
+  @Delete(':id/follow')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async unfollowUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
+    const userId = req.user.userId;
+    return this.usersService.unfollowUser(userId, targetUserId);
+  }
+
   // ==================== ADMIN ROUTES ====================
 
   /**

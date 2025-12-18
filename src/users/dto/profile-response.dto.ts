@@ -83,6 +83,9 @@ export class ProfileResponseDto {
   followingCount: number;
 
   @Expose()
+  isFollowing?: boolean; // Chỉ hiện khi có viewer (không phải chính mình)
+
+  @Expose()
   @Type(() => BlogPostDto)
   posts: BlogPostDto[];
 

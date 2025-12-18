@@ -134,6 +134,12 @@ export class UsersService {
       downVotes: post.votes?.filter((v) => v.voteType === EVoteType.DOWNVOTE).length || 0,
     }));
 
+    // Kiểm tra xem viewer có đang follow user không (chỉ khi không phải chính mình)
+    if (viewerId && !isOwner) {
+      const isFollowing = user.followers?.some(follower => follower.id === viewerId) || false;
+      profileDto.isFollowing = isFollowing;
+    }
+
     // Kiểm soát hiển thị email và phone
     // Nếu không phải chính mình xem và user không cho phép hiển thị, ẩn thông tin
     // Hoặc nếu private profile, luôn ẩn với người khác
@@ -181,7 +187,34 @@ export class UsersService {
     }
 
     // Cập nhật thông tin
-    Object.assign(user, updateProfileDto);
+    // Xử lý các trường optional - nếu undefined thì set null để xóa giá trị cũ
+    if ('bio' in updateProfileDto) {
+      user.bio = updateProfileDto.bio || null;
+    }
+    if ('avatarUrl' in updateProfileDto) {
+      user.avatarUrl = updateProfileDto.avatarUrl || null;
+    }
+    if ('phoneNumber' in updateProfileDto) {
+      user.phoneNumber = updateProfileDto.phoneNumber || null;
+    }
+    if ('dob' in updateProfileDto) {
+      user.dob = updateProfileDto.dob ? new Date(updateProfileDto.dob) : null;
+    }
+    if ('gender' in updateProfileDto) {
+      user.gender = updateProfileDto.gender || null;
+    }
+    
+    // Cập nhật các trường còn lại
+    if (updateProfileDto.username) {
+      user.username = updateProfileDto.username;
+    }
+    if (updateProfileDto.showEmail !== undefined) {
+      user.showEmail = updateProfileDto.showEmail;
+    }
+    if (updateProfileDto.showPhoneNumber !== undefined) {
+      user.showPhoneNumber = updateProfileDto.showPhoneNumber;
+    }
+    
     await this.userRepository.save(user);
 
     return this.getProfile(userId, userId);
@@ -408,6 +441,73 @@ export class UsersService {
     await this.userRepository.remove(user);
 
     return { message: 'Tài khoản đã được xóa thành công' };
+  }
+
+  /**
+   * Follow người dùng
+   */
+  async followUser(userId: number, targetUserId: number): Promise<{ message: string }> {
+    if (userId === targetUserId) {
+      throw new BadRequestException('Không thể follow chính mình');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['following'],
+    });
+
+    const targetUser = await this.userRepository.findOne({
+      where: { id: targetUserId },
+    });
+
+    if (!user || !targetUser) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra đã follow chưa
+    const isAlreadyFollowing = user.following?.some(u => u.id === targetUserId);
+    if (isAlreadyFollowing) {
+      throw new BadRequestException('Bạn đã follow người dùng này rồi');
+    }
+
+    // Thêm vào danh sách following
+    if (!user.following) {
+      user.following = [];
+    }
+    user.following.push(targetUser);
+    await this.userRepository.save(user);
+
+    return { message: 'Đã follow người dùng thành công' };
+  }
+
+  /**
+   * Unfollow người dùng
+   */
+  async unfollowUser(userId: number, targetUserId: number): Promise<{ message: string }> {
+    if (userId === targetUserId) {
+      throw new BadRequestException('Không thể unfollow chính mình');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['following'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra đã follow chưa
+    const followIndex = user.following?.findIndex(u => u.id === targetUserId);
+    if (followIndex === undefined || followIndex === -1) {
+      throw new BadRequestException('Bạn chưa follow người dùng này');
+    }
+
+    // Xóa khỏi danh sách following
+    user.following.splice(followIndex, 1);
+    await this.userRepository.save(user);
+
+    return { message: 'Đã unfollow người dùng thành công' };
   }
 
   /**
