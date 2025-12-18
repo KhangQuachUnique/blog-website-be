@@ -3,6 +3,7 @@ import { EmojisService } from './emojis.service';
 import { CreateEmojiDto } from './dto/create-emoji.dto';
 import { UpdateEmojiDto } from './dto/update-emoji.dto';
 import { Emoji } from './entities/emoji.entity';
+import { EmojiCommunityResponseDto } from './dto/response/emoji-response.dto';
 
 @Controller('emojis')
 export class EmojisController {
@@ -18,14 +19,21 @@ export class EmojisController {
     return this.emojisService.findAll();
   }
 
-  @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<Emoji> {
-    return this.emojisService.findOne(id);
+  @Get('user/:userId/communities')
+  async findByUserCommunities(
+    @Param('userId', ParseIntPipe) userId: number,
+  ): Promise<EmojiCommunityResponseDto[]> {
+    return await this.emojisService.findByUserCommunities(userId);
   }
 
   @Get('community/:communityId')
   async findByCommunity(@Param('communityId', ParseIntPipe) communityId: number): Promise<Emoji[]> {
     return this.emojisService.findByCommunity(communityId);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<Emoji> {
+    return this.emojisService.findOne(id);
   }
 
   @Patch(':id')

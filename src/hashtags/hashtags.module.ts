@@ -9,5 +9,6 @@ import { Hashtag } from './entities/hashtag.entity';
   imports: [TypeOrmModule.forFeature([Hashtag])],
   controllers: [HashtagsController],
   providers: [HashtagsService],
+  exports: [HashtagsService],
 })
 export class HashtagsModule {}
