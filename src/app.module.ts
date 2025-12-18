@@ -19,6 +19,7 @@ import { ViewedHistoryModule } from './viewed-history/viewed-history.module';
 import { NewsfeedModule } from './newsfeed/newsfeed.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadFileModule } from './files/upload-file.module';
+import { SearchModule } from './search/search.module';
 import { UserVotesModule } from './user-votes/user-votes.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 
@@ -50,6 +51,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ViewedHistoryModule,
     NewsfeedModule,
     UploadFileModule,
+    SearchModule,
     UserVotesModule,
     DashboardModule,
   ],
