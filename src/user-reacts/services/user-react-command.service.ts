@@ -4,7 +4,6 @@ import { QueryFailedError, Repository } from 'typeorm';
 import { UserReact } from '../entities/user-react.entity';
 import { ToggleReactDto } from '../dto/toggle-react.dto';
 import { Emoji } from '../../emojis/entities/emoji.entity';
-import { EEmojiType } from '../../emojis/enums/emoji.enum';
 
 /**
  * 🎯 UserReactCommandService - Handle write operations
@@ -29,47 +28,39 @@ export class UserReactCommandService {
   ) {}
 
   /**
-   * � Helper: Tìm hoặc tạo emoji
-   * - Nếu có emojiId → dùng trực tiếp
-   * - Nếu có unicodeCodepoint → tìm/tạo emoji unicode
+   * Hàm tìm emoji theo codepoint hoặc emojiId
    */
-  private async getOrCreateEmoji(dto: ToggleReactDto): Promise<number> {
-    // Case 1: Có emojiId → dùng trực tiếp (custom emoji hoặc emoji đã có)
-    if (dto.emojiId) {
-      return dto.emojiId;
+  private async getEmoji(dto: ToggleReactDto): Promise<Emoji> {
+    if (!dto.codepoint && !dto.emojiId) {
+      throw new BadRequestException('Either emojiId or codepoint is required');
     }
 
-    // Case 2: Có unicodeCodepoint → tìm/tạo emoji unicode
-    if (dto.unicodeCodepoint) {
-      let emoji = await this.emojiRepo.findOne({
+    let emoji: Emoji | null = null;
+
+    if (dto.codepoint) {
+      emoji = await this.emojiRepo.findOne({
         where: {
-          type: EEmojiType.UNICODE,
-          codepoint: dto.unicodeCodepoint,
+          codepoint: dto.codepoint,
         },
       });
-
-      if (!emoji) {
-        // Tạo emoji unicode mới
-        emoji = this.emojiRepo.create({
-          type: EEmojiType.UNICODE,
-          codepoint: dto.unicodeCodepoint,
-          emojiUrl: null,
-          community: null,
-        });
-        emoji = await this.emojiRepo.save(emoji);
-      }
-
-      return emoji.id;
     }
 
-    throw new BadRequestException('Either emojiId or unicodeCodepoint is required');
+    emoji = await this.emojiRepo.findOne({
+      where: {
+        id: dto.emojiId,
+      },
+    });
+
+    if (!emoji) {
+      throw new BadRequestException('Either emojiId or unicodeCodepoint is required');
+    }
+    return emoji;
   }
 
   /**
-   * 🔄 Toggle react cho POST
-   * - Nếu chưa react: Tạo mới
-   * - Nếu đã react: Xóa
-   * - DB unique constraint tự handle duplicate
+   * Hàm toggle reaction cho người dùng
+   * @param dto
+   * @returns
    */
   async toggleReactForPost(dto: ToggleReactDto): Promise<void> {
     if (!dto.postId) {
@@ -77,35 +68,31 @@ export class UserReactCommandService {
     }
 
     // Tìm hoặc tạo emoji
-    const emojiId = await this.getOrCreateEmoji(dto);
+    const emoji = await this.getEmoji(dto);
 
     // Try to find existing reaction
     const existing = await this.userReactRepo.findOne({
       where: {
         user: { id: dto.userId },
-        emoji: { id: emojiId },
+        emoji: { id: emoji.id },
         post: { id: dto.postId },
       },
     });
 
     if (existing) {
-      // React đã tồn tại → Xóa (toggle off)
       await this.userReactRepo.delete(existing.id);
       return;
     }
 
-    // Chưa react → Tạo mới (toggle on)
-    // Dùng insert thay vì save để nhanh hơn, để DB handle unique violation
     try {
       await this.userReactRepo.insert({
         user: { id: dto.userId },
-        emoji: { id: emojiId },
+        emoji: { id: emoji.id },
         post: { id: dto.postId },
         comment: null,
       });
     } catch (error: unknown) {
       if (error instanceof QueryFailedError && error.name === '23505') {
-        // Unique constraint violation → ignore
         return;
       }
       throw error;
@@ -121,12 +108,12 @@ export class UserReactCommandService {
     }
 
     // Tìm hoặc tạo emoji
-    const emojiId = await this.getOrCreateEmoji(dto);
+    const emoji = await this.getEmoji(dto);
 
     const existing = await this.userReactRepo.findOne({
       where: {
         user: { id: dto.userId },
-        emoji: { id: emojiId },
+        emoji: { id: emoji.id },
         comment: { id: dto.commentId },
       },
     });
@@ -139,7 +126,7 @@ export class UserReactCommandService {
     try {
       await this.userReactRepo.insert({
         user: { id: dto.userId },
-        emoji: { id: emojiId },
+        emoji: { id: emoji.id },
         post: null,
         comment: { id: dto.commentId },
       });

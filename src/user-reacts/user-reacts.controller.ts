@@ -7,7 +7,7 @@ import { UserReactSummaryDto } from './dto/response/user-react-summary.dto';
 
 /**
  * 🎯 UserReactsController - RESTful API
- * 
+ *
  * Design Principles:
  * - Controller KHÔNG chứa business logic
  * - Chỉ mapping DTO ↔ Service
@@ -22,16 +22,12 @@ export class UserReactsController {
     private readonly queryService: UserReactQueryService,
   ) {}
 
-  // ============================================
-  // 🔄 COMMAND - Write Operations
-  // ============================================
-
   /**
    * Toggle react cho POST
    * - Nếu chưa react: Tạo mới
    * - Nếu đã react: Xóa
    */
-  @Post('posts/toggle')
+  @Post('post/toggle')
   @ApiOperation({
     summary: 'Toggle reaction cho post',
     description: 'Hành vi giống Discord: Click 1 lần = react, click lần 2 = unreact',
@@ -46,7 +42,7 @@ export class UserReactsController {
   /**
    * Toggle react cho COMMENT
    */
-  @Post('comments/toggle')
+  @Post('comment/toggle')
   @ApiOperation({
     summary: 'Toggle reaction cho comment',
     description: 'Hành vi giống Discord: Click 1 lần = react, click lần 2 = unreact',
@@ -119,7 +115,7 @@ export class UserReactsController {
   }
 
   /**
-   * 🚀 Batch query: Lấy reactions cho NHIỀU POSTS
+   *
    * Use case: Newsfeed cần reactions của 20 posts
    */
   @Get('posts/batch')
@@ -146,10 +142,7 @@ export class UserReactsController {
     const postIdArray = postIds.split(',').map((id) => parseInt(id.trim(), 10));
     const currentUserId = userId ? parseInt(userId, 10) : undefined;
 
-    const resultMap = await this.queryService.getUserReactForPosts(
-      postIdArray,
-      currentUserId,
-    );
+    const resultMap = await this.queryService.getUserReactForPosts(postIdArray, currentUserId);
 
     // Convert Map to plain object for JSON response
     const result: { [key: number]: UserReactSummaryDto } = {};
