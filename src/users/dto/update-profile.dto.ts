@@ -1,13 +1,13 @@
 import {
   IsString,
   IsOptional,
-  IsEmail,
   IsEnum,
   IsDateString,
   IsBoolean,
   MaxLength,
   MinLength,
   IsUrl,
+  ValidateIf,
 } from 'class-validator';
 import { EGender } from '../enums/gender.enum';
 
@@ -24,8 +24,14 @@ export class UpdateProfileDto {
   bio?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.avatarUrl !== '' && o.avatarUrl !== null)
   @IsUrl()
   avatarUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => o.coverImageUrl !== '' && o.coverImageUrl !== null)
+  @IsUrl()
+  coverImageUrl?: string;
 
   @IsOptional()
   @IsString()
@@ -34,6 +40,7 @@ export class UpdateProfileDto {
   phoneNumber?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.dob !== '' && o.dob !== null)
   @IsDateString()
   dob?: string;
 
