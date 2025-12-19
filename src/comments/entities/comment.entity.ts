@@ -1,4 +1,4 @@
-import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { ECommentType } from '../enums/comment-type.enum';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Block } from 'src/blocks/entities/block.entity';
@@ -20,37 +20,45 @@ export class Comment {
   createAt: Date;
 
   // Relations
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'commenterId' })
   commenter: User;
 
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
+  @Column({ name: 'commenterId', nullable: true })
+  commenterId: number;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'replyToUserId' })
   replyToUser: User;
 
-  @ManyToOne(() => BlogPost, {
-    onDelete: 'CASCADE',
-    nullable: true,
-  })
+  @Column({ name: 'replyToUserId', nullable: true })
+  replyToUserId: number;
+
+  @ManyToOne(() => BlogPost, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'postId' })
   post: BlogPost;
 
-  @ManyToOne(() => Block, {
-    onDelete: 'CASCADE',
-    nullable: true,
-  })
+  @Column({ name: 'postId', nullable: true })
+  postId: number;
+
+  @ManyToOne(() => Block, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'blockId' })
   block: Block;
+
+  @Column({ name: 'blockId', nullable: true })
+  blockId: number;
 
   // Self-referencing for parent-child comments
   @ManyToOne(() => Comment, (comment) => comment.childComments, {
     onDelete: 'CASCADE',
     nullable: true,
   })
+  @JoinColumn({ name: 'parentCommentId' })
   parentComment: Comment;
 
-  @OneToMany(() => Comment, (comment) => comment.parentComment, { cascade: true })
+  @Column({ name: 'parentCommentId', nullable: true })
+  parentCommentId: number;
+
+  @OneToMany(() => Comment, (comment) => comment.parentComment)
   childComments: Comment[];
 }
