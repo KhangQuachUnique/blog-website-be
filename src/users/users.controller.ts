@@ -145,6 +145,20 @@ export class UsersController {
   }
 
   /**
+   * Tìm kiếm người dùng theo username
+   * GET /users/search?q=username
+   */
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  searchUsers(
+    @Query('q') query: string,
+    @Request() req: RequestWithUser,
+  ) {
+    const currentUserId = req.user.userId;
+    return this.usersService.searchUsers(query, currentUserId);
+  }
+
+  /**
    * Lấy danh sách người dùng bị chặn
    * GET /users/me/blocked
    */
@@ -189,6 +203,34 @@ export class UsersController {
   async unfollowUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
     const userId = req.user.userId;
     return this.usersService.unfollowUser(userId, targetUserId);
+  }
+
+  /**
+   * Lấy danh sách followers của một user
+   * GET /users/:id/followers
+   */
+  @Get(':id/followers')
+  @UseGuards(OptionalJwtAuthGuard)
+  async getFollowers(
+    @Param('id', ParseIntPipe) userId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    const viewerId = req.user?.userId;
+    return this.usersService.getFollowers(userId, viewerId);
+  }
+
+  /**
+   * Lấy danh sách following của một user
+   * GET /users/:id/following
+   */
+  @Get(':id/following')
+  @UseGuards(OptionalJwtAuthGuard)
+  async getFollowing(
+    @Param('id', ParseIntPipe) userId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    const viewerId = req.user?.userId;
+    return this.usersService.getFollowing(userId, viewerId);
   }
 
   // ==================== ADMIN ROUTES ====================

@@ -16,6 +16,7 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
+import { UserListDto } from './dto/user-list.dto';
 import { EVoteType } from 'src/user-votes/entities/user-vote.entity';
 
 @Injectable()
@@ -359,6 +360,25 @@ export class UsersService {
   }
 
   /**
+   * Tìm kiếm người dùng theo username
+   */
+  async searchUsers(query: string, currentUserId: number): Promise<User[]> {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .where('LOWER(user.username) LIKE LOWER(:query)', { query: `%${query}%` })
+      .andWhere('user.id != :currentUserId', { currentUserId })
+      .select(['user.id', 'user.username', 'user.avatarUrl'])
+      .take(10)
+      .getMany();
+
+    return users;
+  }
+
+  /**
    * Chặn người dùng
    */
   async blockUser(userId: number, targetUserId: number): Promise<{ message: string }> {
@@ -530,5 +550,93 @@ export class UsersService {
       message: `Đã cập nhật role của người dùng thành ${role}`,
       user 
     };
+  }
+
+  /**
+   * Lấy danh sách followers của một user
+   */
+  async getFollowers(userId: number, viewerId?: number): Promise<UserListDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['followers'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra quyền riêng tư
+    const isOwner = viewerId === userId;
+    if (user.isPrivate && !isOwner) {
+      throw new ForbiddenException('Hồ sơ này ở chế độ riêng tư');
+    }
+
+    // Lấy danh sách following của viewer để check trạng thái isFollowing
+    let viewerFollowing: number[] = [];
+    if (viewerId) {
+      const viewer = await this.userRepository.findOne({
+        where: { id: viewerId },
+        relations: ['following'],
+      });
+      viewerFollowing = viewer?.following?.map(u => u.id) || [];
+    }
+
+    // Map sang DTO
+    const followers = user.followers?.map(follower => {
+      const dto = plainToInstance(UserListDto, follower, {
+        excludeExtraneousValues: true,
+      });
+      // Check xem viewer có đang follow user này không
+      if (viewerId && follower.id !== viewerId) {
+        dto.isFollowing = viewerFollowing.includes(follower.id);
+      }
+      return dto;
+    }) || [];
+
+    return followers;
+  }
+
+  /**
+   * Lấy danh sách following của một user
+   */
+  async getFollowing(userId: number, viewerId?: number): Promise<UserListDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['following'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra quyền riêng tư
+    const isOwner = viewerId === userId;
+    if (user.isPrivate && !isOwner) {
+      throw new ForbiddenException('Hồ sơ này ở chế độ riêng tư');
+    }
+
+    // Lấy danh sách following của viewer để check trạng thái isFollowing
+    let viewerFollowing: number[] = [];
+    if (viewerId) {
+      const viewer = await this.userRepository.findOne({
+        where: { id: viewerId },
+        relations: ['following'],
+      });
+      viewerFollowing = viewer?.following?.map(u => u.id) || [];
+    }
+
+    // Map sang DTO
+    const following = user.following?.map(followedUser => {
+      const dto = plainToInstance(UserListDto, followedUser, {
+        excludeExtraneousValues: true,
+      });
+      // Check xem viewer có đang follow user này không
+      if (viewerId && followedUser.id !== viewerId) {
+        dto.isFollowing = viewerFollowing.includes(followedUser.id);
+      }
+      return dto;
+    }) || [];
+
+    return following;
   }
 }
