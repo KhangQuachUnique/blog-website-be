@@ -12,12 +12,12 @@ import { plainToInstance } from 'class-transformer';
 
 import { User } from './entities/user.entity';
 import { EUserRole } from './enums/role.enum';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
+import { UserListDto } from './dto/user-list.dto';
+import { EVoteType } from 'src/user-votes/entities/user-vote.entity';
 
 @Injectable()
 export class UsersService {
@@ -32,24 +32,14 @@ export class UsersService {
     private userRepository: Repository<User>,
   ) {}
 
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
-  }
-
-  findAll() {
-    return `This action returns all users`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
-  }
-
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  /**
+   * Lấy tất cả users (dành cho Admin)
+   */
+  async findAll(): Promise<User[]> {
+    return this.userRepository.find({
+      select: ['id', 'username', 'email', 'type', 'isPrivate', 'joinAt'],
+      order: { joinAt: 'DESC' },
+    });
   }
 
   /**
@@ -79,10 +69,12 @@ export class UsersService {
       }
     }
 
+    // Kiểm tra xem có phải chính chủ đang xem profile của mình không
+    const isOwner = viewerId === userId;
+
     // Kiểm tra chế độ riêng tư
-    if (user.isPrivate && viewerId !== userId) {
-      throw new ForbiddenException('Hồ sơ này ở chế độ riêng tư');
-    }
+    // Nếu profile ở chế độ riêng tư và người xem không phải chính chủ
+    const isPrivateAndNotOwner = user.isPrivate && !isOwner;
 
     // Query blog posts của user
     // Nếu xem profile của người khác, chỉ hiển thị bài viết public
@@ -93,11 +85,18 @@ export class UsersService {
       .where('user.id = :userId', { userId });
 
     // Chỉ lấy bài viết public nếu không phải chính mình
-    if (viewerId !== userId) {
-      queryBuilder.andWhere('post.isPublic = true');
+    // Hoặc nếu profile riêng tư thì không hiển thị bài viết cho người khác
+    if (!isOwner) {
+      if (isPrivateAndNotOwner) {
+        // Không load posts cho private profile
+        queryBuilder.andWhere('1 = 0'); // Điều kiện luôn false để không load posts
+      } else {
+        queryBuilder.andWhere('post.isPublic = true');
+      }
     }
 
     const userWithPosts = await queryBuilder
+      .leftJoinAndSelect('post.votes', 'vote')
       .select([
         'user.id',
         'post.id',
@@ -105,7 +104,8 @@ export class UsersService {
         'post.thumbnailUrl',
         'post.isPublic',
         'post.createdAt',
-        'post.votes',
+        'vote.id',
+        'vote.voteType',
       ])
       .getOne();
 
@@ -115,32 +115,50 @@ export class UsersService {
     });
 
     // Map communities từ CommunityMember
-    profileDto.communities =
-      user.communitiesMemberOf?.map((member) => ({
-        id: member.community.id,
-        name: member.community.name,
-        thumbnailUrl: member.community.thumbnailUrl,
-      })) || [];
+    // Nếu private và không phải chính chủ, ẩn communities
+    profileDto.communities = isPrivateAndNotOwner
+      ? []
+      : user.communitiesMemberOf?.map((member) => ({
+          id: member.community.id,
+          name: member.community.name,
+          thumbnailUrl: member.community.thumbnailUrl,
+        })) || [];
 
-    profileDto.followersCount = user.followers?.length || 0;
-    profileDto.followingCount = user.following?.length || 0;
+    // Followers/Following count - ẩn nếu private và không phải chính chủ
+    profileDto.followersCount = isPrivateAndNotOwner ? 0 : (user.followers?.length || 0);
+    profileDto.followingCount = isPrivateAndNotOwner ? 0 : (user.following?.length || 0);
 
     // Map posts và tính upVotes/downVotes từ votes relationship
     profileDto.posts = (userWithPosts?.posts || []).map((post) => ({
       ...post,
-      upVotes: post.votes?.filter((v) => v.voteType === 'upvote').length || 0,
-      downVotes: post.votes?.filter((v) => v.voteType === 'downvote').length || 0,
+      upVotes: post.votes?.filter((v) => v.voteType === EVoteType.UPVOTE).length || 0,
+      downVotes: post.votes?.filter((v) => v.voteType === EVoteType.DOWNVOTE).length || 0,
     }));
+
+    // Kiểm tra xem viewer có đang follow user không (chỉ khi không phải chính mình)
+    if (viewerId && !isOwner) {
+      const isFollowing = user.followers?.some(follower => follower.id === viewerId) || false;
+      profileDto.isFollowing = isFollowing;
+    }
 
     // Kiểm soát hiển thị email và phone
     // Nếu không phải chính mình xem và user không cho phép hiển thị, ẩn thông tin
-    if (viewerId !== userId) {
-      if (!user.showEmail) {
+    // Hoặc nếu private profile, luôn ẩn với người khác
+    if (!isOwner) {
+      if (!user.showEmail || isPrivateAndNotOwner) {
         profileDto.email = undefined;
       }
-      if (!user.showPhoneNumber) {
+      if (!user.showPhoneNumber || isPrivateAndNotOwner) {
         profileDto.phoneNumber = undefined;
       }
+      // Ẩn bio nếu private
+      if (isPrivateAndNotOwner) {
+        profileDto.bio = undefined;
+      }
+    } else {
+      // Nếu là chính mình xem, luôn hiển thị email và phone
+      profileDto.email = user.email;
+      profileDto.phoneNumber = user.phoneNumber ?? undefined;
     }
 
     return profileDto;
@@ -170,7 +188,37 @@ export class UsersService {
     }
 
     // Cập nhật thông tin
-    Object.assign(user, updateProfileDto);
+    // Xử lý các trường optional - nếu undefined thì set null để xóa giá trị cũ
+    if ('bio' in updateProfileDto) {
+      user.bio = updateProfileDto.bio || null;
+    }
+    if ('avatarUrl' in updateProfileDto) {
+      user.avatarUrl = updateProfileDto.avatarUrl || null;
+    }
+    if ('coverImageUrl' in updateProfileDto) {
+      user.coverImageUrl = updateProfileDto.coverImageUrl || null;
+    }
+    if ('phoneNumber' in updateProfileDto) {
+      user.phoneNumber = updateProfileDto.phoneNumber || null;
+    }
+    if ('dob' in updateProfileDto) {
+      user.dob = updateProfileDto.dob ? new Date(updateProfileDto.dob) : null;
+    }
+    if ('gender' in updateProfileDto) {
+      user.gender = updateProfileDto.gender || null;
+    }
+    
+    // Cập nhật các trường còn lại
+    if (updateProfileDto.username) {
+      user.username = updateProfileDto.username;
+    }
+    if (updateProfileDto.showEmail !== undefined) {
+      user.showEmail = updateProfileDto.showEmail;
+    }
+    if (updateProfileDto.showPhoneNumber !== undefined) {
+      user.showPhoneNumber = updateProfileDto.showPhoneNumber;
+    }
+    
     await this.userRepository.save(user);
 
     return this.getProfile(userId, userId);
@@ -312,6 +360,25 @@ export class UsersService {
   }
 
   /**
+   * Tìm kiếm người dùng theo username
+   */
+  async searchUsers(query: string, currentUserId: number): Promise<User[]> {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .where('LOWER(user.username) LIKE LOWER(:query)', { query: `%${query}%` })
+      .andWhere('user.id != :currentUserId', { currentUserId })
+      .select(['user.id', 'user.username', 'user.avatarUrl'])
+      .take(10)
+      .getMany();
+
+    return users;
+  }
+
+  /**
    * Chặn người dùng
    */
   async blockUser(userId: number, targetUserId: number): Promise<{ message: string }> {
@@ -384,7 +451,7 @@ export class UsersService {
   }
 
   /**
-   * Xóa tài khoản (soft delete)
+   * Xóa tài khoản (hard delete)
    */
   async deleteAccount(userId: number): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -393,10 +460,77 @@ export class UsersService {
       throw new NotFoundException('Người dùng không tồn tại');
     }
 
-    // Soft delete: có thể thêm trường isDeleted hoặc dùng TypeORM soft delete
-    await this.userRepository.softRemove(user);
+    // Hard delete: xóa vĩnh viễn khỏi database
+    await this.userRepository.remove(user);
 
     return { message: 'Tài khoản đã được xóa thành công' };
+  }
+
+  /**
+   * Follow người dùng
+   */
+  async followUser(userId: number, targetUserId: number): Promise<{ message: string }> {
+    if (userId === targetUserId) {
+      throw new BadRequestException('Không thể follow chính mình');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['following'],
+    });
+
+    const targetUser = await this.userRepository.findOne({
+      where: { id: targetUserId },
+    });
+
+    if (!user || !targetUser) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra đã follow chưa
+    const isAlreadyFollowing = user.following?.some(u => u.id === targetUserId);
+    if (isAlreadyFollowing) {
+      throw new BadRequestException('Bạn đã follow người dùng này rồi');
+    }
+
+    // Thêm vào danh sách following
+    if (!user.following) {
+      user.following = [];
+    }
+    user.following.push(targetUser);
+    await this.userRepository.save(user);
+
+    return { message: 'Đã follow người dùng thành công' };
+  }
+
+  /**
+   * Unfollow người dùng
+   */
+  async unfollowUser(userId: number, targetUserId: number): Promise<{ message: string }> {
+    if (userId === targetUserId) {
+      throw new BadRequestException('Không thể unfollow chính mình');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['following'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra đã follow chưa
+    const followIndex = user.following?.findIndex(u => u.id === targetUserId);
+    if (followIndex === undefined || followIndex === -1) {
+      throw new BadRequestException('Bạn chưa follow người dùng này');
+    }
+
+    // Xóa khỏi danh sách following
+    user.following.splice(followIndex, 1);
+    await this.userRepository.save(user);
+
+    return { message: 'Đã unfollow người dùng thành công' };
   }
 
   /**
@@ -416,5 +550,93 @@ export class UsersService {
       message: `Đã cập nhật role của người dùng thành ${role}`,
       user 
     };
+  }
+
+  /**
+   * Lấy danh sách followers của một user
+   */
+  async getFollowers(userId: number, viewerId?: number): Promise<UserListDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['followers'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra quyền riêng tư
+    const isOwner = viewerId === userId;
+    if (user.isPrivate && !isOwner) {
+      throw new ForbiddenException('Hồ sơ này ở chế độ riêng tư');
+    }
+
+    // Lấy danh sách following của viewer để check trạng thái isFollowing
+    let viewerFollowing: number[] = [];
+    if (viewerId) {
+      const viewer = await this.userRepository.findOne({
+        where: { id: viewerId },
+        relations: ['following'],
+      });
+      viewerFollowing = viewer?.following?.map(u => u.id) || [];
+    }
+
+    // Map sang DTO
+    const followers = user.followers?.map(follower => {
+      const dto = plainToInstance(UserListDto, follower, {
+        excludeExtraneousValues: true,
+      });
+      // Check xem viewer có đang follow user này không
+      if (viewerId && follower.id !== viewerId) {
+        dto.isFollowing = viewerFollowing.includes(follower.id);
+      }
+      return dto;
+    }) || [];
+
+    return followers;
+  }
+
+  /**
+   * Lấy danh sách following của một user
+   */
+  async getFollowing(userId: number, viewerId?: number): Promise<UserListDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['following'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra quyền riêng tư
+    const isOwner = viewerId === userId;
+    if (user.isPrivate && !isOwner) {
+      throw new ForbiddenException('Hồ sơ này ở chế độ riêng tư');
+    }
+
+    // Lấy danh sách following của viewer để check trạng thái isFollowing
+    let viewerFollowing: number[] = [];
+    if (viewerId) {
+      const viewer = await this.userRepository.findOne({
+        where: { id: viewerId },
+        relations: ['following'],
+      });
+      viewerFollowing = viewer?.following?.map(u => u.id) || [];
+    }
+
+    // Map sang DTO
+    const following = user.following?.map(followedUser => {
+      const dto = plainToInstance(UserListDto, followedUser, {
+        excludeExtraneousValues: true,
+      });
+      // Check xem viewer có đang follow user này không
+      if (viewerId && followedUser.id !== viewerId) {
+        dto.isFollowing = viewerFollowing.includes(followedUser.id);
+      }
+      return dto;
+    }) || [];
+
+    return following;
   }
 }

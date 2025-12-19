@@ -49,16 +49,19 @@ export class ProfileResponseDto {
   phoneNumber?: string; // Optional: chỉ hiện nếu user cho phép
 
   @Expose()
-  bio: string;
+  bio?: string;
 
   @Expose()
-  avatarUrl: string;
+  avatarUrl?: string;
 
   @Expose()
-  dob: Date;
+  coverImageUrl?: string;
 
   @Expose()
-  gender: EGender;
+  dob?: Date;
+
+  @Expose()
+  gender?: EGender;
 
   @Expose()
   isPrivate: boolean;
@@ -81,6 +84,9 @@ export class ProfileResponseDto {
 
   @Expose()
   followingCount: number;
+
+  @Expose()
+  isFollowing?: boolean; // Chỉ hiện khi có viewer (không phải chính mình)
 
   @Expose()
   @Type(() => BlogPostDto)
