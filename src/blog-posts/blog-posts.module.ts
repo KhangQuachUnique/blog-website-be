@@ -14,6 +14,7 @@ import { HashtagsService } from 'src/hashtags/hashtags.service';
 import { ViewedHistoryModule } from 'src/viewed-history/viewed-history.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { UserReactsModule } from 'src/user-reacts/user-reacts.module';
+import { CommunityMember } from 'src/communities/entities/community-member.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UserReactsModule } from 'src/user-reacts/user-reacts.module';
       Hashtag,
       User,
       Community,
+      CommunityMember,
     ]),
     ViewedHistoryModule,
     NotificationsModule,

@@ -1,5 +1,5 @@
-import { Repository } from 'typeorm';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { In, Repository } from 'typeorm';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { EBlogPostStatus } from './enums/blog-post-status.enum';
@@ -24,6 +24,10 @@ import { HashtagsService } from 'src/hashtags/hashtags.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
 
+import { CommunityMember } from 'src/communities/entities/community-member.entity';
+import { ECommunityRole } from 'src/communities/enums/community-role.enum';
+
+
 @Injectable()
 export class BlogPostsService {
   constructor(
@@ -41,6 +45,10 @@ export class BlogPostsService {
 
     @InjectRepository(Community)
     private communityRepository: Repository<Community>,
+
+    // constructor inject thêm:
+    @InjectRepository(CommunityMember)
+    private memberRepository: Repository<CommunityMember>,
 
     @InjectRepository(BlogPost)
     private blogPostRepository: Repository<BlogPost>,
@@ -101,6 +109,31 @@ export class BlogPostsService {
           throw new NotFoundException(`Can't find community with ID: ${dto.communityId}`);
         }
 
+        // ✅ BẮT BUỘC: phải là member đã duyệt mới được tạo bài
+        const me = await this.memberRepository.findOne({
+          where: { community: { id: community.id }, user: { id: dto.authorId } },
+        });
+
+        if (!me) {
+          throw new ForbiddenException('Bạn cần tham gia cộng đồng để tạo bài viết.');
+        }
+
+        if (me.role === ECommunityRole.PENDING) {
+          throw new ForbiddenException('Yêu cầu tham gia đang chờ duyệt. Bạn chưa thể tạo bài viết.');
+        }
+
+        const isPrivileged =
+          me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR;
+
+        // ✅ Community bật duyệt:
+        // - Member thường => DRAFT
+        // - Admin/Mod => ACTIVE
+        // Community không bật duyệt => ACTIVE hết
+        const status =
+          community.requirePostApproval && !isPrivileged
+            ? EBlogPostStatus.DRAFT
+            : EBlogPostStatus.ACTIVE;
+
         const blocks = this.blockRepository.create(dto.blocks || []);
 
         const post = this.communityBlogPostRepository.create({
@@ -112,9 +145,11 @@ export class BlogPostsService {
           community,
           blocks,
           hashtags,
+          status,
         });
 
         const savedPost = await this.communityBlogPostRepository.save(post);
+
         const response = plainToInstance(DetailCommunityPostResponseDto, savedPost, {
           excludeExtraneousValues: true,
         });
@@ -427,5 +462,65 @@ export class BlogPostsService {
     }
 
     return this.repostBlogPostRepository.remove(repost);
+  }
+
+  async findByCommunity(communityId: number) {
+    const posts = await this.communityBlogPostRepository.find({
+      where: {
+        community: { id: communityId },
+        status: EBlogPostStatus.ACTIVE,
+      },
+      relations: ['author', 'community', 'hashtags'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(
+      posts.map((p) => p.id),
+    );
+
+    for (const post of posts) {
+      post['reacts'] = reactsMap.get(post.id);
+    }
+
+    return posts.map((post) =>
+      plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
+    );
+  }
+
+  async findByCommunityManage(
+    communityId: number,
+    status: EBlogPostStatus | undefined,
+    userId: number,
+  ) {
+    // ✅ chỉ ADMIN / MODERATOR mới xem/manage
+    const me = await this.memberRepository.findOne({
+      where: { community: { id: communityId }, user: { id: userId } },
+    });
+
+    const ok = me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
+    if (!ok) throw new ForbiddenException('Bạn không có quyền quản lý bài viết cộng đồng này.');
+
+    // ✅ filter
+    const where: any = { community: { id: communityId } };
+
+    if (status) {
+      where.status = status; // ACTIVE hoặc DRAFT
+    } else {
+      // "Tất cả" -> chỉ lấy ACTIVE + DRAFT (không lấy HIDDEN)
+      where.status = In([EBlogPostStatus.ACTIVE, EBlogPostStatus.DRAFT]);
+    }
+
+    const posts = await this.communityBlogPostRepository.find({
+      where,
+      relations: ['author', 'community', 'hashtags'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
+    for (const post of posts) post['reacts'] = reactsMap.get(post.id);
+
+    return posts.map((post) =>
+      plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
+    );
   }
 }
