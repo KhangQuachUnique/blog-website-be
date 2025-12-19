@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum SearchType {
   POST = 'post',
@@ -16,4 +17,15 @@ export class SearchDto {
   @IsOptional()
   @IsEnum(SearchType)
   type?: SearchType; // Optional: filter by type
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number = 15; // Số lượng kết quả mỗi trang
+
+  @IsOptional()
+  @IsString()
+  after?: string; // Cursor để phân trang (base64 encoded)
 }
