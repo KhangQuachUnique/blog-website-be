@@ -248,19 +248,17 @@ export class NewsfeedService {
     rawPosts = postsWithScore as unknown as RawPostRow[];
 
     // If using seeded ordering and a cursor was provided, perform node-side cursor offset
-    if (useSeeded && cursor.score !== null && cursor.id !== null) {
-      const cs = Number(cursor.score);
+    // The cursor contains {id, score} where score is the seeded noise score
+    if (useSeeded && cursor.id !== null) {
       const cid = Number(cursor.id);
-      const startIndex = rawPosts.findIndex((p) => {
-        const ps = Number(p.score ?? 0);
-        const pid = Number(p.id);
-        return ps < cs || (ps === cs && pid < cid); // descending: find first item with lower score
-      });
-      if (startIndex >= 0) {
-        rawPosts = rawPosts.slice(startIndex);
-      } else {
-        rawPosts = [];
+      // Find the index of the cursor item and skip everything before and including it
+      const cursorIndex = rawPosts.findIndex((p) => Number(p.id) === cid);
+      if (cursorIndex >= 0) {
+        // Skip all items up to and including the cursor item
+        rawPosts = rawPosts.slice(cursorIndex + 1);
       }
+      // If cursor item not found in current superset, the posts might be stale or 
+      // cursor is from a different session - just return all posts
     }
 
     // If includeOriginal requested, fetch original posts for repost items
@@ -688,14 +686,15 @@ export class NewsfeedService {
   }
 
   // Paginate (cursor: '<id>|<score>') — do NOT include seed
+  // For seeded ordering, we use id-based cursor for simplicity
   private paginate(items: NewsfeedItemDto[], limit: number) {
     const hasMore = items.length > limit;
     const paginatedItems = hasMore ? items.slice(0, limit) : items;
     const lastItem = paginatedItems[paginatedItems.length - 1];
-    const lastItemFinal = lastItem as NewsfeedItemDto & { final_score: number };
+    // Store just the id for cursor - score is not needed for seeded ordering
     const nextCursor =
       hasMore && lastItem
-        ? Buffer.from(`${lastItem.id}|${lastItemFinal.final_score}`).toString('base64')
+        ? Buffer.from(`${lastItem.id}|0`).toString('base64')
         : null;
     return { paginatedItems, hasMore, nextCursor };
   }
