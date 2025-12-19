@@ -1,22 +1,46 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
-import { CommunitiesService } from './communities.service';
-import { CreateCommunityDto } from './dto/create-community.dto';
-import { UpdateCommunityDto } from './dto/update-community.dto';
-import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { CommunitySettingResponseDto } from './dto/response/community-response.dto';
-import { MyCommunityResponseDto } from './dto/response/my-community-response.dto';
-import { ECommunityRole } from './enums/community-role.enum';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+  Req,
+} from "@nestjs/common";
+import type { Request } from "express";
 
-@Controller('communities')
+import { CommunitiesService } from "./communities.service";
+import { CreateCommunityDto } from "./dto/create-community.dto";
+import { UpdateCommunityDto } from "./dto/update-community.dto";
+import { UpdateMemberRoleDto } from "./dto/update-member-role.dto";
+import { MyCommunityResponseDto } from "./dto/response/my-community-response.dto";
+import { ECommunityRole } from "./enums/community-role.enum";
+
+import { JwtAuthGuard } from "src/auth/guards/jwt-auth.guard";
+import { OptionalJwtAuthGuard } from "src/auth/guards/optional-jwt-auth.guard";
+
+@Controller("communities")
 export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
-  // ====== COMMUNITY CRUD ======
+  // ✅ My communities: cần login
+  @Get("my")
+  @UseGuards(JwtAuthGuard)
+  getMyCommunities(@Req() req: Request): Promise<MyCommunityResponseDto[]> {
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    return this.communitiesService.getMyCommunities(userId);
+  }
 
+  // ✅ Create: cần login
   @Post()
-  create(@Body() createCommunityDto: CreateCommunityDto) {
-    const fakeUserId = 56; // tạm hard-code
-    return this.communitiesService.create(createCommunityDto, fakeUserId);
+  @UseGuards(JwtAuthGuard)
+  create(@Body() createCommunityDto: CreateCommunityDto, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    return this.communitiesService.create(createCommunityDto, userId);
   }
 
   @Get()
@@ -24,59 +48,85 @@ export class CommunitiesController {
     return this.communitiesService.findAll();
   }
 
-  @Get(':id/settings')
-  getSettings(@Param('id', ParseIntPipe) id: number): Promise<CommunitySettingResponseDto> {
-    return this.communitiesService.getSettings(id);
+  /**
+   * ✅ Settings: cho phép chưa login
+   * - Nếu chưa login => role "NONE"
+   * - Nếu login nhưng chưa join => "NONE"
+   */
+  @Get(":id/settings")
+  @UseGuards(OptionalJwtAuthGuard)
+  getSettings(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? (req as any).user?.userId; // có thể undefined
+    return this.communitiesService.getSettings(id, userId);
   }
 
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
     return this.communitiesService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateCommunityDto: UpdateCommunityDto) {
+  // ✅ Update: (tuỳ bạn) thường nên guard + check quyền
+  @Patch(":id")
+  @UseGuards(JwtAuthGuard)
+  update(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() updateCommunityDto: UpdateCommunityDto
+  ) {
     return this.communitiesService.update(id, updateCommunityDto);
   }
 
-  @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.communitiesService.remove(id);
+  // ✅ JOIN: cần login
+  @Post(":id/join")
+  @UseGuards(JwtAuthGuard)
+  joinCommunity(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    return this.communitiesService.joinCommunity(id, userId);
   }
 
-  // GET /communities/my - các cộng đồng của user hiện tại
-  @Get('my')
-  getMyCommunities(): Promise<MyCommunityResponseDto[]> {
-    // Nếu có auth:
-    // return this.communitiesService.getMyCommunities(user.id);
-
-    const fakeUserId = 56; // tạm hard-code để test
-    return this.communitiesService.getMyCommunities(fakeUserId);
+  // ✅ Leave: cần login
+  @Delete(":id/leave")
+  @UseGuards(JwtAuthGuard)
+  leaveCommunity(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    return this.communitiesService.leaveCommunity(id, userId);
   }
 
-  // ====== PHẦN MEMBERS ======
-
-  // GET /communities/:id/members
-  @Get(':id/members')
-  getMembers(@Param('id', ParseIntPipe) id: number, role?: ECommunityRole) {
-    return this.communitiesService.getMembers(id, role);
+  // ✅ Delete: cần login (service đã check ADMIN)
+  @Delete(":id")
+  @UseGuards(JwtAuthGuard)
+  remove(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    return this.communitiesService.removeCommunity(id, userId);
   }
 
-  // PATCH /communities/:id/members/:memberId/role
-  @Patch(':id/members/:memberId/role')
+  // ====== MEMBERS ======
+  // (tuỳ bạn) nếu muốn private community phải login + đã join mới xem members
+  @Get(":id/members")
+  @UseGuards(OptionalJwtAuthGuard)
+  getMembers(
+    @Param("id", ParseIntPipe) id: number,
+    @Req() req: Request,
+    @Query("role") role?: ECommunityRole
+  ) {
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    return this.communitiesService.getMembers(id, role, userId);
+  }
+
+  @Patch(":id/members/:memberId/role")
+  @UseGuards(JwtAuthGuard)
   updateMemberRole(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('memberId', ParseIntPipe) memberId: number,
-    @Body() dto: UpdateMemberRoleDto,
+    @Param("id", ParseIntPipe) id: number,
+    @Param("memberId", ParseIntPipe) memberId: number,
+    @Body() dto: UpdateMemberRoleDto
   ) {
     return this.communitiesService.updateMemberRole(id, memberId, dto);
   }
 
-  // DELETE /communities/:id/members/:memberId
-  @Delete(':id/members/:memberId')
+  @Delete(":id/members/:memberId")
+  @UseGuards(JwtAuthGuard)
   removeMember(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('memberId', ParseIntPipe) memberId: number,
+    @Param("id", ParseIntPipe) id: number,
+    @Param("memberId", ParseIntPipe) memberId: number
   ) {
     return this.communitiesService.removeMember(id, memberId);
   }

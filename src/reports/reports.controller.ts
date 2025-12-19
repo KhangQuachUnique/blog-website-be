@@ -1,46 +1,163 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
+  ParseIntPipe,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
+import type { Request } from 'express';
+
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import {
+  ReportResponseDto,
+  ReportListResponseDto,
+  CreateReportResponseDto,
+  CheckReportedResponseDto,
+} from './dto/response/report-response.dto';
+import { EReportType } from './enums/report-type.enum';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
+/**
+ * 🚨 ReportsController
+ * 
+ * Endpoints:
+ * - POST /reports - Tạo báo cáo mới
+ * - GET /reports/check - Kiểm tra đã báo cáo chưa
+ * - GET /reports/posts/:postId - Lấy báo cáo của 1 bài viết
+ * - GET /reports - Lấy tất cả báo cáo (Admin)
+ * - GET /reports/:id - Chi tiết báo cáo
+ * - PATCH /reports/:id - Cập nhật báo cáo
+ * - DELETE /reports/:id - Xóa báo cáo
+ */
 @ApiTags('Reports')
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  /**
+   * 📝 Tạo báo cáo mới
+   */
   @Post()
-  @ApiOperation({ summary: 'Tạo báo cáo mới' })
-  @ApiResponse({ status: 201, description: 'Báo cáo thành công' })
-  create(@Body() createReportDto: CreateReportDto) {
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tạo báo cáo mới (POST/COMMENT/USER)' })
+  @ApiResponse({ status: 201, description: 'Báo cáo thành công', type: CreateReportResponseDto })
+  @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ hoặc đã báo cáo trước đó' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy đối tượng báo cáo' })
+  async create(
+    @Body() createReportDto: CreateReportDto,
+    @Req() req: Request,
+  ): Promise<CreateReportResponseDto> {
+    // Set reporterId from authenticated user (required)
+    const userId = (req.user as any)?.id;
+    createReportDto.reporterId = userId;
     return this.reportsService.create(createReportDto);
   }
 
+  /**
+   * ✅ Kiểm tra đã báo cáo chưa
+   */
+  @Get('check')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kiểm tra đã báo cáo nội dung này chưa' })
+  @ApiQuery({ name: 'type', enum: EReportType, description: 'Loại báo cáo' })
+  @ApiQuery({ name: 'targetId', type: Number, description: 'ID của đối tượng (postId/commentId/userId)' })
+  @ApiResponse({ status: 200, type: CheckReportedResponseDto })
+  async checkIfReported(
+    @Query('type') type: EReportType,
+    @Query('targetId', ParseIntPipe) targetId: number,
+    @Req() req: Request,
+  ): Promise<CheckReportedResponseDto> {
+    const userId = (req.user as any)?.id;
+    return this.reportsService.checkIfReported(userId, type, targetId);
+  }
+
+  /**
+   * 📋 Lấy tất cả báo cáo với pagination (Admin)
+   */
   @Get()
-  @ApiOperation({ summary: 'Lấy tất cả báo cáo' })
-  findAll() {
-    return this.reportsService.findAll();
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy tất cả báo cáo (Admin)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Trang (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Số lượng (default: 20)' })
+  @ApiResponse({ status: 200, type: ReportListResponseDto })
+  async findAll(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ): Promise<ReportListResponseDto> {
+    return this.reportsService.findAll(page || 1, limit || 20);
   }
 
+  /**
+   * 📋 Lấy báo cáo của 1 bài viết
+   */
   @Get('posts/:postId')
-  @ApiOperation({ summary: 'Lấy báo cáo của bài viết' })
-  getReportsByPost(@Param('postId') postId: string) {
-    return this.reportsService.getReportsByPost(+postId);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy danh sách báo cáo của bài viết' })
+  @ApiResponse({ status: 200, type: [ReportResponseDto] })
+  async getReportsByPost(
+    @Param('postId', ParseIntPipe) postId: number,
+  ): Promise<ReportResponseDto[]> {
+    return this.reportsService.getReportsByPost(postId);
   }
 
+  /**
+   * 🔍 Chi tiết 1 báo cáo
+   */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.reportsService.findOne(+id);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy chi tiết 1 báo cáo' })
+  @ApiResponse({ status: 200, type: ReportResponseDto })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy báo cáo' })
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<ReportResponseDto> {
+    return this.reportsService.findOne(id);
   }
 
+  /**
+   * ✏️ Cập nhật báo cáo (Admin)
+   */
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateReportDto: UpdateReportDto) {
-    return this.reportsService.update(+id, updateReportDto);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật báo cáo' })
+  @ApiResponse({ status: 200, type: ReportResponseDto })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy báo cáo' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateReportDto: UpdateReportDto,
+  ): Promise<ReportResponseDto> {
+    return this.reportsService.update(id, updateReportDto);
   }
 
+  /**
+   * 🗑️ Xóa báo cáo
+   */
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Xóa báo cáo' })
-  remove(@Param('id') id: string) {
-    return this.reportsService.remove(+id);
+  @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy báo cáo' })
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.reportsService.remove(id);
   }
 }
