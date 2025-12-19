@@ -4,6 +4,8 @@ import { Repository, DataSource } from 'typeorm';
 import { UserVote, EVoteType } from './entities/user-vote.entity';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { User } from 'src/users/entities/user.entity';
+import { VoteActionResponseDto, VoteStatusResponseDto } from './dto/response/vote-response.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class UserVotesService {
@@ -29,9 +31,9 @@ export class UserVotesService {
   /**
    * Vote hoặc thay đổi vote cho bài viết - Optimized with transaction
    */
-  async vote(userId: number, postId: number, voteType: EVoteType) {
+  async vote(userId: number, postId: number, voteType: EVoteType): Promise<VoteActionResponseDto> {
     // Use a transaction to batch all DB operations
-    return await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOneBy(User, { id: userId });
       if (!user) throw new NotFoundException('User not found');
 
@@ -98,15 +100,24 @@ export class UserVotesService {
         downVotes,
       };
     });
+
+    return plainToInstance(VoteActionResponseDto, result, { 
+      excludeExtraneousValues: true 
+    });
   }
 
   /**
    * Lấy vote status của user cho post
    */
-  async getVoteStatus(userId: number, postId: number) {
+  async getVoteStatus(userId: number, postId: number): Promise<VoteStatusResponseDto> {
     const vote = await this.voteRepository.findOne({
       where: { user: { id: userId }, post: { id: postId } },
     });
-    return { voteType: vote?.voteType || null };
+    
+    return plainToInstance(VoteStatusResponseDto, { 
+      voteType: vote?.voteType || null 
+    }, { 
+      excludeExtraneousValues: true 
+    });
   }
 }
