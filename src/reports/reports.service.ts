@@ -6,6 +6,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Report } from './entities/report.entity';
 import { EReportType } from './enums/report-type.enum';
+import { EReportStatus } from './enums/report-status.enum';
 import { User } from 'src/users/entities/user.entity';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Comment } from 'src/comments/entities/comment.entity';
@@ -80,6 +81,24 @@ export class ReportsService {
 
   update(id: number, updateReportDto: UpdateReportDto) {
     return `This action updates a #${id} report`;
+  }
+
+
+  /**
+   * Update report status
+   * @param id
+   * @param dto
+   * @returns
+   */
+  async updateStatus(id: number, dto: { status: EReportStatus }) {
+    const post = await this.reportRepository.findOne({ where: { id } });
+
+    if (!post) {
+      throw new NotFoundException(`Không tìm được báo cáo với id là: ${id}`);
+    }
+
+    post.status = dto.status;
+    return this.reportRepository.save(post);
   }
 
   async remove(id: number) {
