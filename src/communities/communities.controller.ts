@@ -27,7 +27,6 @@ import { OptionalJwtAuthGuard } from "src/auth/guards/optional-jwt-auth.guard";
 export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
-  // ✅ My communities: cần login
   @Get("my")
   @UseGuards(JwtAuthGuard)
   getMyCommunities(@Req() req: Request): Promise<MyCommunityResponseDto[]> {
@@ -35,7 +34,6 @@ export class CommunitiesController {
     return this.communitiesService.getMyCommunities(userId);
   }
 
-  // ✅ Create: cần login
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Body() createCommunityDto: CreateCommunityDto, @Req() req: Request) {
@@ -48,15 +46,10 @@ export class CommunitiesController {
     return this.communitiesService.findAll();
   }
 
-  /**
-   * ✅ Settings: cho phép chưa login
-   * - Nếu chưa login => role "NONE"
-   * - Nếu login nhưng chưa join => "NONE"
-   */
   @Get(":id/settings")
   @UseGuards(OptionalJwtAuthGuard)
   getSettings(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
-    const userId = (req as any).user?.id ?? (req as any).user?.userId; // có thể undefined
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
     return this.communitiesService.getSettings(id, userId);
   }
 
@@ -65,17 +58,18 @@ export class CommunitiesController {
     return this.communitiesService.findOne(id);
   }
 
-  // ✅ Update: (tuỳ bạn) thường nên guard + check quyền
+  // ✅ Update: cần login + CHECK quyền (ADMIN/MOD) ở service
   @Patch(":id")
   @UseGuards(JwtAuthGuard)
   update(
     @Param("id", ParseIntPipe) id: number,
-    @Body() updateCommunityDto: UpdateCommunityDto
+    @Body() updateCommunityDto: UpdateCommunityDto,
+    @Req() req: Request
   ) {
-    return this.communitiesService.update(id, updateCommunityDto);
+    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    return this.communitiesService.update(id, updateCommunityDto, userId);
   }
 
-  // ✅ JOIN: cần login
   @Post(":id/join")
   @UseGuards(JwtAuthGuard)
   joinCommunity(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
@@ -83,7 +77,6 @@ export class CommunitiesController {
     return this.communitiesService.joinCommunity(id, userId);
   }
 
-  // ✅ Leave: cần login
   @Delete(":id/leave")
   @UseGuards(JwtAuthGuard)
   leaveCommunity(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
@@ -91,7 +84,6 @@ export class CommunitiesController {
     return this.communitiesService.leaveCommunity(id, userId);
   }
 
-  // ✅ Delete: cần login (service đã check ADMIN)
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
   remove(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
@@ -99,8 +91,6 @@ export class CommunitiesController {
     return this.communitiesService.removeCommunity(id, userId);
   }
 
-  // ====== MEMBERS ======
-  // (tuỳ bạn) nếu muốn private community phải login + đã join mới xem members
   @Get(":id/members")
   @UseGuards(OptionalJwtAuthGuard)
   getMembers(
