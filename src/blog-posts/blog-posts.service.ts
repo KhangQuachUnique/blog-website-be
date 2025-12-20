@@ -26,6 +26,7 @@ import { UserReactQueryService } from 'src/user-reacts/services/user-react-query
 
 import { CommunityMember } from 'src/communities/entities/community-member.entity';
 import { ECommunityRole } from 'src/communities/enums/community-role.enum';
+import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 
 
 @Injectable()
@@ -61,6 +62,9 @@ export class BlogPostsService {
 
     @InjectRepository(RepostBlogPost)
     private repostBlogPostRepository: Repository<RepostBlogPost>,
+
+    @InjectRepository(ViewedHistory)
+    private readonly viewedHistoryRepository: Repository<ViewedHistory>,
   ) {}
 
   /**
@@ -348,6 +352,9 @@ export class BlogPostsService {
    * @returns
    */
   async remove(id: number) {
+    // ✅ Xoá viewed history trước để tránh lỗi FK (viewed_history.postId)
+    await this.viewedHistoryRepository.delete({ post: { id } as any });
+
     return await this.blogPostRepository.delete(id);
   }
 
