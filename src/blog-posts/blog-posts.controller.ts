@@ -81,14 +81,19 @@ export class BlogPostsController {
   }
 
   @Get('visible')
-  @ApiOperation({ summary: 'Lấy danh sách bài viết hiển thị theo trang' })
+  @ApiOperation({ summary: 'Lấy danh sách bài viết hiển thị theo trang và trạng thái' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+
+  @ApiQuery({ name: 'status', required: false, type: String, example: 'ALL', description: 'ALL | ACTIVE | HIDDEN' }) 
   findVisible(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+
+    @Query('status', new DefaultValuePipe('ALL')) status: string, 
   ) {
-    return this.blogPostsService.findVisiblePostsWithPagination(page, limit);
+
+    return this.blogPostsService.findVisiblePostsWithPagination(page, limit, status);
   }
 
   @Get(':id')
