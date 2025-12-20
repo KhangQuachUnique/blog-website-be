@@ -192,19 +192,29 @@ export class NewsfeedService {
       `;
 
       // currentUser may be undefined -> pass null
-      const aggRows: EmojiAggregationRow[] =
-        await this.postRepo.query(aggQuery, [missingPostIds, user?.id ?? null]);
+      const aggRows: EmojiAggregationRow[] = await this.postRepo.query(aggQuery, [
+        missingPostIds,
+        user?.id ?? null,
+      ]);
 
       // build map
       const fallbackMap = new Map<number, UserReactSummaryDto>();
       // const totals = new Map<number, number>();
       aggRows.forEach((r) => {
         const pid = Number(r.post_id);
-        if (!fallbackMap.has(pid)) fallbackMap.set(pid, { targetId: pid, targetType: 'post', emojis: [], totalReactions: 0 });
+        if (!fallbackMap.has(pid))
+          fallbackMap.set(pid, {
+            targetId: pid,
+            targetType: 'post',
+            emojis: [],
+            totalReactions: 0,
+          });
         const entry = fallbackMap.get(pid)!;
-        const emojiType = (Object.values(EEmojiType).includes(r.emoji_type as EEmojiType) 
-          ? r.emoji_type 
-          : EEmojiType.UNICODE) as EEmojiType;
+        const emojiType = (
+          Object.values(EEmojiType).includes(r.emoji_type as EEmojiType)
+            ? r.emoji_type
+            : EEmojiType.UNICODE
+        ) as EEmojiType;
         entry.emojis.push({
           emojiId: Number(r.emoji_id),
           type: emojiType,
@@ -257,7 +267,7 @@ export class NewsfeedService {
         // Skip all items up to and including the cursor item
         rawPosts = rawPosts.slice(cursorIndex + 1);
       }
-      // If cursor item not found in current superset, the posts might be stale or 
+      // If cursor item not found in current superset, the posts might be stale or
       // cursor is from a different session - just return all posts
     }
 
@@ -312,7 +322,10 @@ export class NewsfeedService {
         `;
         const origRows: RawPostRow[] = await this.postRepo.query(origQuery, [repostOriginalIds]);
         const origHashtags = await this.hashtagsService.fetchForPosts(repostOriginalIds);
-        const origReactsMap = await this.userReactQueryService.getUserReactForPosts(repostOriginalIds, user?.id);
+        const origReactsMap = await this.userReactQueryService.getUserReactForPosts(
+          repostOriginalIds,
+          user?.id,
+        );
         const origDtos = this.mapRowsToDto(origRows, origHashtags, [], origReactsMap);
         origDtos.forEach((d) => (originalMap[d.id] = d));
       }
@@ -339,7 +352,10 @@ export class NewsfeedService {
               thumbnailUrl: orig.thumbnailUrl || null,
               author: orig.author,
               hashtags: orig.hashtags,
-              createdAt: orig.createdAt instanceof Date ? orig.createdAt.toISOString() : orig.createdAt as string || new Date().toISOString(),
+              createdAt:
+                orig.createdAt instanceof Date
+                  ? orig.createdAt.toISOString()
+                  : (orig.createdAt as string) || new Date().toISOString(),
             };
           }
         }
@@ -439,15 +455,20 @@ export class NewsfeedService {
 
     // Follow bonus
     let followBonus = '0';
+
     if (userId) {
+      const paramIndex = params.length + 1;
+
       followBonus = `
         COALESCE((
-          SELECT ${config.followBonusBase} * (1 + ${config.followBonusRecentMultiplier} * ((EXTRACT(EPOCH FROM (NOW() - f."createdAt")) / 86400 < ${config.followRecentDays})::int))
-          FROM user_follows f 
-          WHERE f."userId" = $${params.length + 1} 
+          SELECT ${config.followBonusBase}
+          FROM user_follows f
+          WHERE f."userId" = $${paramIndex}
             AND f."followingId" = p."authorId"
+          LIMIT 1
         ), 0)
       `;
+
       params.push(userId);
     }
 
@@ -604,8 +625,6 @@ export class NewsfeedService {
     return '';
   }
 
-  
-
   // Get viewed ids
   private async getViewedIds(userId: number): Promise<number[]> {
     try {
@@ -625,15 +644,19 @@ export class NewsfeedService {
   ): NewsfeedItemDto[] {
     return rawPosts.map((p) => {
       const id = Number(p.id);
-      
+
       // Type-safe enum conversions
-      const status = (Object.values(EBlogPostStatus).includes(p.status as EBlogPostStatus) 
-        ? p.status 
-        : EBlogPostStatus.ACTIVE) as EBlogPostStatus;
-      const type = (Object.values(BlogPostType).includes(p.post_type as BlogPostType) 
-        ? p.post_type 
-        : BlogPostType.PERSONAL) as BlogPostType;
-      
+      const status = (
+        Object.values(EBlogPostStatus).includes(p.status as EBlogPostStatus)
+          ? p.status
+          : EBlogPostStatus.ACTIVE
+      ) as EBlogPostStatus;
+      const type = (
+        Object.values(BlogPostType).includes(p.post_type as BlogPostType)
+          ? p.post_type
+          : BlogPostType.PERSONAL
+      ) as BlogPostType;
+
       // Create plain object for class-transformer
       const postPlain = {
         id,
@@ -658,8 +681,10 @@ export class NewsfeedService {
         reacts: reactsMap?.get(id) || undefined,
       };
 
-      const dto = plainToInstance(PostResponseDto, postPlain, { excludeExtraneousValues: true }) as NewsfeedItemDto;
-      
+      const dto = plainToInstance(PostResponseDto, postPlain, {
+        excludeExtraneousValues: true,
+      }) as NewsfeedItemDto;
+
       // Add community separately since it's not in PostResponseDto
       if (p.community_id) {
         (dto as any).community = {
@@ -668,16 +693,25 @@ export class NewsfeedService {
           thumbnailUrl: p.community_thumbnail || '',
         };
       }
-      
+
       // Calculate quality score including emoji reactions and comments
       const upVotes = Number(p.up_votes ?? 0);
       const downVotes = Number(p.down_votes ?? 0);
       const totalReacts = Number(p.total_reacts ?? 0);
       const totalComments = Number(p.total_comments ?? 0);
-      const qualityScore = this.calculateQualityScore(upVotes, downVotes, totalReacts, totalComments);
-      
+      const qualityScore = this.calculateQualityScore(
+        upVotes,
+        downVotes,
+        totalReacts,
+        totalComments,
+      );
+
       // attach newsfeed-specific fields with proper typing
-      const typedDto = dto as NewsfeedItemDto & { final_score: number; isViewed: boolean; totalComments: number };
+      const typedDto = dto as NewsfeedItemDto & {
+        final_score: number;
+        isViewed: boolean;
+        totalComments: number;
+      };
       typedDto.final_score = Number(p.score ?? 0) + qualityScore * 0.3; // weight quality score
       typedDto.isViewed = Boolean(p.is_viewed) || viewedIds.includes(id);
       typedDto.totalComments = totalComments;
@@ -693,9 +727,7 @@ export class NewsfeedService {
     const lastItem = paginatedItems[paginatedItems.length - 1];
     // Store just the id for cursor - score is not needed for seeded ordering
     const nextCursor =
-      hasMore && lastItem
-        ? Buffer.from(`${lastItem.id}|0`).toString('base64')
-        : null;
+      hasMore && lastItem ? Buffer.from(`${lastItem.id}|0`).toString('base64') : null;
     return { paginatedItems, hasMore, nextCursor };
   }
 
@@ -724,4 +756,3 @@ export class NewsfeedService {
     return wilsonScore + reactsBonus + commentsBonus;
   }
 }
-
