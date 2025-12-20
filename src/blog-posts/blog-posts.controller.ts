@@ -9,6 +9,8 @@ import {
   Query,
   Req,
   UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { BlogPostsService } from './blog-posts.service';
@@ -76,6 +78,17 @@ export class BlogPostsController {
   @Get()
   findAll() {
     return this.blogPostsService.findAll();
+  }
+
+  @Get('visible')
+  @ApiOperation({ summary: 'Lấy danh sách bài viết hiển thị theo trang' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  findVisible(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.blogPostsService.findVisiblePostsWithPagination(page, limit);
   }
 
   @Get(':id')

@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -217,6 +217,60 @@ export class BlogPostsService {
     }
 
     return posts.map((post) => plainToInstance(PostResponseDto, post));
+  }
+
+  async findVisiblePostsWithPagination(page: number = 1, limit: number = 10, statusFilter: string = 'ALL') {
+    const skip = (page - 1) * limit;
+
+    const whereCondition: any = {};
+    if (statusFilter !== 'ALL') {
+        whereCondition.status = statusFilter;
+    } else {
+        whereCondition.status = In([EBlogPostStatus.ACTIVE, EBlogPostStatus.HIDDEN]);
+    }
+
+    const [
+        [posts, total],
+        totalActive,
+        totalHidden
+    ] = await Promise.all([
+        this.blogPostRepository.findAndCount({
+            where: whereCondition,
+            relations: ['author', 'community', 'hashtags', 'originalPost'],
+            order: { createdAt: 'DESC' },
+            skip,
+            take: limit,
+        }),
+        this.blogPostRepository.count({ where: { status: EBlogPostStatus.ACTIVE } }),
+        this.blogPostRepository.count({ where: { status: EBlogPostStatus.HIDDEN } }),
+    ]);
+
+    // Lấy reacts cho tất cả posts
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(
+      posts.map((p) => p.id),
+    );
+
+    for (const post of posts) {
+      post['reacts'] = reactsMap.get(post.id);
+    }
+
+    return {
+        items: posts.map((post) =>
+            plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
+        ),
+        meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+
+        statistics: {
+            all: totalActive + totalHidden,
+            active: totalActive,
+            hidden: totalHidden,
+        }
+    };
   }
 
   async findAllPostsByUser(userId: number): Promise<PostResponseDto[]> {
