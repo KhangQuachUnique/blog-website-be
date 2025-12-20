@@ -34,7 +34,7 @@ export class ToggleReactDto {
   })
   @IsOptional()
   @IsString()
-  unicodeCodepoint?: string;
+  codepoint?: string;
 
   @ApiPropertyOptional({ example: 10, description: 'ID của post (chỉ dùng nếu react vào post)' })
   @ValidateIf((o: ToggleReactDto) => !o.commentId)

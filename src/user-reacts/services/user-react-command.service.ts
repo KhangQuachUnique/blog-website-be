@@ -40,11 +40,11 @@ export class UserReactCommandService {
     }
 
     // Case 2: Có unicodeCodepoint → tìm/tạo emoji unicode
-    if (dto.unicodeCodepoint) {
+    if (dto.codepoint) {
       let emoji = await this.emojiRepo.findOne({
         where: {
           type: EEmojiType.UNICODE,
-          codepoint: dto.unicodeCodepoint,
+          codepoint: dto.codepoint,
         },
       });
 
@@ -52,7 +52,7 @@ export class UserReactCommandService {
         // Tạo emoji unicode mới
         emoji = this.emojiRepo.create({
           type: EEmojiType.UNICODE,
-          codepoint: dto.unicodeCodepoint,
+          codepoint: dto.codepoint,
           emojiUrl: null,
           community: null,
         });
