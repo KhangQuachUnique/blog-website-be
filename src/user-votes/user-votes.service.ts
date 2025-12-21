@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { UserVote, EVoteType } from './entities/user-vote.entity';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { User } from 'src/users/entities/user.entity';
+import { VoteResponseDto } from './dto/response/vote-response.dto';
 
 @Injectable()
 export class UserVotesService {
@@ -108,5 +109,68 @@ export class UserVotesService {
       where: { user: { id: userId }, post: { id: postId } },
     });
     return { voteType: vote?.voteType || null };
+  }
+
+  /**
+   * Hàm lấy tổng số upvotes, downvotes và userVote cho bài viết
+   * @param postId
+   * @returns
+   */
+  async getPostVotes(postId: number, userId?: number): Promise<VoteResponseDto> {
+    const votes = await this.voteRepository.find({
+      where: { post: { id: postId } },
+      relations: ['user'],
+    });
+    const upvotes = votes.filter((vote) => vote.voteType === EVoteType.UPVOTE).length;
+    const downvotes = votes.filter((vote) => vote.voteType === EVoteType.DOWNVOTE).length;
+    // Tìm vote của user (nếu có)
+    const userVote = votes.find((vote) => vote.user.id === userId)?.voteType || null;
+    return { upvotes, downvotes, userVote: userVote };
+  }
+
+  /**
+   * Lấy votes cho NHIỀU bài viết
+   */
+  async getPostsVotes(postIds: number[], userId?: number): Promise<Map<number, VoteResponseDto>> {
+    const votes = await this.voteRepository
+      .createQueryBuilder('vote')
+      .leftJoinAndSelect('vote.user', 'user')
+      .leftJoinAndSelect('vote.post', 'post')
+      .where('vote.postId IN (:...postIds)', { postIds })
+      .getMany();
+
+    // Group votes by postId
+    const votesByPost = new Map<number, UserVote[]>();
+    votes.forEach((vote) => {
+      const postId = vote.post.id;
+      if (!votesByPost.has(postId)) {
+        votesByPost.set(postId, []);
+      }
+      votesByPost.get(postId)!.push(vote);
+    });
+
+    // ⭐ anonymous case
+    const result = new Map<number, VoteResponseDto>();
+    if (!userId) {
+      for (const postId of postIds) {
+        const postVotes = votesByPost.get(postId) || [];
+        result.set(postId, {
+          upvotes: postVotes.filter((v) => v.voteType === EVoteType.UPVOTE).length,
+          downvotes: postVotes.filter((v) => v.voteType === EVoteType.DOWNVOTE).length,
+          userVote: null,
+        });
+      }
+      return result;
+    }
+
+    // ⭐ logged-in user case
+    postIds.forEach((postId) => {
+      const postVotes = votesByPost.get(postId) || [];
+      const upvotes = postVotes.filter((vote) => vote.voteType === EVoteType.UPVOTE).length;
+      const downvotes = postVotes.filter((vote) => vote.voteType === EVoteType.DOWNVOTE).length;
+      const userVote = postVotes.find((vote) => vote.user.id === userId)?.voteType || null;
+      result.set(postId, { upvotes, downvotes, userVote });
+    });
+    return result;
   }
 }
