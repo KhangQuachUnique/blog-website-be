@@ -80,10 +80,12 @@ export class BlogPostsController {
     return this.blogPostsService.findAll();
   }
 
-  // community 
+  // community
   @Get('community/:communityId')
   async findByCommunity(@Param('communityId') communityId: string) {
-    return this.blogPostsService.findByCommunity(+communityId);
+    const results = await this.blogPostsService.findByCommunity(+communityId);
+    console.log(results);
+    return results;
   }
 
   @Get('community/:communityId/manage')
@@ -93,7 +95,7 @@ export class BlogPostsController {
     @Req() req: Request,
     @Query('status') status?: EBlogPostStatus,
   ) {
-    const userId = (req as any).user?.id ?? (req as any).user?.userId;
+    const userId = (req.user as JwtUser).id;
     return this.blogPostsService.findByCommunityManage(+communityId, status, userId);
   }
 
