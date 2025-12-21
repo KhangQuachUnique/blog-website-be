@@ -281,6 +281,7 @@ export class BlogPostsService {
 
   async findOne(
     id: number,
+    userId?: number,
   ): Promise<DetailPersonalPostResponseDto | DetailCommunityPostResponseDto> {
     const post = await this.blogPostRepository.findOne({
       where: { id },
@@ -292,7 +293,7 @@ export class BlogPostsService {
     }
 
     // Lấy reacts cho bài viết
-    const reacts = await this.userReactQueryService.getUserReactForPost(id);
+    const reacts = await this.userReactQueryService.getUserReactForPost(id, userId);
 
     post['reacts'] = reacts;
 
