@@ -1,18 +1,7 @@
 import { Exclude, Expose, Type } from 'class-transformer';
 import { EGender } from '../enums/gender.enum';
 import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
-
-
-class CommunityDto {
-  @Expose()
-  id: number;
-
-  @Expose()
-  name: string;
-
-  @Expose()
-  thumbnailUrl: string;
-}
+import { CommunityResponseDto } from 'src/communities/dto/response/my-community-response.dto';
 
 export class ProfileResponseDto {
   @Expose()
@@ -22,10 +11,10 @@ export class ProfileResponseDto {
   username: string;
 
   @Expose()
-  email?: string; 
-  
+  email?: string;
+
   @Expose()
-  phoneNumber?: string; 
+  phoneNumber?: string;
 
   @Expose()
   bio?: string;
@@ -46,17 +35,17 @@ export class ProfileResponseDto {
   isPrivate: boolean;
 
   @Expose()
-  showEmail: boolean; 
+  showEmail: boolean;
 
   @Expose()
-  showPhoneNumber: boolean; 
+  showPhoneNumber: boolean;
 
   @Expose()
   joinAt: Date;
 
   @Expose()
-  @Type(() => CommunityDto)
-  communities: CommunityDto[];
+  @Type(() => CommunityResponseDto)
+  communities: CommunityResponseDto[];
 
   @Expose()
   followersCount: number;
@@ -65,7 +54,7 @@ export class ProfileResponseDto {
   followingCount: number;
 
   @Expose()
-  isFollowing?: boolean; 
+  isFollowing?: boolean;
 
   @Expose()
   @Type(() => PostResponseDto)

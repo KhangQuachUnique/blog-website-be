@@ -17,6 +17,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
 import { UserListDto } from './dto/user-list.dto';
+import { CommunitiesService } from 'src/communities/communities.service';
+import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
 
 @Injectable()
 export class UsersService {
@@ -27,6 +29,10 @@ export class UsersService {
   >();
 
   constructor(
+    private readonly communitiesService: CommunitiesService,
+
+    private readonly blogPostsService: BlogPostsService,
+
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
@@ -47,7 +53,7 @@ export class UsersService {
   async getProfile(userId: number, viewerId?: number): Promise<ProfileResponseDto> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['communitiesMemberOf', 'communitiesMemberOf.community', 'followers', 'following'],
+      relations: ['followers', 'following'],
     });
 
     if (!user) {
@@ -75,67 +81,24 @@ export class UsersService {
     // Nếu profile ở chế độ riêng tư và người xem không phải chính chủ
     const isPrivateAndNotOwner = user.isPrivate && !isOwner;
 
-    // Query blog posts của user
-    // Nếu xem profile của người khác, chỉ hiển thị bài viết public
-    // Nếu xem profile của chính mình, hiển thị tất cả bài viết
-    const queryBuilder = this.userRepository
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('user.posts', 'post')
-      .leftJoinAndSelect('post.votes', 'vote')
-      .leftJoinAndSelect('vote.user', 'voteUser')
-      .where('user.id = :userId', { userId });
-
-    // Chỉ lấy bài viết public nếu không phải chính mình
-    // Hoặc nếu profile riêng tư thì không hiển thị bài viết cho người khác
-    if (!isOwner) {
-      if (isPrivateAndNotOwner) {
-        // Không load posts cho private profile
-        queryBuilder.andWhere('1 = 0'); // Điều kiện luôn false để không load posts
-      } else {
-        queryBuilder.andWhere('post.isPublic = true');
-      }
-    }
-
-    const userWithPosts = await queryBuilder.getOne();
-    
-    // Đảm bảo posts là array và load votes cho mỗi post
-    if (userWithPosts?.posts && Array.isArray(userWithPosts.posts)) {
-      user.posts = userWithPosts.posts;
-      // Giờ mỗi post đã có votes relation được load
-      user.posts.forEach((post) => {
-        post.getVotes(userId);
-      });
-    } else {
-      user.posts = [];
-    }
+    const posts = await this.blogPostsService.findAllPostsByUser(userId);
+    const communities = await this.communitiesService.getUserCommunities(userId);
 
     // Chuyển đổi sang DTO
     const profileDto = plainToInstance(ProfileResponseDto, user, {
       excludeExtraneousValues: true,
     });
-    profileDto.posts.map((post) => {
-      const postEntity = user.posts.find((p) => p.id === post.id);
-      if (postEntity) {
-        post.votes = postEntity.getVotes(userId);
-      }
-    })
-    // Map communities từ CommunityMember
-    // Nếu private và không phải chính chủ, ẩn communities
-    profileDto.communities = isPrivateAndNotOwner
-      ? []
-      : user.communitiesMemberOf?.map((member) => ({
-          id: member.community.id,
-          name: member.community.name,
-          thumbnailUrl: member.community.thumbnailUrl,
-        })) || [];
+
+    profileDto.posts = posts;
+    profileDto.communities = communities;
 
     // Followers/Following count - ẩn nếu private và không phải chính chủ
-    profileDto.followersCount = isPrivateAndNotOwner ? 0 : (user.followers?.length || 0);
-    profileDto.followingCount = isPrivateAndNotOwner ? 0 : (user.following?.length || 0);
-    
+    profileDto.followersCount = isPrivateAndNotOwner ? 0 : user.followers?.length || 0;
+    profileDto.followingCount = isPrivateAndNotOwner ? 0 : user.following?.length || 0;
+
     // Kiểm tra xem viewer có đang follow user không (chỉ khi không phải chính mình)
     if (viewerId && !isOwner) {
-      const isFollowing = user.followers?.some(follower => follower.id === viewerId) || false;
+      const isFollowing = user.followers?.some((follower) => follower.id === viewerId) || false;
       profileDto.isFollowing = isFollowing;
     }
 
@@ -205,7 +168,7 @@ export class UsersService {
     if ('gender' in updateProfileDto) {
       user.gender = updateProfileDto.gender || null;
     }
-    
+
     // Cập nhật các trường còn lại
     if (updateProfileDto.username) {
       user.username = updateProfileDto.username;
@@ -216,7 +179,7 @@ export class UsersService {
     if (updateProfileDto.showPhoneNumber !== undefined) {
       user.showPhoneNumber = updateProfileDto.showPhoneNumber;
     }
-    
+
     await this.userRepository.save(user);
 
     return this.getProfile(userId, userId);
@@ -486,7 +449,7 @@ export class UsersService {
     }
 
     // Kiểm tra đã follow chưa
-    const isAlreadyFollowing = user.following?.some(u => u.id === targetUserId);
+    const isAlreadyFollowing = user.following?.some((u) => u.id === targetUserId);
     if (isAlreadyFollowing) {
       throw new BadRequestException('Bạn đã follow người dùng này rồi');
     }
@@ -519,7 +482,7 @@ export class UsersService {
     }
 
     // Kiểm tra đã follow chưa
-    const followIndex = user.following?.findIndex(u => u.id === targetUserId);
+    const followIndex = user.following?.findIndex((u) => u.id === targetUserId);
     if (followIndex === undefined || followIndex === -1) {
       throw new BadRequestException('Bạn chưa follow người dùng này');
     }
@@ -544,9 +507,9 @@ export class UsersService {
     user.type = role;
     await this.userRepository.save(user);
 
-    return { 
+    return {
       message: `Đã cập nhật role của người dùng thành ${role}`,
-      user 
+      user,
     };
   }
 
@@ -576,20 +539,21 @@ export class UsersService {
         where: { id: viewerId },
         relations: ['following'],
       });
-      viewerFollowing = viewer?.following?.map(u => u.id) || [];
+      viewerFollowing = viewer?.following?.map((u) => u.id) || [];
     }
 
     // Map sang DTO
-    const followers = user.followers?.map(follower => {
-      const dto = plainToInstance(UserListDto, follower, {
-        excludeExtraneousValues: true,
-      });
-      // Check xem viewer có đang follow user này không
-      if (viewerId && follower.id !== viewerId) {
-        dto.isFollowing = viewerFollowing.includes(follower.id);
-      }
-      return dto;
-    }) || [];
+    const followers =
+      user.followers?.map((follower) => {
+        const dto = plainToInstance(UserListDto, follower, {
+          excludeExtraneousValues: true,
+        });
+        // Check xem viewer có đang follow user này không
+        if (viewerId && follower.id !== viewerId) {
+          dto.isFollowing = viewerFollowing.includes(follower.id);
+        }
+        return dto;
+      }) || [];
 
     return followers;
   }
@@ -620,20 +584,21 @@ export class UsersService {
         where: { id: viewerId },
         relations: ['following'],
       });
-      viewerFollowing = viewer?.following?.map(u => u.id) || [];
+      viewerFollowing = viewer?.following?.map((u) => u.id) || [];
     }
 
     // Map sang DTO
-    const following = user.following?.map(followedUser => {
-      const dto = plainToInstance(UserListDto, followedUser, {
-        excludeExtraneousValues: true,
-      });
-      // Check xem viewer có đang follow user này không
-      if (viewerId && followedUser.id !== viewerId) {
-        dto.isFollowing = viewerFollowing.includes(followedUser.id);
-      }
-      return dto;
-    }) || [];
+    const following =
+      user.following?.map((followedUser) => {
+        const dto = plainToInstance(UserListDto, followedUser, {
+          excludeExtraneousValues: true,
+        });
+        // Check xem viewer có đang follow user này không
+        if (viewerId && followedUser.id !== viewerId) {
+          dto.isFollowing = viewerFollowing.includes(followedUser.id);
+        }
+        return dto;
+      }) || [];
 
     return following;
   }

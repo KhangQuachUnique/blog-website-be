@@ -73,6 +73,14 @@ export class BlogPostsController {
     return this.blogPostsService.create(createBlogPostDto);
   }
 
+  @Patch(':id')
+  @ApiOperation({ summary: 'Cập nhật bài viết theo ID' })
+  @ApiResponse({ status: 200, description: 'Cập nhật bài viết thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy bài viết' })
+  update(@Param('id') id: string, @Body() updateBlogPostDto: UpdateBlogPostDto) {
+    return this.blogPostsService.update(+id, updateBlogPostDto);
+  }
+
   @Get()
   findAll() {
     return this.blogPostsService.findAll();
@@ -95,14 +103,6 @@ export class BlogPostsController {
     }
 
     return this.blogPostsService.findOne(postId, user.id);
-  }
-
-  @Patch(':id')
-  @ApiOperation({ summary: 'Cập nhật bài viết theo ID' })
-  @ApiResponse({ status: 200, description: 'Cập nhật bài viết thành công' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy bài viết' })
-  update(@Param('id') id: string, @Body() updateBlogPostDto: UpdateBlogPostDto) {
-    return this.blogPostsService.update(+id, updateBlogPostDto);
   }
 
   @Patch(':id/status')

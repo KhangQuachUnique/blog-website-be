@@ -23,6 +23,7 @@ import { BlogPostType } from './enums/blog-post-type.enum';
 import { HashtagsService } from 'src/hashtags/hashtags.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
+import { UserVotesService } from 'src/user-votes/user-votes.service';
 
 @Injectable()
 export class BlogPostsService {
@@ -30,6 +31,8 @@ export class BlogPostsService {
     private readonly hashtagService: HashtagsService,
 
     private readonly notificationService: NotificationsService,
+
+    private readonly userVotesService: UserVotesService,
 
     private readonly userReactQueryService: UserReactQueryService,
 
@@ -227,6 +230,10 @@ export class BlogPostsService {
 
     // Lấy reacts cho tất cả các bài viết
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
+    const votesMap = await this.userVotesService.getPostsVotes(
+      posts.map((p) => p.id),
+      userId,
+    );
 
     for (const post of posts) {
       post['reacts'] = reactsMap.get(post.id);
@@ -236,6 +243,7 @@ export class BlogPostsService {
       const response = plainToInstance(PostResponseDto, post, {
         excludeExtraneousValues: true,
       });
+      response.votes = votesMap.get(post.id) || { upvotes: 0, downvotes: 0, userVote: null };
       return response;
     });
   }
@@ -381,10 +389,6 @@ export class BlogPostsService {
 
     if (!post) {
       throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-
-    if (post.status != EBlogPostStatus.DRAFT) {
-      return { message: `Cannot publish. Current status is '${post.status}', expecting 'DRAFT'.` };
     }
 
     post.status = EBlogPostStatus.ACTIVE;
