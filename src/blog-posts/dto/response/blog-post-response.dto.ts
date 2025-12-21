@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Expose, Type } from 'class-transformer';
+import { Expose, Type, Transform } from 'class-transformer';
 import { BlockResponseDto } from 'src/blocks/dto/response/block-response.dto';
 import { type GetVotesInterface } from 'src/blog-posts/blog-post.interface';
 import { EBlogPostStatus } from 'src/blog-posts/enums/blog-post-status.enum';
@@ -40,6 +40,7 @@ export class AuthorDto {
  */
 export class PostResponseDto {
   @Expose()
+  @Transform(({ value }) => Number(value))
   @ApiProperty({ example: 1 })
   id: number;
 

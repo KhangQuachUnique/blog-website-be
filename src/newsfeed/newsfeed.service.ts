@@ -163,6 +163,29 @@ export class NewsfeedService {
     // 8) Fetch reaction summaries (emoji bar) for posts in batch
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(postIds, user?.id);
 
+    // 8.a) Fetch current user's votes for these posts so we can populate `votes.userVote`
+    const userVotesMap: Map<number, string | null> = new Map();
+    if (user?.id && postIds.length > 0) {
+      const votesQuery = `
+        SELECT "postId", "voteType"
+        FROM user_votes
+        WHERE "userId" = $1
+          AND "postId" = ANY($2::bigint[])
+      `;
+      try {
+        const voteRows: { postId: number; voteType: string | null }[] = await this.postRepo.query(
+          votesQuery,
+          [user.id, postIds],
+        );
+        voteRows.forEach((r) => {
+          const pid = Number(r.postId);
+          userVotesMap.set(pid, r.voteType ? String(r.voteType).toLowerCase() : null);
+        });
+      } catch {
+        // swallow and leave map empty on error
+      }
+    }
+
     // Fallback: if UserReactQueryService returned empty for posts that have total_reacts>0,
     // perform a lightweight SQL aggregate to ensure we show emojis/counts.
     const missingPostIds: number[] = [];
@@ -326,12 +349,38 @@ export class NewsfeedService {
           repostOriginalIds,
           user?.id,
         );
-        const origDtos = this.mapRowsToDto(origRows, origHashtags, [], origReactsMap);
+        // Fetch user votes for original posts as well
+        const origUserVotesMap: Map<number, string | null> = new Map();
+        if (user?.id && repostOriginalIds.length > 0) {
+          const origVotesQuery = `
+              SELECT "postId", "voteType"
+              FROM user_votes
+              WHERE "userId" = $1
+                AND "postId" = ANY($2::bigint[])
+            `;
+          try {
+            const origVoteRows: { postId: number; voteType: string | null }[] =
+              await this.postRepo.query(origVotesQuery, [user.id, repostOriginalIds]);
+            origVoteRows.forEach((r) => {
+              const pid = Number(r.postId);
+              origUserVotesMap.set(pid, r.voteType ? String(r.voteType).toLowerCase() : null);
+            });
+          } catch {
+            // ignore
+          }
+        }
+        const origDtos = this.mapRowsToDto(
+          origRows,
+          origHashtags,
+          [],
+          origReactsMap,
+          origUserVotesMap,
+        );
         origDtos.forEach((d) => (originalMap[d.id] = d));
       }
     }
 
-    const items = this.mapRowsToDto(rawPosts, hashtagsMap, viewedIds, reactsMap);
+    const items = this.mapRowsToDto(rawPosts, hashtagsMap, viewedIds, reactsMap, userVotesMap);
 
     // 9) Paginate (cursor does NOT include seed)
     // Attach originalPost / preview for repost items
@@ -641,6 +690,7 @@ export class NewsfeedService {
     hashtagsMap: Record<string, { id: number; name: string }[]>,
     viewedIds: number[],
     reactsMap?: Map<number, UserReactSummaryDto | null>,
+    userVotesMap?: Map<number, string | null>,
   ): NewsfeedItemDto[] {
     return rawPosts.map((p) => {
       const id = Number(p.id);
@@ -676,7 +726,7 @@ export class NewsfeedService {
         votes: {
           upvotes: Number(p.up_votes ?? 0),
           downvotes: Number(p.down_votes ?? 0),
-          userVote: null,
+          userVote: userVotesMap?.get(id) || null,
         },
         reacts: reactsMap?.get(id) || undefined,
       };
