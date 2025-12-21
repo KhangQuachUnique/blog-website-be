@@ -8,6 +8,8 @@ import { plainToInstance } from 'class-transformer';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { SearchResponseDto, SearchPaginationDto } from './dto/response/search-response.dto';
+import { UserVotesService } from 'src/user-votes/user-votes.service';
+import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
 
 interface CursorInfo {
   id: number | null;
@@ -16,6 +18,10 @@ interface CursorInfo {
 @Injectable()
 export class SearchService {
   constructor(
+    private readonly userVotesService: UserVotesService,
+
+    private readonly userReactsQueryService: UserReactQueryService,
+
     @InjectRepository(BlogPost)
     private readonly blogPostRepository: Repository<BlogPost>,
 
@@ -148,8 +154,20 @@ export class SearchService {
       nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
     };
 
+    const reactsMap = await this.userReactsQueryService.getUserReactForPosts(
+      paginatedPosts.map((post) => post.id),
+    );
+    const votesMap = await this.userVotesService.getPostsVotes(
+      paginatedPosts.map((post) => post.id),
+    );
+
     return {
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
+      posts: paginatedPosts.map((post) => {
+        const result = plainToInstance(PostResponseDto, post);
+        result['reacts'] = reactsMap.get(post.id);
+        result['votes'] = votesMap.get(post.id);
+        return result;
+      }),
       pagination,
     };
   }
