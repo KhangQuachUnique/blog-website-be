@@ -87,14 +87,14 @@ export class BlogPostsController {
     const postId = +id;
     console.log('[BlogPostsController] findOne', { postId, user: req.user });
     // If user is present, record viewed history (fire-and-forget)
-    const userAny = req.user as JwtUser;
-    if (userAny.id) {
+    const user = req.user as JwtUser;
+    if (user.id) {
       this.viewedHistoryService
-        .recordView(Number(userAny.id), postId)
+        .recordView(Number(user.id), postId)
         .catch((err) => console.error('ViewedHistory.recordView error', err));
     }
 
-    return this.blogPostsService.findOne(postId);
+    return this.blogPostsService.findOne(postId, user.id);
   }
 
   @Patch(':id')
