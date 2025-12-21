@@ -1,6 +1,6 @@
 import { PostResponseDto } from '../../../blog-posts/dto/response/blog-post-response.dto';
-import { User } from '../../../users/entities/user.entity'; // Hoặc UserResponseDto nếu có
-import { Community } from '../../../communities/entities/community.entity';
+import { UserSearchDto } from './user-search.dto';
+import { CommunitySearchDto } from './community-search.dto';
 import { Expose, Type } from 'class-transformer';
 
 export class SearchPaginationDto {
@@ -17,12 +17,12 @@ export class SearchResponseDto {
   posts?: PostResponseDto[];
 
   @Expose()
-  // Nếu bạn chưa có UserResponseDto, có thể giữ nguyên User[]
-  // nhưng nhớ kiểm tra kỹ Entity User đã @Exclude password chưa nhé.
-  users?: User[];
+  @Type(() => UserSearchDto)
+  users?: UserSearchDto[];
 
   @Expose()
-  communities?: Community[];
+  @Type(() => CommunitySearchDto)
+  communities?: CommunitySearchDto[];
 
   @Expose()
   @Type(() => SearchPaginationDto)

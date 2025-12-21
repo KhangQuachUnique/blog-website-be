@@ -8,6 +8,8 @@ import { plainToInstance } from 'class-transformer';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { SearchResponseDto, SearchPaginationDto } from './dto/response/search-response.dto';
+import { UserSearchDto } from './dto/response/user-search.dto';
+import { CommunitySearchDto } from './dto/response/community-search.dto';
 
 interface CursorInfo {
   id: number | null;
@@ -78,19 +80,21 @@ export class SearchService {
     const lastPost = paginatedPosts[paginatedPosts.length - 1];
 
     // Users và Communities chỉ load ở trang đầu tiên
-    let users: User[] = [];
-    let communities: Community[] = [];
+    let users: UserSearchDto[] = [];
+    let communities: CommunitySearchDto[] = [];
 
     if (!after) {
-      users = await this.userRepository.find({
+      const rawUsers = await this.userRepository.find({
         where: [{ username: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
         take: 5,
       });
+      users = plainToInstance(UserSearchDto, rawUsers, { excludeExtraneousValues: true });
 
-      communities = await this.communityRepository.find({
+      const rawCommunities = await this.communityRepository.find({
         where: [{ name: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
         take: 5,
       });
+      communities = plainToInstance(CommunitySearchDto, rawCommunities, { excludeExtraneousValues: true });
     }
 
     const pagination: SearchPaginationDto = {
@@ -99,7 +103,7 @@ export class SearchService {
     };
 
     return {
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
+      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true })),
       users,
       communities,
       pagination,
@@ -149,7 +153,7 @@ export class SearchService {
     };
 
     return {
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
+      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true })),
       pagination,
     };
   }
@@ -181,7 +185,10 @@ export class SearchService {
       nextCursor: hasMore && lastUser ? this.createCursor(lastUser.id) : null,
     };
 
-    return { users: paginatedUsers, pagination };
+    return { 
+      users: plainToInstance(UserSearchDto, paginatedUsers, { excludeExtraneousValues: true }), 
+      pagination 
+    };
   }
 
   /**
@@ -217,7 +224,10 @@ export class SearchService {
       nextCursor: hasMore && lastCommunity ? this.createCursor(lastCommunity.id) : null,
     };
 
-    return { communities: paginatedCommunities, pagination };
+    return { 
+      communities: plainToInstance(CommunitySearchDto, paginatedCommunities, { excludeExtraneousValues: true }), 
+      pagination 
+    };
   }
 
   /**
@@ -256,7 +266,7 @@ export class SearchService {
     };
 
     return {
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
+      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true })),
       pagination,
     };
   }

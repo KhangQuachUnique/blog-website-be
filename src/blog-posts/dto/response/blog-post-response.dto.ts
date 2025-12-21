@@ -91,6 +91,11 @@ export class PostResponseDto {
   @Expose()
   @ApiProperty({ example: '2024-01-01T12:00:00Z' })
   createdAt: Date;
+
+  @Expose()
+  @Type(() => CommunityDto)
+  @ApiPropertyOptional({ type: CommunityDto })
+  community?: CommunityDto;
 }
 
 /**
@@ -101,11 +106,7 @@ export class PersonalPostResponseDto extends PostResponseDto {}
 /**
  * Response DTO for a community blog post.
  */
-export class CommunityPostResponseDto extends PostResponseDto {
-  @Expose()
-  @ApiPropertyOptional({ type: CommunityDto })
-  community?: CommunityDto;
-}
+export class CommunityPostResponseDto extends PostResponseDto {}
 
 /**
  * Response DTO for a repost blog post.
