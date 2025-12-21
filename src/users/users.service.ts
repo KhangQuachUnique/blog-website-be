@@ -113,7 +113,12 @@ export class UsersService {
     const profileDto = plainToInstance(ProfileResponseDto, user, {
       excludeExtraneousValues: true,
     });
-
+    profileDto.posts.map((post) => {
+      const postEntity = user.posts.find((p) => p.id === post.id);
+      if (postEntity) {
+        post.votes = postEntity.getVotes(userId);
+      }
+    })
     // Map communities từ CommunityMember
     // Nếu private và không phải chính chủ, ẩn communities
     profileDto.communities = isPrivateAndNotOwner
