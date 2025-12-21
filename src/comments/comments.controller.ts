@@ -1,7 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
-import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Controller('comments')
 export class CommentsController {
@@ -22,11 +21,6 @@ export class CommentsController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.commentsService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateCommentDto: UpdateCommentDto) {
-    return this.commentsService.update(id, updateCommentDto);
   }
 
   @Delete(':id')
