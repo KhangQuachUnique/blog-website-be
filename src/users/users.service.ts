@@ -17,7 +17,6 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
 import { UserListDto } from './dto/user-list.dto';
-import { EVoteType } from 'src/user-votes/entities/user-vote.entity';
 
 @Injectable()
 export class UsersService {
@@ -82,6 +81,8 @@ export class UsersService {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.posts', 'post')
+      .leftJoinAndSelect('post.votes', 'vote')
+      .leftJoinAndSelect('vote.user', 'voteUser')
       .where('user.id = :userId', { userId });
 
     // Chỉ lấy bài viết public nếu không phải chính mình
@@ -95,19 +96,18 @@ export class UsersService {
       }
     }
 
-    const userWithPosts = await queryBuilder
-      .leftJoinAndSelect('post.votes', 'vote')
-      .select([
-        'user.id',
-        'post.id',
-        'post.title',
-        'post.thumbnailUrl',
-        'post.isPublic',
-        'post.createdAt',
-        'vote.id',
-        'vote.voteType',
-      ])
-      .getOne();
+    const userWithPosts = await queryBuilder.getOne();
+    
+    // Đảm bảo posts là array và load votes cho mỗi post
+    if (userWithPosts?.posts && Array.isArray(userWithPosts.posts)) {
+      user.posts = userWithPosts.posts;
+      // Giờ mỗi post đã có votes relation được load
+      user.posts.forEach((post) => {
+        post.getVotes(userId);
+      });
+    } else {
+      user.posts = [];
+    }
 
     // Chuyển đổi sang DTO
     const profileDto = plainToInstance(ProfileResponseDto, user, {
@@ -127,14 +127,7 @@ export class UsersService {
     // Followers/Following count - ẩn nếu private và không phải chính chủ
     profileDto.followersCount = isPrivateAndNotOwner ? 0 : (user.followers?.length || 0);
     profileDto.followingCount = isPrivateAndNotOwner ? 0 : (user.following?.length || 0);
-
-    // Map posts và tính upVotes/downVotes từ votes relationship
-    profileDto.posts = (userWithPosts?.posts || []).map((post) => ({
-      ...post,
-      upVotes: post.votes?.filter((v) => v.voteType === EVoteType.UPVOTE).length || 0,
-      downVotes: post.votes?.filter((v) => v.voteType === EVoteType.DOWNVOTE).length || 0,
-    }));
-
+    
     // Kiểm tra xem viewer có đang follow user không (chỉ khi không phải chính mình)
     if (viewerId && !isOwner) {
       const isFollowing = user.followers?.some(follower => follower.id === viewerId) || false;
