@@ -23,59 +23,81 @@ export class SearchService {
   ) {}
 
   /**
-   * Search all types (Used by Search Sidebar)
+   * 1. TÌM KIẾM TỔNG HỢP (Dùng cho Sidebar hoặc Tab "Tất cả")
+   * Logic: 
+   * - Bài viết: Phân trang theo scroll (lấy 10, 20...).
+   * - User/Community: Chỉ lấy Top 5 phù hợp nhất, KHÔNG cuộn theo bài viết.
    */
   async search(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
+    
+    // Pagination cho POSTS
+    const take = searchDto.take ?? 10;
+    const skip = searchDto.skip ?? 0;
 
-    const posts = await this.blogPostRepository
+    // 1.1 Tìm Posts (Có phân trang)
+    const [posts, postsTotal] = await this.blogPostRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.hashtags', 'hashtag')
       .leftJoinAndSelect('post.author', 'author')
       .leftJoinAndSelect('post.community', 'community')
-      .leftJoin('post.blocks', 'block') // QUAN TRỌNG: Đảm bảo BlogPost entity có relation 'blocks'
+      .leftJoin('post.blocks', 'block')
       .where(new Brackets((qb) => {
          qb.where('LOWER(post.title) ILIKE :keyword', { keyword })
            .orWhere('LOWER(hashtag.name) ILIKE :keyword', { keyword })
-           // [SỬA ĐỔI]: Bỏ check block.type, chỉ check content để đảm bảo tìm thấy mọi thứ
            .orWhere('LOWER(block.content) ILIKE :keyword', { keyword }); 
       }))
-      // .andWhere('post.isPublic = :isPublic', { isPublic: true })
       .orderBy('post.createdAt', 'DESC')
-      .take(10)
-      .getMany();
+      .take(take)
+      .skip(skip)
+      .getManyAndCount();
 
-    // ... (Code Users và Communities giữ nguyên)
-    const users = await this.userRepository.find({
+    // 1.2 Tìm Users (Fix cứng 5 người, không skip)
+    // Lý do: Khi user cuộn bài viết xuống trang 2, ta vẫn muốn giữ nguyên danh sách gợi ý User tốt nhất ở đầu.
+    const [users, usersTotal] = await this.userRepository.findAndCount({
       where: [
         { username: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) },
+        { email: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) } // Tìm thêm theo email nếu muốn
       ],
-      take: 5
+      take: 5, 
+      skip: 0, 
     });
 
-    const communities = await this.communityRepository.find({
+    // 1.3 Tìm Communities (Fix cứng 5 nhóm)
+    const [communities, communitiesTotal] = await this.communityRepository.findAndCount({
       where: [
         { name: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) },
       ],
-      take: 5
+      take: 5,
+      skip: 0,
     });
 
     return {
       posts: posts.map((post) => plainToInstance(PostResponseDto, post)),
-      users,
-      communities,
+      // Lưu ý: Nếu User entity chứa password, hãy dùng plainToInstance(UserResponseDto, user) để ẩn đi
+      users: users, 
+      communities: communities,
+      meta: {
+        postsTotal: postsTotal,
+        postsHasMore: skip + posts.length < postsTotal, // Logic check xem còn bài để cuộn không
+        usersTotal: usersTotal,
+        communitiesTotal: communitiesTotal,
+      }
     };
   }
 
   /**
-   * Search blog posts only
+   * 2. TÌM RIÊNG BÀI VIẾT (Tab "Bài viết")
+   * Logic: Phân trang đầy đủ
    */
   async searchByPost(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q } = searchDto;
-    const keyword = `%${q.toLowerCase()}%`; 
+    const keyword = `%${q.toLowerCase()}%`;
+    const take = searchDto.take ?? 10;
+    const skip = searchDto.skip ?? 0;
 
-    const posts = await this.blogPostRepository
+    const [posts, total] = await this.blogPostRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.hashtags', 'hashtag')
       .leftJoinAndSelect('post.author', 'author')
@@ -87,40 +109,99 @@ export class SearchService {
            .orWhere('LOWER(block.content) ILIKE :keyword', { keyword });
       }))
       .orderBy('post.createdAt', 'DESC')
-      .getMany();
+      .take(take)
+      .skip(skip)
+      .getManyAndCount();
 
-    return { posts: posts.map((post) => plainToInstance(PostResponseDto, post)) };
+    return {
+      posts: posts.map((post) => plainToInstance(PostResponseDto, post)),
+      meta: { 
+        postsTotal: total, 
+        postsHasMore: skip + posts.length < total 
+      }
+    };
   }
   
-  // ... (Các hàm còn lại giữ nguyên)
+  /**
+   * 3. TÌM RIÊNG USER (Tab "Người dùng")
+   * Logic: Phân trang đầy đủ (khác với hàm search tổng hợp)
+   */
   async searchByUser(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
-    const users = await this.userRepository.find({
-      where: [{ username: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
+    const take = searchDto.take ?? 10;
+    const skip = searchDto.skip ?? 0;
+
+    const [users, total] = await this.userRepository.findAndCount({
+      where: [
+        { username: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }
+      ],
+      take,
+      skip,
     });
-    return { users };
+
+    return { 
+      users, 
+      meta: { 
+        usersTotal: total,
+        // Frontend có thể dùng biến này để biết khi nào dừng cuộn list user
+        usersHasMore: skip + users.length < total 
+      } as any // Ép kiểu nếu metaDto chưa định nghĩa usersHasMore (bạn có thể thêm vào DTO sau)
+    };
   }
 
+  /**
+   * 4. TÌM RIÊNG COMMUNITY (Tab "Cộng đồng")
+   * Logic: Phân trang đầy đủ
+   */
   async searchByCommunity(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
-    const communities = await this.communityRepository.find({
+    const take = searchDto.take ?? 10;
+    const skip = searchDto.skip ?? 0;
+
+    const [communities, total] = await this.communityRepository.findAndCount({
       where: [{ name: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
+      take,
+      skip,
     });
-    return { communities };
+
+    return { 
+      communities, 
+      meta: { 
+        communitiesTotal: total,
+        communitiesHasMore: skip + communities.length < total
+      } as any 
+    };
   }
 
+  /**
+   * 5. TÌM RIÊNG HASHTAG
+   * Logic: Tìm bài viết chứa hashtag đó -> Phân trang bài viết
+   */
   async searchByHashtag(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
-    const posts = await this.blogPostRepository
+    const take = searchDto.take ?? 10;
+    const skip = searchDto.skip ?? 0;
+
+    const [posts, total] = await this.blogPostRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.hashtags', 'hashtag')
       .leftJoinAndSelect('post.author', 'author')
       .leftJoinAndSelect('post.community', 'community')
       .where('LOWER(hashtag.name) ILIKE :keyword', { keyword })
-      .getMany();
-    return { posts: posts.map((post) => plainToInstance(PostResponseDto, post)) };
+      .orderBy('post.createdAt', 'DESC')
+      .take(take)
+      .skip(skip)
+      .getManyAndCount();
+
+    return { 
+      posts: posts.map((post) => plainToInstance(PostResponseDto, post)), 
+      meta: { 
+        postsTotal: total, 
+        postsHasMore: skip + posts.length < total 
+      } 
+    };
   }
 }

@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum SearchType {
   POST = 'post',
@@ -7,13 +8,25 @@ export enum SearchType {
   HASHTAG = 'hashtag',
 }
 
-// Model: Quy định dữ liệu đầu vào
 export class SearchDto {
   @IsString()
   @IsNotEmpty()
-  q: string; // Keyword
+  q: string;
 
   @IsOptional()
   @IsEnum(SearchType)
-  type?: SearchType; // Optional: filter by type
+  type?: SearchType;
+
+  // Dùng @Type để ép kiểu từ String (trên URL) sang Number
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  skip?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  take?: number;
 }
