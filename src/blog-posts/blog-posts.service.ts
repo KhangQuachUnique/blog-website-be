@@ -28,6 +28,7 @@ import { UserVotesService } from 'src/user-votes/user-votes.service';
 import { CommunityMember } from 'src/communities/entities/community-member.entity';
 import { ECommunityRole } from 'src/communities/enums/community-role.enum';
 import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
+import { F } from 'node_modules/@faker-js/faker/dist/airline-DF6RqYmq';
 
 
 @Injectable()
@@ -136,10 +137,10 @@ export class BlogPostsService {
         // - Member thường => DRAFT
         // - Admin/Mod => ACTIVE
         // Community không bật duyệt => ACTIVE hết
-        const status =
+        const isApproved =
           community.requirePostApproval && !isPrivileged
-            ? EBlogPostStatus.DRAFT
-            : EBlogPostStatus.ACTIVE;
+            ? false
+            : true;
 
         const blocks = this.blockRepository.create(dto.blocks || []);
 
@@ -152,7 +153,7 @@ export class BlogPostsService {
           community,
           blocks,
           hashtags,
-          status,
+          isApproved,
         });
 
         const savedPost = await this.communityBlogPostRepository.save(post);
@@ -536,7 +537,7 @@ export class BlogPostsService {
       where.status = status; // ACTIVE hoặc DRAFT
     } else {
       // "Tất cả" -> chỉ lấy ACTIVE + DRAFT (không lấy HIDDEN)
-      where.status = In([EBlogPostStatus.ACTIVE, EBlogPostStatus.DRAFT]);
+      where.status = In([EBlogPostStatus.ACTIVE]);
     }
 
     const posts = await this.communityBlogPostRepository.find({
