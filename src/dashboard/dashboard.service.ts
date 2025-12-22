@@ -35,8 +35,9 @@ export class DashboardService {
 
   /**
    * Calculate date range based on filter period
+   * Made public for controller to use
    */
-  private getDateRange(filter: DashboardFilterDto): {
+  getDateRange(filter: DashboardFilterDto): {
     startDate: Date;
     endDate: Date;
     label: string;

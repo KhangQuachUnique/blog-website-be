@@ -7,6 +7,7 @@ import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Comment } from 'src/comments/entities/comment.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { UserVote } from 'src/user-votes/entities/user-vote.entity';
+import { SearchModule } from 'src/search/search.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UserVote } from 'src/user-votes/entities/user-vote.entity';
       Community,
       UserVote,
     ]),
+    SearchModule, // Import để sử dụng SearchLogService
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

@@ -10,6 +10,7 @@ import { Community } from 'src/communities/entities/community.entity';
 import { SearchResponseDto, SearchPaginationDto } from './dto/response/search-response.dto';
 import { UserVotesService } from 'src/user-votes/user-votes.service';
 import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
+import { SearchLogService } from './search-log.service';
 
 interface CursorInfo {
   id: number | null;
@@ -21,6 +22,8 @@ export class SearchService {
     private readonly userVotesService: UserVotesService,
 
     private readonly userReactsQueryService: UserReactQueryService,
+
+    private readonly searchLogService: SearchLogService,
 
     @InjectRepository(BlogPost)
     private readonly blogPostRepository: Repository<BlogPost>,
@@ -104,6 +107,15 @@ export class SearchService {
       nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
     };
 
+    // Log search query (chỉ log ở trang đầu tiên)
+    if (!after) {
+      this.searchLogService.logSearch({
+        keyword: q,
+        searchType: 'all',
+        resultsCount: paginatedPosts.length + users.length + communities.length,
+      });
+    }
+
     return {
       posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
       users,
@@ -160,6 +172,15 @@ export class SearchService {
     const votesMap = await this.userVotesService.getPostsVotes(
       paginatedPosts.map((post) => post.id),
     );
+
+    // Log search query (chỉ log ở trang đầu tiên)
+    if (!after) {
+      this.searchLogService.logSearch({
+        keyword: q,
+        searchType: 'post',
+        resultsCount: paginatedPosts.length,
+      });
+    }
 
     return {
       posts: paginatedPosts.map((post) => {
