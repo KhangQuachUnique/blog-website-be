@@ -10,6 +10,7 @@ import { Community } from 'src/communities/entities/community.entity';
 import { SearchResponseDto, SearchPaginationDto } from './dto/response/search-response.dto';
 import { UserVotesService } from 'src/user-votes/user-votes.service';
 import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
+import { CommunityResponseDto } from 'src/communities/dto/response/community-response.dto';
 
 interface CursorInfo {
   id: number | null;
@@ -93,10 +94,12 @@ export class SearchService {
         take: 5,
       });
 
-      communities = await this.communityRepository.find({
-        where: [{ name: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
-        take: 5,
-      });
+      communities = await this.communityRepository
+        .createQueryBuilder('community')
+        .loadRelationCountAndMap('community.memberCount', 'community.members')
+        .where('LOWER(community.name) ILIKE :keyword', { keyword })
+        .take(5)
+        .getMany();
     }
 
     const pagination: SearchPaginationDto = {
@@ -107,7 +110,7 @@ export class SearchService {
     return {
       posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
       users,
-      communities,
+      communities: communities.map((community) => plainToInstance(CommunityResponseDto, community)),
       pagination,
     };
   }
@@ -213,6 +216,7 @@ export class SearchService {
 
     let communitiesQuery = this.communityRepository
       .createQueryBuilder('community')
+      .loadRelationCountAndMap('community.memberCount', 'community.members')
       .where('LOWER(community.name) ILIKE :keyword', { keyword });
 
     if (cursor.id !== null) {
@@ -235,7 +239,12 @@ export class SearchService {
       nextCursor: hasMore && lastCommunity ? this.createCursor(lastCommunity.id) : null,
     };
 
-    return { communities: paginatedCommunities, pagination };
+    return {
+      communities: paginatedCommunities.map((community) =>
+        plainToInstance(CommunityResponseDto, community),
+      ),
+      pagination,
+    };
   }
 
   /**
