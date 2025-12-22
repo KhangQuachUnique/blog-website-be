@@ -4,6 +4,7 @@ import { CommunitiesController } from './communities.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Community } from './entities/community.entity';
 import { CommunityMember } from './entities/community-member.entity';
+// import { CommunityBannedUser } from './entities/community-banned-user.entity';
 import { User } from 'src/users/entities/user.entity';
 
 @Module({

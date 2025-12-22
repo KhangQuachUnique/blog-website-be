@@ -24,6 +24,31 @@ export class CommunitiesService {
     private userRepository: Repository<User>,
   ) {}
 
+  // =========================
+  // Helpers for banned users
+  // =========================
+  private async isBanned(communityId: number, userId: number): Promise<boolean> {
+    const count = await this.communityRepository
+      .createQueryBuilder('c')
+      .innerJoin('c.bannedUsers', 'u', 'u.id = :userId', { userId })
+      .where('c.id = :communityId', { communityId })
+      .getCount();
+
+    return count > 0;
+  }
+
+  private async banUser(communityId: number, userId: number): Promise<void> {
+    // avoid duplicates
+    const banned = await this.isBanned(communityId, userId);
+    if (banned) return;
+
+    await this.communityRepository
+      .createQueryBuilder()
+      .relation(Community, 'bannedUsers')
+      .of(communityId)
+      .add(userId);
+  }
+
   async create(createCommunityDto: CreateCommunityDto, ownerId: number) {
     const owner = await this.userRepository.findOne({ where: { id: ownerId } });
     if (!owner) throw new NotFoundException('Owner user not found');
@@ -62,13 +87,16 @@ export class CommunitiesService {
     });
     if (!community) throw new NotFoundException('Community not found');
 
+    const memberCount = await this.memberRepository.count({
+      where: { community: { id }, role: Not(ECommunityRole.PENDING) },
+    });
+
     // ✅ chưa login => NONE
     if (!userId) {
-      const memberCount = await this.memberRepository.count({
-        where: { community: { id }, role: Not(ECommunityRole.PENDING) },
-      });
-      return { ...community, role: 'NONE', memberCount };
+      return { ...community, role: 'NONE', memberCount, isBanned: false };
     }
+
+    const banned = await this.isBanned(id, userId);
 
     const member = await this.memberRepository.findOne({
       where: { community: { id }, user: { id: userId } },
@@ -76,16 +104,12 @@ export class CommunitiesService {
 
     const role = member?.role ?? 'NONE';
 
-    const memberCount = await this.memberRepository.count({
-      where: { community: { id }, role: Not(ECommunityRole.PENDING) },
-    });
-
-    return { ...community, role, memberCount };
+    return { ...community, role, memberCount, isBanned: banned };
   }
 
   async update(id: number, updateCommunityDto: UpdateCommunityDto, userId: number) {
     const community = await this.communityRepository.findOne({ where: { id } });
-    if (!community) throw new NotFoundException("Community not found");
+    if (!community) throw new NotFoundException('Community not found');
 
     const me = await this.memberRepository.findOne({
       where: { community: { id }, user: { id: userId } },
@@ -95,7 +119,7 @@ export class CommunitiesService {
       !!me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
 
     if (!ok) {
-      throw new ForbiddenException("Bạn không có quyền cập nhật cộng đồng này.");
+      throw new ForbiddenException('Bạn không có quyền cập nhật cộng đồng này.');
     }
 
     await this.communityRepository.update(id, updateCommunityDto);
@@ -115,6 +139,14 @@ export class CommunitiesService {
 
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
+
+    // ✅ đã bị kick/ban => không cho join lại
+    const banned = await this.isBanned(communityId, userId);
+    if (banned) {
+      throw new ForbiddenException(
+        'Bạn đã bị kick khỏi cộng đồng này nên không thể tham gia lại.',
+      );
+    }
 
     const existing = await this.memberRepository.findOne({
       where: { community: { id: communityId }, user: { id: userId } },
@@ -260,15 +292,48 @@ export class CommunitiesService {
     return this.memberRepository.save(member);
   }
 
-  async removeMember(communityId: number, memberId: number) {
+  /**
+   * ✅ Kick / Reject member
+   * - Reject PENDING: chỉ xoá record member (không ban)
+   * - Kick MEMBER/MODERATOR: xoá record member + thêm vào community_banned_users (nếu ban=true)
+   */
+  async removeMember(
+    communityId: number,
+    memberId: number,
+    actorId: number,
+    ban: boolean,
+  ) {
+    const me = await this.memberRepository.findOne({
+      where: { community: { id: communityId }, user: { id: actorId } },
+      relations: ['user'],
+    });
+
+    const ok =
+      !!me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
+    if (!ok) {
+      throw new ForbiddenException('Bạn không có quyền thực hiện thao tác này.');
+    }
+
     const member = await this.memberRepository.findOne({
       where: { id: memberId, community: { id: communityId } },
+      relations: ['user'],
     });
 
     if (!member) throw new NotFoundException('Member not found in this community');
 
+    // MOD không được kick ADMIN
+    if (me.role === ECommunityRole.MODERATOR && member.role === ECommunityRole.ADMIN) {
+      throw new ForbiddenException('Moderator không thể kick Admin.');
+    }
+
+    // Nếu là kick thực sự (ban=true) thì lưu vào bảng ban
+    if (ban) {
+      const targetUserId = member.user.id;
+      await this.banUser(communityId, targetUserId);
+    }
+
     await this.memberRepository.remove(member);
-    return { deleted: true };
+    return { deleted: true, banned: ban };
   }
 
   // Functions to support another services
@@ -278,6 +343,7 @@ export class CommunitiesService {
       relations: ['community', 'community.members'],
       order: { joinedAt: 'DESC' },
     });
+
     return Promise.all(
       memberships.map(async (m) => {
         const memberCount = await this.memberRepository.count({

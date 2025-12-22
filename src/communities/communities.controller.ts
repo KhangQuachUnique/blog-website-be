@@ -127,7 +127,12 @@ export class CommunitiesController {
   removeMember(
     @Param('id', ParseIntPipe) id: number,
     @Param('memberId', ParseIntPipe) memberId: number,
+    @Req() req: Request,
+    @Query('ban') ban?: string,
   ) {
-    return this.communitiesService.removeMember(id, memberId);
+    const user = req.user as JwtUser;
+
+    const banFlag = ban === '1' || ban === 'true';
+    return this.communitiesService.removeMember(id, memberId, user.id, banFlag);
   }
 }
