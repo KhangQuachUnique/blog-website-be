@@ -83,7 +83,21 @@ export class CommunitiesService {
     return { ...community, role, memberCount };
   }
 
-  async update(id: number, updateCommunityDto: UpdateCommunityDto) {
+  async update(id: number, updateCommunityDto: UpdateCommunityDto, userId: number) {
+    const community = await this.communityRepository.findOne({ where: { id } });
+    if (!community) throw new NotFoundException("Community not found");
+
+    const me = await this.memberRepository.findOne({
+      where: { community: { id }, user: { id: userId } },
+    });
+
+    const ok =
+      !!me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
+
+    if (!ok) {
+      throw new ForbiddenException("Bạn không có quyền cập nhật cộng đồng này.");
+    }
+
     await this.communityRepository.update(id, updateCommunityDto);
     return this.findOne(id);
   }

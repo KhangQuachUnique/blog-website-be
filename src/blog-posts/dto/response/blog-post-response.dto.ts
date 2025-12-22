@@ -82,12 +82,11 @@ export class PostResponseDto {
   @ApiProperty({
     example: { upvotes: 10, downvotes: 2, userVoted: null },
   })
-  votes: VoteResponseDto;
+  votes?: VoteResponseDto;
 
   @Expose()
   @ApiProperty({ type: UserReactSummaryDto })
-  reacts: UserReactSummaryDto;
-
+  reacts?: UserReactSummaryDto;
   @Expose()
   @ApiProperty({ example: '2024-01-01T12:00:00Z' })
   createdAt: Date;

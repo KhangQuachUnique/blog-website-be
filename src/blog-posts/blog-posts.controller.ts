@@ -23,6 +23,8 @@ import { DetailPersonalPostResponseDto } from './dto/response/blog-post-response
 import { DetailCommunityPostResponseDto } from './dto/response/blog-post-response.dto';
 import { BlogPostType } from './enums/blog-post-type.enum';
 import { JwtUser } from 'src/auth/dto/validate-payload.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { EBlogPostStatus } from './enums/blog-post-status.enum';
 
 @ApiTags('Blog Posts')
 @Controller('blog-posts')
@@ -84,6 +86,25 @@ export class BlogPostsController {
   @Get()
   findAll() {
     return this.blogPostsService.findAll();
+  }
+
+  // community
+  @Get('community/:communityId')
+  async findByCommunity(@Param('communityId') communityId: string) {
+    const results = await this.blogPostsService.findByCommunity(+communityId);
+    console.log(results);
+    return results;
+  }
+
+  @Get('community/:communityId/manage')
+  @UseGuards(JwtAuthGuard)
+  async findByCommunityManage(
+    @Param('communityId') communityId: string,
+    @Req() req: Request,
+    @Query('status') status?: EBlogPostStatus,
+  ) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.findByCommunityManage(+communityId, status, userId);
   }
 
   @Get(':id')

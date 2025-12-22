@@ -8,8 +8,9 @@ import { plainToInstance } from 'class-transformer';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { SearchResponseDto, SearchPaginationDto } from './dto/response/search-response.dto';
-import { UserSearchDto } from './dto/response/user-search.dto';
-import { CommunitySearchDto } from './dto/response/community-search.dto';
+import { UserVotesService } from 'src/user-votes/user-votes.service';
+import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
+import { CommunityResponseDto } from 'src/communities/dto/response/community-response.dto';
 
 interface CursorInfo {
   id: number | null;
@@ -18,6 +19,10 @@ interface CursorInfo {
 @Injectable()
 export class SearchService {
   constructor(
+    private readonly userVotesService: UserVotesService,
+
+    private readonly userReactsQueryService: UserReactQueryService,
+
     @InjectRepository(BlogPost)
     private readonly blogPostRepository: Repository<BlogPost>,
 
@@ -90,11 +95,12 @@ export class SearchService {
       });
       users = plainToInstance(UserSearchDto, rawUsers, { excludeExtraneousValues: true });
 
-      const rawCommunities = await this.communityRepository.find({
-        where: [{ name: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
-        take: 5,
-      });
-      communities = plainToInstance(CommunitySearchDto, rawCommunities, { excludeExtraneousValues: true });
+      communities = await this.communityRepository
+        .createQueryBuilder('community')
+        .loadRelationCountAndMap('community.memberCount', 'community.members')
+        .where('LOWER(community.name) ILIKE :keyword', { keyword })
+        .take(5)
+        .getMany();
     }
 
     const pagination: SearchPaginationDto = {
@@ -105,7 +111,7 @@ export class SearchService {
     return {
       posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true })),
       users,
-      communities,
+      communities: communities.map((community) => plainToInstance(CommunityResponseDto, community)),
       pagination,
     };
   }
@@ -152,8 +158,20 @@ export class SearchService {
       nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
     };
 
+    const reactsMap = await this.userReactsQueryService.getUserReactForPosts(
+      paginatedPosts.map((post) => post.id),
+    );
+    const votesMap = await this.userVotesService.getPostsVotes(
+      paginatedPosts.map((post) => post.id),
+    );
+
     return {
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true })),
+      posts: paginatedPosts.map((post) => {
+        const result = plainToInstance(PostResponseDto, post);
+        result['reacts'] = reactsMap.get(post.id);
+        result['votes'] = votesMap.get(post.id);
+        return result;
+      }),
       pagination,
     };
   }
@@ -202,6 +220,7 @@ export class SearchService {
 
     let communitiesQuery = this.communityRepository
       .createQueryBuilder('community')
+      .loadRelationCountAndMap('community.memberCount', 'community.members')
       .where('LOWER(community.name) ILIKE :keyword', { keyword });
 
     if (cursor.id !== null) {
@@ -224,9 +243,11 @@ export class SearchService {
       nextCursor: hasMore && lastCommunity ? this.createCursor(lastCommunity.id) : null,
     };
 
-    return { 
-      communities: plainToInstance(CommunitySearchDto, paginatedCommunities, { excludeExtraneousValues: true }), 
-      pagination 
+    return {
+      communities: paginatedCommunities.map((community) =>
+        plainToInstance(CommunityResponseDto, community),
+      ),
+      pagination,
     };
   }
 
