@@ -28,15 +28,13 @@ import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
-  // ✅ My communities: cần login
-  @Get('my')
+  @Get("my")
   @UseGuards(JwtAuthGuard)
   getMyCommunities(@Req() req: Request): Promise<CommunityResponseDto[]> {
     const user = req.user as JwtUser;
     return this.communitiesService.getMyCommunities(user.id);
   }
 
-  // ✅ Create: cần login
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Body() createCommunityDto: CreateCommunityDto, @Req() req: Request) {
@@ -66,15 +64,19 @@ export class CommunitiesController {
     return this.communitiesService.findOne(id);
   }
 
-  // ✅ Update: (tuỳ bạn) thường nên guard + check quyền
-  @Patch(':id')
+  // ✅ Update: cần login + CHECK quyền (ADMIN/MOD) ở service
+  @Patch(":id")
   @UseGuards(JwtAuthGuard)
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateCommunityDto: UpdateCommunityDto) {
-    return this.communitiesService.update(id, updateCommunityDto);
+  update(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() updateCommunityDto: UpdateCommunityDto,
+    @Req() req: Request
+  ) {
+    const userId = (req.user as JwtUser).id;
+    return this.communitiesService.update(id, updateCommunityDto, userId);
   }
 
-  // ✅ JOIN: cần login
-  @Post(':id/join')
+  @Post(":id/join")
   @UseGuards(JwtAuthGuard)
   joinCommunity(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     const user = req.user as JwtUser;

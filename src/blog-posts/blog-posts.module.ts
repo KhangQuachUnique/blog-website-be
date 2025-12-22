@@ -15,6 +15,8 @@ import { ViewedHistoryModule } from 'src/viewed-history/viewed-history.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { UserReactsModule } from 'src/user-reacts/user-reacts.module';
 import { UserVotesModule } from 'src/user-votes/user-votes.module';
+import { CommunityMember } from 'src/communities/entities/community-member.entity';
+import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { UserVotesModule } from 'src/user-votes/user-votes.module';
       Hashtag,
       User,
       Community,
+      CommunityMember,
+      ViewedHistory,
     ]),
     ViewedHistoryModule,
     NotificationsModule,
