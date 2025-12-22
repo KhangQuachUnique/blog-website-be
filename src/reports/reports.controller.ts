@@ -89,6 +89,15 @@ export class ReportsController {
     return this.reportsService.checkIfReported(userId, type, targetId);
   }
 
+  @Get('all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy TOÀN BỘ báo cáo (Không phân trang - Export)' })
+  @ApiResponse({ status: 200, type: [ReportResponseDto] })
+  async getAllReportsNoPagination(): Promise<ReportResponseDto[]> {
+    return this.reportsService.getAll();
+  }
+
   /**
    * 📋 Lấy tất cả báo cáo với pagination (Admin)
    */

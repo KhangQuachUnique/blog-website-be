@@ -12,7 +12,7 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { BlogPostsService } from './blog-posts.service';
 import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
@@ -86,6 +86,9 @@ export class BlogPostsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy tất cả bài viết (Admin)' })
   findAll() {
     return this.blogPostsService.findAll();
   }

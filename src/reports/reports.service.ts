@@ -167,6 +167,18 @@ export class ReportsService {
   }
 
   /**
+   * Lấy toàn bộ báo cáo
+   */
+  async getAll(): Promise<ReportResponseDto[]> {
+    const reports = await this.reportRepository.find({
+      relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return reports.map((report) => this.mapToResponseDto(report));
+  }
+
+  /**
    * 📋 Lấy tất cả báo cáo với pagination (Admin)
    */
   async findAll(page = 1, limit = 20): Promise<ReportListResponseDto> {
