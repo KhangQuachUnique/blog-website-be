@@ -1,5 +1,5 @@
 import { PostResponseDto } from '../../../blog-posts/dto/response/blog-post-response.dto';
-import { User } from '../../../users/entities/user.entity'; // Hoặc UserResponseDto nếu có
+import { UserSearchDto } from './user-search.dto';
 import { Expose, Type } from 'class-transformer';
 import { CommunityResponseDto } from 'src/communities/dto/response/community-response.dto';
 
