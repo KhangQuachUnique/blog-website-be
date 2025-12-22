@@ -24,7 +24,8 @@ export class NotificationsGateWay implements OnGatewayConnection, OnGatewayDisco
     console.log('Client ID:', client.id);
     console.log('Query params:', client.handshake.query);
 
-    const userId = Number(client.handshake.query.userId);
+    const userId = Number(client.handshake.auth.userId);
+    console.log('Parsed userId:', userId);
 
     if (!userId || isNaN(userId)) {
       console.warn(`Invalid userId from client ${client.id}`);
