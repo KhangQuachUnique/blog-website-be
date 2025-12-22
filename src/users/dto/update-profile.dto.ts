@@ -24,12 +24,12 @@ export class UpdateProfileDto {
   bio?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.avatarUrl !== '' && o.avatarUrl !== null)
+  @ValidateIf((o: UpdateProfileDto) => o.avatarUrl !== '' && o.avatarUrl !== null)
   @IsUrl()
   avatarUrl?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.coverImageUrl !== '' && o.coverImageUrl !== null)
+  @ValidateIf((o: UpdateProfileDto) => o.coverImageUrl !== '' && o.coverImageUrl !== null)
   @IsUrl()
   coverImageUrl?: string;
 
@@ -40,7 +40,7 @@ export class UpdateProfileDto {
   phoneNumber?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.dob !== '' && o.dob !== null)
+  @ValidateIf((o: UpdateProfileDto) => o.dob !== '' && o.dob !== null)
   @IsDateString()
   dob?: string;
 
@@ -50,9 +50,9 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsBoolean()
-  showEmail?: boolean; // Cài đặt hiển thị email công khai
+  showEmail?: boolean; 
 
   @IsOptional()
   @IsBoolean()
-  showPhoneNumber?: boolean; // Cài đặt hiển thị số điện thoại công khai
+  showPhoneNumber?: boolean; 
 }

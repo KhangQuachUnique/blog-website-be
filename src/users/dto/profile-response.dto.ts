@@ -1,39 +1,7 @@
 import { Exclude, Expose, Type } from 'class-transformer';
 import { EGender } from '../enums/gender.enum';
-
-class CommunityDto {
-  @Expose()
-  id: number;
-
-  @Expose()
-  name: string;
-
-  @Expose()
-  thumbnailUrl: string;
-}
-
-class BlogPostDto {
-  @Expose()
-  id: number;
-
-  @Expose()
-  title: string;
-
-  @Expose()
-  thumbnailUrl: string;
-
-  @Expose()
-  isPublic: boolean;
-
-  @Expose()
-  createdAt: Date;
-
-  @Expose()
-  upVotes: number;
-
-  @Expose()
-  downVotes: number;
-}
+import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
+import { CommunityResponseDto } from 'src/communities/dto/response/my-community-response.dto';
 
 export class ProfileResponseDto {
   @Expose()
@@ -43,10 +11,10 @@ export class ProfileResponseDto {
   username: string;
 
   @Expose()
-  email?: string; // Optional: chỉ hiện nếu user cho phép
-  
+  email?: string;
+
   @Expose()
-  phoneNumber?: string; // Optional: chỉ hiện nếu user cho phép
+  phoneNumber?: string;
 
   @Expose()
   bio?: string;
@@ -67,17 +35,17 @@ export class ProfileResponseDto {
   isPrivate: boolean;
 
   @Expose()
-  showEmail: boolean; // Cài đặt hiển thị email công khai
+  showEmail: boolean;
 
   @Expose()
-  showPhoneNumber: boolean; // Cài đặt hiển thị số điện thoại công khai
+  showPhoneNumber: boolean;
 
   @Expose()
   joinAt: Date;
 
   @Expose()
-  @Type(() => CommunityDto)
-  communities: CommunityDto[];
+  @Type(() => CommunityResponseDto)
+  communities: CommunityResponseDto[];
 
   @Expose()
   followersCount: number;
@@ -86,11 +54,11 @@ export class ProfileResponseDto {
   followingCount: number;
 
   @Expose()
-  isFollowing?: boolean; // Chỉ hiện khi có viewer (không phải chính mình)
+  isFollowing?: boolean;
 
   @Expose()
-  @Type(() => BlogPostDto)
-  posts: BlogPostDto[];
+  @Type(() => PostResponseDto)
+  posts: PostResponseDto[];
 
   @Exclude()
   password: string;

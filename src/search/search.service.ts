@@ -8,6 +8,8 @@ import { plainToInstance } from 'class-transformer';
 import { User } from 'src/users/entities/user.entity';
 import { Community } from 'src/communities/entities/community.entity';
 import { SearchResponseDto, SearchPaginationDto } from './dto/response/search-response.dto';
+import { UserVotesService } from 'src/user-votes/user-votes.service';
+import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
 
 interface CursorInfo {
   id: number | null;
@@ -16,6 +18,10 @@ interface CursorInfo {
 @Injectable()
 export class SearchService {
   constructor(
+    private readonly userVotesService: UserVotesService,
+
+    private readonly userReactsQueryService: UserReactQueryService,
+
     @InjectRepository(BlogPost)
     private readonly blogPostRepository: Repository<BlogPost>,
 
@@ -54,11 +60,14 @@ export class SearchService {
       .leftJoinAndSelect('post.author', 'author')
       .leftJoinAndSelect('post.community', 'community')
       .leftJoin('post.blocks', 'block')
-      .where(new Brackets((qb) => {
-         qb.where('LOWER(post.title) ILIKE :keyword', { keyword })
-           .orWhere('LOWER(hashtag.name) ILIKE :keyword', { keyword })
-           .orWhere('LOWER(block.content) ILIKE :keyword', { keyword }); 
-      }));
+      .leftJoin('post.blocks', 'block')
+      .where(
+        new Brackets((qb) => {
+          qb.where('LOWER(post.title) ILIKE :keyword', { keyword })
+            .orWhere('LOWER(hashtag.name) ILIKE :keyword', { keyword })
+            .orWhere('LOWER(block.content) ILIKE :keyword', { keyword });
+        }),
+      );
 
     if (cursor.id !== null) {
       postsQuery = postsQuery.andWhere('post.id < :cursorId', { cursorId: cursor.id });
@@ -77,20 +86,16 @@ export class SearchService {
     // Users và Communities chỉ load ở trang đầu tiên
     let users: User[] = [];
     let communities: Community[] = [];
-    
+
     if (!after) {
       users = await this.userRepository.find({
-        where: [
-          { username: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) },
-        ],
-        take: 5
+        where: [{ username: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
+        take: 5,
       });
 
       communities = await this.communityRepository.find({
-        where: [
-          { name: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) },
-        ],
-        take: 5
+        where: [{ name: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
+        take: 5,
       });
     }
 
@@ -108,11 +113,12 @@ export class SearchService {
   }
 
   /**
-   * Search blog posts only
+   * 2. TÌM RIÊNG BÀI VIẾT (Tab "Bài viết")
+   * Logic: Phân trang đầy đủ
    */
   async searchByPost(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q, limit = 15, after } = searchDto;
-    const keyword = `%${q.toLowerCase()}%`; 
+    const keyword = `%${q.toLowerCase()}%`;
     const cursor = this.parseCursor(after);
 
     let postsQuery = this.blogPostRepository
@@ -121,11 +127,13 @@ export class SearchService {
       .leftJoinAndSelect('post.author', 'author')
       .leftJoinAndSelect('post.community', 'community')
       .leftJoin('post.blocks', 'block')
-      .where(new Brackets((qb) => {
-         qb.where('LOWER(post.title) ILIKE :keyword', { keyword })
-           .orWhere('LOWER(hashtag.name) ILIKE :keyword', { keyword })
-           .orWhere('LOWER(block.content) ILIKE :keyword', { keyword });
-      }));
+      .where(
+        new Brackets((qb) => {
+          qb.where('LOWER(post.title) ILIKE :keyword', { keyword })
+            .orWhere('LOWER(hashtag.name) ILIKE :keyword', { keyword })
+            .orWhere('LOWER(block.content) ILIKE :keyword', { keyword });
+        }),
+      );
 
     if (cursor.id !== null) {
       postsQuery = postsQuery.andWhere('post.id < :cursorId', { cursorId: cursor.id });
@@ -146,12 +154,24 @@ export class SearchService {
       nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
     };
 
-    return { 
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
+    const reactsMap = await this.userReactsQueryService.getUserReactForPosts(
+      paginatedPosts.map((post) => post.id),
+    );
+    const votesMap = await this.userVotesService.getPostsVotes(
+      paginatedPosts.map((post) => post.id),
+    );
+
+    return {
+      posts: paginatedPosts.map((post) => {
+        const result = plainToInstance(PostResponseDto, post);
+        result['reacts'] = reactsMap.get(post.id);
+        result['votes'] = votesMap.get(post.id);
+        return result;
+      }),
       pagination,
     };
   }
-  
+
   async searchByUser(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q, limit = 15, after } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
@@ -182,6 +202,10 @@ export class SearchService {
     return { users: paginatedUsers, pagination };
   }
 
+  /**
+   * 4. TÌM RIÊNG COMMUNITY (Tab "Cộng đồng")
+   * Logic: Phân trang đầy đủ
+   */
   async searchByCommunity(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q, limit = 15, after } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
@@ -192,7 +216,9 @@ export class SearchService {
       .where('LOWER(community.name) ILIKE :keyword', { keyword });
 
     if (cursor.id !== null) {
-      communitiesQuery = communitiesQuery.andWhere('community.id < :cursorId', { cursorId: cursor.id });
+      communitiesQuery = communitiesQuery.andWhere('community.id < :cursorId', {
+        cursorId: cursor.id,
+      });
     }
 
     const communities = await communitiesQuery
@@ -212,6 +238,10 @@ export class SearchService {
     return { communities: paginatedCommunities, pagination };
   }
 
+  /**
+   * 5. TÌM RIÊNG HASHTAG
+   * Logic: Tìm bài viết chứa hashtag đó -> Phân trang bài viết
+   */
   async searchByHashtag(searchDto: SearchDto): Promise<SearchResponseDto> {
     const { q, limit = 15, after } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
@@ -243,7 +273,7 @@ export class SearchService {
       nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
     };
 
-    return { 
+    return {
       posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
       pagination,
     };

@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, Type, Transform } from 'class-transformer';
 import { BlockResponseDto } from 'src/blocks/dto/response/block-response.dto';
-import { type GetVotesInterface } from 'src/blog-posts/blog-post.interface';
 import { EBlogPostStatus } from 'src/blog-posts/enums/blog-post-status.enum';
 import { BlogPostType } from 'src/blog-posts/enums/blog-post-type.enum';
 import { HashtagResponseDto } from 'src/hashtags/dto/response/hashtag-response.dto';
 import { UserReactSummaryDto } from 'src/user-reacts/dto/response/user-react-summary.dto';
+import { VoteResponseDto } from 'src/user-votes/dto/response/vote-response.dto';
 
 export class CommunityDto {
   @Expose()
@@ -82,12 +82,11 @@ export class PostResponseDto {
   @ApiProperty({
     example: { upvotes: 10, downvotes: 2, userVoted: null },
   })
-  votes: GetVotesInterface;
+  votes?: VoteResponseDto;
 
   @Expose()
   @ApiProperty({ type: UserReactSummaryDto })
-  reacts: UserReactSummaryDto;
-
+  reacts?: UserReactSummaryDto;
   @Expose()
   @ApiProperty({ example: '2024-01-01T12:00:00Z' })
   createdAt: Date;

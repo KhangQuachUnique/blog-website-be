@@ -8,11 +8,10 @@ export enum SearchType {
   HASHTAG = 'hashtag',
 }
 
-// Model: Quy định dữ liệu đầu vào
 export class SearchDto {
   @IsString()
   @IsNotEmpty()
-  q: string; // Keyword
+  q: string;
 
   @IsOptional()
   @IsEnum(SearchType)

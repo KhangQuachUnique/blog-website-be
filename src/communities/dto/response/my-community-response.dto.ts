@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ECommunityRole } from '../../enums/community-role.enum';
 
-export class MyCommunityResponseDto {
+export class CommunityResponseDto {
   @ApiProperty()
   id: number;
 

@@ -14,5 +14,5 @@ export class UserListDto {
   bio?: string;
 
   @Expose()
-  isFollowing?: boolean; // Trạng thái follow của viewer với user này
+  isFollowing?: boolean; 
 }
