@@ -12,5 +12,6 @@ import { BlogPostsModule } from 'src/blog-posts/blog-posts.module';
   imports: [TypeOrmModule.forFeature([User]), UserReactsModule, CommunitiesModule, BlogPostsModule],
   controllers: [UsersController],
   providers: [UsersService],
+  exports: [UsersService],
 })
 export class UsersModule {}
