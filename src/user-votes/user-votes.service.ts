@@ -132,6 +132,11 @@ export class UserVotesService {
    * Lấy votes cho NHIỀU bài viết
    */
   async getPostsVotes(postIds: number[], userId?: number): Promise<Map<number, VoteResponseDto>> {
+    // GUARD case: Nếu không có postIds thì trả về Map rỗng ngay
+    if (!postIds.length) {
+      return new Map();
+    }
+
     const votes = await this.voteRepository
       .createQueryBuilder('vote')
       .leftJoinAndSelect('vote.user', 'user')
@@ -149,7 +154,7 @@ export class UserVotesService {
       votesByPost.get(postId)!.push(vote);
     });
 
-    // ⭐ anonymous case
+    // anonymous case
     const result = new Map<number, VoteResponseDto>();
     if (!userId) {
       for (const postId of postIds) {
@@ -163,7 +168,7 @@ export class UserVotesService {
       return result;
     }
 
-    // ⭐ logged-in user case
+    // logged-in user case
     postIds.forEach((postId) => {
       const postVotes = votesByPost.get(postId) || [];
       const upvotes = postVotes.filter((vote) => vote.voteType === EVoteType.UPVOTE).length;
