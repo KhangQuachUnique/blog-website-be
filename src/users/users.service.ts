@@ -514,6 +514,32 @@ export class UsersService {
   }
 
   /**
+   * Cấm người dùng (Admin only)
+   * @param userId ID của người dùng cần ban
+   * @param reason Lý do ban (optional)
+   */
+  async banUser(userId: number, reason?: string): Promise<{ message: string; user: User }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    if (user.type === EUserRole.ADMIN) {
+        throw new ForbiddenException('Không thể ban tài khoản Admin');
+    }
+
+    user.isBanned = true; 
+
+    await this.userRepository.save(user);
+
+    return {
+      message: `Đã khóa tài khoản người dùng ${user.username}${reason ? `. Lý do: ${reason}` : ''}`,
+      user,
+    };
+  }
+
+  /**
    * Lấy danh sách followers của một user
    */
   async getFollowers(userId: number, viewerId?: number): Promise<UserListDto[]> {
