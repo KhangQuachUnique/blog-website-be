@@ -30,7 +30,6 @@ import { ECommunityRole } from 'src/communities/enums/community-role.enum';
 import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
 import { F } from 'node_modules/@faker-js/faker/dist/airline-DF6RqYmq';
 
-
 @Injectable()
 export class BlogPostsService {
   constructor(
@@ -127,7 +126,9 @@ export class BlogPostsService {
         }
 
         if (me.role === ECommunityRole.PENDING) {
-          throw new ForbiddenException('Yêu cầu tham gia đang chờ duyệt. Bạn chưa thể tạo bài viết.');
+          throw new ForbiddenException(
+            'Yêu cầu tham gia đang chờ duyệt. Bạn chưa thể tạo bài viết.',
+          );
         }
 
         const isPrivileged =
@@ -137,10 +138,7 @@ export class BlogPostsService {
         // - Member thường => DRAFT
         // - Admin/Mod => ACTIVE
         // Community không bật duyệt => ACTIVE hết
-        const isApproved =
-          community.requirePostApproval && !isPrivileged
-            ? false
-            : true;
+        const isApproved = community.requirePostApproval && !isPrivileged ? false : true;
 
         const blocks = this.blockRepository.create(dto.blocks || []);
 
@@ -321,6 +319,11 @@ export class BlogPostsService {
       where: { author: { id: userId } },
       relations: ['author', 'community', 'hashtags', 'originalPost'],
     });
+
+    // ⭐ GUARD CỰC KỲ QUAN TRỌNG
+    if (!posts.length) {
+      return [];
+    }
 
     // Lấy reacts cho tất cả các bài viết
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
@@ -558,9 +561,7 @@ export class BlogPostsService {
       order: { createdAt: 'DESC' },
     });
 
-    const reactsMap = await this.userReactQueryService.getUserReactForPosts(
-      posts.map((p) => p.id),
-    );
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
 
     for (const post of posts) {
       post['reacts'] = reactsMap.get(post.id);
