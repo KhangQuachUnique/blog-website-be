@@ -2,13 +2,13 @@ import { Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { Notification } from './entities/notification.entity';
 import { NotificationTemplate } from './entities/notification-template.entity';
 import { NotificationsGateWay } from './gateway/notifications.gateway';
 import { NotificationFactory } from './notifications.factory';
 import { ENotificationType } from './enums/notification.enum';
+import { NotificationResponseDto } from './dto/response/notification-response.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class NotificationsService {
@@ -24,20 +24,38 @@ export class NotificationsService {
     private readonly notificationFactory: NotificationFactory,
   ) {}
 
-  create(createNotificationDto: CreateNotificationDto) {
-    return 'This action adds a new notification';
+  /**
+   * Đánh dấu đã đọc thông báo
+   * @param notificationId
+   * @returns
+   */
+  async markAsRead(notificationId: number) {
+    return await this.notificationRepository.update({ id: notificationId }, { isRead: true });
   }
 
-  findAll() {
-    return `This action returns all notifications`;
+  /**
+   * Dánh dấu tất cả thông báo của user đã đọc
+   * @param userId
+   * @returns
+   */
+  async markAllAsRead(userId: number) {
+    return await this.notificationRepository.update({ receiver: { id: userId } }, { isRead: true });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} notification`;
-  }
+  /**
+   * Get all notifications for a specific user
+   * @param userId
+   * @returns
+   */
+  async findAll(userId: number): Promise<NotificationResponseDto[]> {
+    const notis = await this.notificationRepository.find({
+      where: { receiver: { id: userId } },
+      relations: ['sender', 'receiver', 'template'],
+      order: { createdAt: 'DESC' },
+    });
+    console.log('Fetched notifications:', notis);
 
-  update(id: number, updateNotificationDto: UpdateNotificationDto) {
-    return `This action updates a #${id} notification`;
+    return plainToInstance(NotificationResponseDto, notis, { excludeExtraneousValues: true });
   }
 
   remove(id: number) {
