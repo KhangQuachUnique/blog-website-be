@@ -23,6 +23,7 @@ import type { Request } from 'express';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { ResolveReportDto } from './dto/resolve-report.dto';
 import {
   ReportResponseDto,
   ReportListResponseDto,
@@ -117,6 +118,27 @@ export class ReportsController {
     @Param('postId', ParseIntPipe) postId: number,
   ): Promise<ReportResponseDto[]> {
     return this.reportsService.getReportsByPost(postId);
+  }
+
+  /**
+   * ⚖️ Xử lý báo cáo (Duyệt/Từ chối) - Admin Only
+   * Endpoint này quan trọng nhất vừa thêm vào
+   */
+  @Patch(':id/resolve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Xử lý báo cáo (Chấp thuận/Từ chối)' })
+  @ApiResponse({ status: 200, type: ReportResponseDto, description: 'Xử lý thành công' })
+  @ApiResponse({ status: 400, description: 'Trạng thái không hợp lệ hoặc đã xử lý rồi' })
+  async resolve(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() resolveDto: ResolveReportDto,
+  ): Promise<ReportResponseDto> {
+    return this.reportsService.resolveReport(
+      id,
+      resolveDto.type,
+      resolveDto.action,
+    );
   }
 
   /**
