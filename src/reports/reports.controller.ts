@@ -99,6 +99,30 @@ export class ReportsController {
   }
 
   /**
+   * ⏳ Lấy danh sách báo cáo đang chờ xử lý (PENDING)
+   */
+  @Get('pending')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy các báo cáo CHỜ XỬ LÝ (Pending)' })
+  @ApiResponse({ status: 200, type: [ReportResponseDto] })
+  async getPendingReports(): Promise<ReportResponseDto[]> {
+    return this.reportsService.getPending();
+  }
+
+  /**
+   * ✅ Lấy danh sách báo cáo đã giải quyết (RESOLVED)
+   */
+  @Get('resolved')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy các báo cáo ĐÃ GIẢI QUYẾT (Resolved)' })
+  @ApiResponse({ status: 200, type: [ReportResponseDto] })
+  async getResolvedReports(): Promise<ReportResponseDto[]> {
+    return this.reportsService.getResolved();
+  }
+
+  /**
    * 📋 Lấy tất cả báo cáo với pagination (Admin)
    */
   @Get()

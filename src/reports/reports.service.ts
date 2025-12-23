@@ -179,6 +179,32 @@ export class ReportsService {
   }
 
   /**
+   * ⏳ Lấy danh sách báo cáo đang chờ xử lý (PENDING)
+   */
+  async getPending(): Promise<ReportResponseDto[]> {
+    const reports = await this.reportRepository.find({
+      where: { status: EReportStatus.PENDING },
+      relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
+      order: { createdAt: 'ASC' },
+    });
+
+    return reports.map((report) => this.mapToResponseDto(report));
+  }
+
+  /**
+   * ✅ Lấy danh sách báo cáo đã giải quyết (RESOLVED)
+   */
+  async getResolved(): Promise<ReportResponseDto[]> {
+    const reports = await this.reportRepository.find({
+      where: { status: EReportStatus.RESOLVED },
+      relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return reports.map((report) => this.mapToResponseDto(report));
+  }
+
+  /**
    * 📋 Lấy tất cả báo cáo với pagination (Admin)
    */
   async findAll(page = 1, limit = 20): Promise<ReportListResponseDto> {
