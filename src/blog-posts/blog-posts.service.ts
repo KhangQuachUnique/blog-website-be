@@ -266,7 +266,7 @@ export class BlogPostsService {
       relations: ['author', 'community', 'hashtags', 'originalPost'],
     });
 
-    // ⭐ GUARD CỰC KỲ QUAN TRỌNG
+    // GUARD CỰC KỲ QUAN TRỌNG
     if (!posts.length) {
       return [];
     }
