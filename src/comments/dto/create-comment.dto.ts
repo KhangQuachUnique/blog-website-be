@@ -12,12 +12,12 @@ export class CreateCommentDto {
   commenterId: number;
 
   // postId bắt buộc khi type = POST
-  @ValidateIf((o) => o.type === ECommentType.POST)
+  @ValidateIf((o: CreateCommentDto) => o.type === ECommentType.POST)
   @IsNumber()
   postId?: number;
 
-  // blockId bắt buộc khi type = BLOCK  
-  @ValidateIf((o) => o.type === ECommentType.BLOCK)
+  // blockId bắt buộc khi type = BLOCK
+  @ValidateIf((o: CreateCommentDto) => o.type === ECommentType.BLOCK)
   @IsNumber()
   blockId?: number;
 

@@ -4,85 +4,132 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Comment } from './entities/comment.entity';
 import { ECommentType } from './enums/comment-type.enum';
+import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
+import { Block } from 'src/blocks/entities/block.entity';
+import { plainToInstance } from 'class-transformer';
+import { CommentResponseDto } from './dto/response/comment-response.dto';
 
 @Injectable()
 export class CommentsService {
   constructor(
     @InjectRepository(Comment)
     private commentRepository: Repository<Comment>,
+
+    @InjectRepository(BlogPost)
+    private blogPostRepository: Repository<BlogPost>,
+
+    @InjectRepository(Block)
+    private blockRepository: Repository<Block>,
   ) {}
 
   // ========== BASIC CRUD ==========
 
-  async create(createCommentDto: CreateCommentDto) {
+  async create({
+    userId,
+    createCommentDto,
+  }: {
+    userId: number;
+    createCommentDto: CreateCommentDto;
+  }): Promise<CommentResponseDto> {
     // 1. Destructure thêm parentCommentId và replyToUserId
-    const { 
-      content, 
-      type, 
-      commenterId, 
-      postId, 
-      blockId, 
-      parentCommentId, 
-      replyToUserId 
-    } = createCommentDto;
+    const { content, type, postId, blockId, parentCommentId, replyToUserId } = createCommentDto;
 
-    // Validate cơ bản
+    // 2. Validate dữ liệu đầu vào
     if (type === ECommentType.POST && !postId) {
-      throw new BadRequestException('postId is required for POST type comment');
-    }
-    if (type === ECommentType.BLOCK && !blockId) {
-      throw new BadRequestException('blockId is required for BLOCK type comment');
+      throw new BadRequestException('Thiếu postId');
     }
 
-    // 2. Tạo entity với đầy đủ trường
+    if (type === ECommentType.BLOCK && !blockId) {
+      throw new BadRequestException('Thiếu blockId');
+    }
+
+    // Kiểm tra tồn tại comment cha nếu có
+    if (parentCommentId) {
+      const parentExists = await this.commentRepository.exists({
+        where: { id: parentCommentId },
+      });
+
+      if (!parentExists) {
+        throw new NotFoundException('Comment cha không tồn tại');
+      }
+    }
+
+    // Kiểm tra tồn tại post/block nếu có
+    if (type === ECommentType.POST) {
+      const postExists = await this.blogPostRepository.exists({
+        where: { id: postId },
+      });
+
+      if (!postExists) {
+        throw new NotFoundException('Post không tồn tại');
+      }
+    }
+
+    if (type === ECommentType.BLOCK) {
+      const blockExists = await this.blockRepository.exists({
+        where: { id: blockId },
+      });
+
+      if (!blockExists) {
+        throw new NotFoundException('Block không tồn tại');
+      }
+    }
+
     const comment = this.commentRepository.create({
       content,
       type,
-      commenterId,
-      postId,
-      blockId,
-      parentCommentId, // Quan trọng: Để biết là reply của ai
-      replyToUserId,   // Quan trọng: Để hiện mũi tên -> User B
+      commenter: { id: userId },
+      post: postId ? { id: postId } : undefined,
+      block: blockId ? { id: blockId } : undefined,
+      parentComment: parentCommentId ? { id: parentCommentId } : undefined,
+      replyToUser: replyToUserId ? { id: replyToUserId } : undefined,
     });
 
-    const saved = await this.commentRepository.save(comment);
-
-    // 3. Trả về full relation để Frontend hiển thị ngay lập tức (avatar, name...)
-    return this.findOne(saved.id);
+    return this.commentRepository
+      .save(comment)
+      .then((savedComment) =>
+        plainToInstance(CommentResponseDto, savedComment, { excludeExtraneousValues: true }),
+      );
   }
 
-  async findAll() {
-    return this.commentRepository.find({
-      where: { parentComment: IsNull() },
-      relations: ['commenter', 'childComments', 'childComments.commenter'],
-      order: { createAt: 'DESC' },
-      take: 50,
-    });
+  async findAll(): Promise<CommentResponseDto[]> {
+    return this.commentRepository
+      .find({
+        where: { parentComment: IsNull() },
+        relations: ['commenter', 'childComments', 'childComments.commenter'],
+        order: { createAt: 'DESC', childComments: { createAt: 'ASC' } },
+        take: 50,
+      })
+      .then((comments) =>
+        comments.map((comment) =>
+          plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true }),
+        ),
+      );
   }
 
-  async findOne(id: number) {
+  async findOne(id: number): Promise<CommentResponseDto> {
     const comment = await this.commentRepository.findOne({
       where: { id },
       relations: [
-        'commenter', 
+        'commenter',
         'replyToUser', // Cần field này để hiển thị người được reply
-        'post', 
-        'block', 
-        'childComments', 
-        'childComments.commenter', 
-        'childComments.replyToUser' // Cần field này cho các reply con
+        'post',
+        'block',
+        'childComments',
+        'childComments.commenter',
+        'childComments.replyToUser', // Cần field này cho các reply con
       ],
       order: {
         childComments: {
-          createAt: 'ASC' // Reply thì nên hiện cũ nhất lên trước (giống Facebook)
-        }
-      }
+          createAt: 'ASC', // Reply thì nên hiện cũ nhất lên trước (giống Facebook)
+        },
+      },
     });
 
     if (!comment) {
       throw new NotFoundException(`Comment #${id} not found`);
     }
-    return comment;
+    return plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true });
   }
 
   async remove(id: number) {
@@ -97,9 +144,10 @@ export class CommentsService {
 
   // ========== POST/BLOCK COMMENTS ==========
 
-  async findByPost(postId: number, sortBy: string = 'newest') {
+  async findByPost(postId: number, sortBy: string = 'newest'): Promise<CommentResponseDto[]> {
     // QueryBuilder để xử lý sort phức tạp hơn nếu cần (ví dụ sort theo tương tác)
-    const query = this.commentRepository.createQueryBuilder('comment')
+    const query = this.commentRepository
+      .createQueryBuilder('comment')
       .leftJoinAndSelect('comment.commenter', 'commenter')
       .leftJoinAndSelect('comment.childComments', 'childComments')
       .leftJoinAndSelect('childComments.commenter', 'childCommenter')
@@ -113,39 +161,48 @@ export class CommentsService {
       // Lưu ý: Sort theo relation count trong TypeORM cần map subquery hoặc loadRelationCountAndMap
       // Ở đây mình dùng cách đơn giản: load lên rồi sort JS hoặc sort theo createAt tạm thời
       // Để tối ưu, nên có cột `childCommentsCount` trong DB và sort theo đó.
-      query.orderBy('comment.createAt', 'DESC'); 
+      query.orderBy('comment.createAt', 'DESC').addOrderBy('childComments.createAt', 'ASC');
     } else {
       // Default: Newest
-      query.orderBy('comment.createAt', 'DESC');
+      query.orderBy('comment.createAt', 'DESC').addOrderBy('childComments.createAt', 'ASC');
     }
 
     const comments = await query.getMany();
-    
+
     // Nếu muốn sort 'interactions' chuẩn xác mà không có cột count, phải sort bằng JS sau khi fetch
     if (sortBy === 'interactions') {
-      return comments.sort((a, b) => b.childComments.length - a.childComments.length);
+      return comments
+        .sort((a, b) => b.childComments.length - a.childComments.length)
+        .map((comment) =>
+          plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true }),
+        );
     }
 
-    return comments;
+    return comments.map((comment) =>
+      plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true }),
+    );
   }
 
-  async findByBlock(blockId: number) {
-    return this.commentRepository.find({
-      where: { blockId, type: ECommentType.BLOCK, parentComment: IsNull() },
+  async findByBlock(blockId: number): Promise<CommentResponseDto[]> {
+    const comments = await this.commentRepository.find({
+      where: { block: { id: blockId }, type: ECommentType.BLOCK, parentComment: IsNull() },
       relations: [
-        'commenter', 
-        'childComments', 
-        'childComments.commenter', 
-        'childComments.replyToUser'
+        'commenter',
+        'childComments',
+        'childComments.commenter',
+        'childComments.replyToUser',
       ],
-      order: { createAt: 'DESC' },
+      order: { createAt: 'DESC', childComments: { createAt: 'ASC' } },
     });
+    return comments.map((comment) =>
+      plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true }),
+    );
   }
 
   async countByPost(postId: number) {
-    const total = await this.commentRepository.count({ where: { postId } });
-    const parentComments = await this.commentRepository.count({ 
-      where: { postId, parentComment: IsNull() } 
+    const total = await this.commentRepository.count({ where: { post: { id: postId } } });
+    const parentComments = await this.commentRepository.count({
+      where: { post: { id: postId }, parentComment: IsNull() },
     });
     return { postId, total, parentComments, replies: total - parentComments };
   }

@@ -53,10 +53,7 @@ export class UsersController {
    */
   @Get(':id/profile')
   @UseGuards(OptionalJwtAuthGuard)
-  async getProfile(
-    @Param('id', ParseIntPipe) userId: number,
-    @Request() req: RequestWithUser,
-  ) {
+  async getProfile(@Param('id', ParseIntPipe) userId: number, @Request() req: RequestWithUser) {
     // Nếu user đã đăng nhập, lấy viewerId từ token
     const viewerId = req.user?.userId;
     return this.usersService.getProfile(userId, viewerId);
@@ -68,7 +65,10 @@ export class UsersController {
    */
   @Patch('me/profile')
   @UseGuards(JwtAuthGuard)
-  async updateMyProfile(@Request() req: RequestWithUser, @Body() updateProfileDto: UpdateProfileDto) {
+  async updateMyProfile(
+    @Request() req: RequestWithUser,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
     const userId = req.user.userId;
     return this.usersService.updateProfile(userId, updateProfileDto);
   }
@@ -80,7 +80,10 @@ export class UsersController {
   @Post('me/change-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async changePassword(@Request() req: RequestWithUser, @Body() changePasswordDto: ChangePasswordDto) {
+  async changePassword(
+    @Request() req: RequestWithUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
     const userId = req.user.userId;
     return this.usersService.changePassword(userId, changePasswordDto);
   }
@@ -92,7 +95,10 @@ export class UsersController {
   @Post('me/change-email')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async requestChangeEmail(@Request() req: RequestWithUser, @Body() requestDto: RequestChangeEmailDto) {
+  async requestChangeEmail(
+    @Request() req: RequestWithUser,
+    @Body() requestDto: RequestChangeEmailDto,
+  ) {
     const userId = req.user.userId;
     return this.usersService.requestChangeEmail(userId, requestDto);
   }
@@ -127,7 +133,10 @@ export class UsersController {
   @Post(':id/block')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async blockUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
+  async blockUser(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) targetUserId: number,
+  ) {
     const userId = req.user.userId;
     return this.usersService.blockUser(userId, targetUserId);
   }
@@ -139,7 +148,10 @@ export class UsersController {
   @Delete(':id/block')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async unblockUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
+  async unblockUser(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) targetUserId: number,
+  ) {
     const userId = req.user.userId;
     return this.usersService.unblockUser(userId, targetUserId);
   }
@@ -150,10 +162,7 @@ export class UsersController {
    */
   @Get('search')
   @UseGuards(JwtAuthGuard)
-  searchUsers(
-    @Query('q') query: string,
-    @Request() req: RequestWithUser,
-  ) {
+  searchUsers(@Query('q') query: string, @Request() req: RequestWithUser) {
     const currentUserId = req.user.userId;
     return this.usersService.searchUsers(query, currentUserId);
   }
@@ -188,7 +197,10 @@ export class UsersController {
   @Post(':id/follow')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async followUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
+  async followUser(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) targetUserId: number,
+  ) {
     const userId = req.user.userId;
     return this.usersService.followUser(userId, targetUserId);
   }
@@ -200,7 +212,10 @@ export class UsersController {
   @Delete(':id/follow')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async unfollowUser(@Request() req: RequestWithUser, @Param('id', ParseIntPipe) targetUserId: number) {
+  async unfollowUser(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) targetUserId: number,
+  ) {
     const userId = req.user.userId;
     return this.usersService.unfollowUser(userId, targetUserId);
   }
@@ -211,10 +226,7 @@ export class UsersController {
    */
   @Get(':id/followers')
   @UseGuards(OptionalJwtAuthGuard)
-  async getFollowers(
-    @Param('id', ParseIntPipe) userId: number,
-    @Request() req: RequestWithUser,
-  ) {
+  async getFollowers(@Param('id', ParseIntPipe) userId: number, @Request() req: RequestWithUser) {
     const viewerId = req.user?.userId;
     return this.usersService.getFollowers(userId, viewerId);
   }
@@ -225,10 +237,7 @@ export class UsersController {
    */
   @Get(':id/following')
   @UseGuards(OptionalJwtAuthGuard)
-  async getFollowing(
-    @Param('id', ParseIntPipe) userId: number,
-    @Request() req: RequestWithUser,
-  ) {
+  async getFollowing(@Param('id', ParseIntPipe) userId: number, @Request() req: RequestWithUser) {
     const viewerId = req.user?.userId;
     return this.usersService.getFollowing(userId, viewerId);
   }
@@ -265,10 +274,7 @@ export class UsersController {
   @Patch('admin/:id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(EUserRole.ADMIN)
-  async updateUserRole(
-    @Param('id', ParseIntPipe) userId: number,
-    @Body('role') role: EUserRole,
-  ) {
+  async updateUserRole(@Param('id', ParseIntPipe) userId: number, @Body('role') role: EUserRole) {
     return this.usersService.updateUserRole(userId, role);
   }
 }
