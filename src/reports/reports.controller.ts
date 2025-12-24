@@ -30,6 +30,7 @@ import {
   CreateReportResponseDto,
   CheckReportedResponseDto,
 } from './dto/response/report-response.dto';
+import { EReportStatus } from './enums/report-status.enum';
 import { EReportType } from './enums/report-type.enum';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
@@ -149,8 +150,9 @@ export class ReportsController {
   @ApiResponse({ status: 200, type: [ReportResponseDto] })
   async getReportsByPost(
     @Param('postId', ParseIntPipe) postId: number,
+    @Query('status') status?: EReportStatus,
   ): Promise<ReportResponseDto[]> {
-    return this.reportsService.getReportsByPost(postId);
+    return this.reportsService.getReportsByPost(postId, status);
   }
 
   /**

@@ -155,15 +155,26 @@ export class ReportsService {
 
   /**
    * 📋 Lấy báo cáo của 1 bài viết
+   * @param postId
+   * @param status
    */
-  async getReportsByPost(postId: number): Promise<ReportResponseDto[]> {
+  async getReportsByPost(postId: number, status?: EReportStatus): Promise<ReportResponseDto[]> {
+
+    const whereCondition: any = { 
+      reportedPost: { id: postId } 
+    };
+
+    if (status) {
+      whereCondition.status = status;
+    }
+
     const reports = await this.reportRepository.find({
-      where: { reportedPost: { id: postId } },
+      where: whereCondition,
       relations: ['reporter', 'reportedPost'],
       order: { createdAt: 'DESC' },
     });
 
-    return reports.map(this.mapToResponseDto);
+    return reports.map((report) => this.mapToResponseDto(report));
   }
 
   /**
