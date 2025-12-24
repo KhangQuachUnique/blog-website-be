@@ -1,6 +1,21 @@
-import { Controller, Get, Post, Body, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { JwtUser } from 'src/auth/dto/validate-payload.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { type Request } from 'express';
+import { CommentResponseDto } from './dto/response/comment-response.dto';
 
 @Controller('comments')
 export class CommentsController {
@@ -9,21 +24,27 @@ export class CommentsController {
   // ========== BASIC CRUD ==========
 
   @Post()
-  create(@Body() createCommentDto: CreateCommentDto) {
-    return this.commentsService.create(createCommentDto);
+  @UseGuards(JwtAuthGuard)
+  create(
+    @Body() createCommentDto: CreateCommentDto,
+    @Req() req: Request,
+  ): Promise<CommentResponseDto> {
+    const user = req.user as JwtUser;
+    return this.commentsService.create({ userId: user.id, createCommentDto });
   }
 
   @Get()
-  findAll() {
+  findAll(): Promise<CommentResponseDto[]> {
     return this.commentsService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<CommentResponseDto> {
     return this.commentsService.findOne(id);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.commentsService.remove(id);
   }
@@ -33,13 +54,13 @@ export class CommentsController {
   @Get('post/:postId')
   findByPost(
     @Param('postId', ParseIntPipe) postId: number,
-    @Query('sortBy') sortBy?: string // Thêm dòng này để bắt ?sortBy=...
-  ) {
+    @Query('sortBy') sortBy?: string, // Thêm dòng này để bắt ?sortBy=...
+  ): Promise<CommentResponseDto[]> {
     return this.commentsService.findByPost(postId, sortBy);
   }
 
   @Get('block/:blockId')
-  findByBlock(@Param('blockId', ParseIntPipe) blockId: number) {
+  findByBlock(@Param('blockId', ParseIntPipe) blockId: number): Promise<CommentResponseDto[]> {
     return this.commentsService.findByBlock(blockId);
   }
 

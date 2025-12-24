@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
+import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
 
 /**
  * DTO cho author info trong saved post response
@@ -19,47 +20,13 @@ export class SavedPostAuthorDto {
 }
 
 /**
- * DTO cho post summary trong saved list
- */
-export class SavedPostItemDto {
-  @ApiProperty({ example: 1 })
-  @Expose()
-  id: number;
-
-  @ApiProperty({ example: '2024-12-18T10:30:00Z' })
-  @Expose()
-  savedAt: Date;
-
-  @ApiProperty({ example: 123, description: 'Post ID' })
-  @Expose()
-  postId: number;
-
-  @ApiPropertyOptional({ example: 'My awesome blog post' })
-  @Expose()
-  postTitle?: string;
-
-  @ApiPropertyOptional({ example: 'This is the content preview...' })
-  @Expose()
-  postPreview?: string;
-
-  @ApiPropertyOptional({ example: 'https://example.com/thumbnail.jpg' })
-  @Expose()
-  postThumbnail?: string;
-
-  @ApiProperty({ type: SavedPostAuthorDto })
-  @Expose()
-  @Type(() => SavedPostAuthorDto)
-  author: SavedPostAuthorDto;
-}
-
-/**
  * Response DTO cho danh sách saved posts với pagination
  */
 export class SavedPostListResponseDto {
-  @ApiProperty({ type: [SavedPostItemDto] })
+  @ApiProperty({ type: [PostResponseDto] })
   @Expose()
-  @Type(() => SavedPostItemDto)
-  items: SavedPostItemDto[];
+  @Type(() => PostResponseDto)
+  items: PostResponseDto[];
 
   @ApiProperty({ example: 50 })
   @Expose()
@@ -104,9 +71,9 @@ export class CheckSavedResponseDto {
  * Batch check saved response - Map postId -> isSaved
  */
 export class BatchCheckSavedResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     example: { '1': true, '2': false, '3': true },
-    description: 'Map của postId -> isSaved status'
+    description: 'Map của postId -> isSaved status',
   })
   @Expose()
   savedMap: Record<number, boolean>;
