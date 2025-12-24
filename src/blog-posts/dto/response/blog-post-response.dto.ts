@@ -87,6 +87,7 @@ export class PostResponseDto {
   @Expose()
   @ApiProperty({ type: UserReactSummaryDto })
   reacts?: UserReactSummaryDto;
+
   @Expose()
   @ApiProperty({ example: '2024-01-01T12:00:00Z' })
   createdAt: Date;

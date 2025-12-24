@@ -9,19 +9,22 @@ import { BlogPost } from '../blog-posts/entities/blog-post.entity';
 import { ToggleSavedPostDto } from './dto/toggle-saved-post.dto';
 import {
   SavedPostListResponseDto,
-  SavedPostItemDto,
   ToggleSavedPostResponseDto,
   BatchCheckSavedResponseDto,
 } from './dto/response/saved-post-response.dto';
+import { UserVotesService } from 'src/user-votes/user-votes.service';
+import { UserReactQueryService } from 'src/user-reacts/services/user-react-query.service';
+import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
+import { plainToInstance } from 'class-transformer';
 
 /**
  * 🔖 SavedPostListService
- * 
+ *
  * Business Logic:
  * - Toggle save/unsave (bookmark style)
  * - Get saved posts với pagination
  * - Check if post is saved (single & batch)
- * 
+ *
  * Design Pattern:
  * - Information Expert: Service biết cách xử lý saved posts
  * - Low Coupling: Chỉ phụ thuộc vào repositories cần thiết
@@ -29,6 +32,10 @@ import {
 @Injectable()
 export class SavedPostListService {
   constructor(
+    private readonly userVotesService: UserVotesService,
+
+    private readonly userReactsService: UserReactQueryService,
+
     @InjectRepository(SavedPostList)
     private savedPostListRepo: Repository<SavedPostList>,
 
@@ -70,7 +77,7 @@ export class SavedPostListService {
     if (!savedPostList) {
       savedPostList = this.savedPostListRepo.create({ user });
       savedPostList = await this.savedPostListRepo.save(savedPostList);
-      
+
       // Update user reference
       await this.userRepo.update(dto.userId, { savedPostList });
     }
@@ -129,10 +136,7 @@ export class SavedPostListService {
   /**
    * ✅ Batch check: Check multiple posts at once (for newsfeed)
    */
-  async batchCheckSaved(
-    userId: number,
-    postIds: number[],
-  ): Promise<BatchCheckSavedResponseDto> {
+  async batchCheckSaved(userId: number, postIds: number[]): Promise<BatchCheckSavedResponseDto> {
     if (postIds.length === 0) {
       return { savedMap: {} };
     }
@@ -199,22 +203,27 @@ export class SavedPostListService {
       take: limit,
     });
 
-    const mappedItems: SavedPostItemDto[] = items.map((item) => ({
-      id: item.id,
-      savedAt: item.savedAt,
-      postId: item.post.id,
-      postTitle: item.post.title || undefined,
-      postPreview: item.post.shortDescription?.substring(0, 200) || undefined,
-      postThumbnail: item.post.thumbnailUrl || undefined,
-      author: {
-        id: item.post.author?.id,
-        username: item.post.author?.username || 'Unknown',
-        avatarUrl: item.post.author?.avatarUrl || undefined,
-      },
-    }));
+    const reactsMap = await this.userReactsService.getUserReactForPosts(
+      items.map((i) => i.post.id),
+      userId,
+    );
+    const votesMap = await this.userVotesService.getPostsVotes(
+      items.map((i) => i.post.id),
+      userId,
+    );
+
+    // Map items to PostResponseDto with reacts and votes
+    const postDtos = items.map((item) => {
+      const postDto = plainToInstance(PostResponseDto, item.post, {
+        excludeExtraneousValues: true,
+      });
+      postDto['reacts'] = reactsMap.get(item.post.id);
+      postDto['votes'] = votesMap.get(item.post.id);
+      return postDto;
+    });
 
     return {
-      items: mappedItems,
+      items: postDtos,
       total,
       page,
       limit,
