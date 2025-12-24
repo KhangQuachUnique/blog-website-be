@@ -8,6 +8,9 @@ import { Community } from './entities/community.entity';
 import { CommunityMember } from './entities/community-member.entity';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { CommunityResponseDto } from './dto/response/my-community-response.dto';
+import { MemberResponseDto } from './dto/response/member-response.dto';
+import { plainToInstance } from 'class-transformer';
+import { UserResponseDto } from 'src/users/dto/response/user-response.dto';
 import { ECommunityRole } from './enums/community-role.enum';
 import { User } from 'src/users/entities/user.entity';
 
@@ -38,11 +41,40 @@ export class CommunitiesService {
     });
 
     await this.memberRepository.save(ownerMember);
-    return savedCommunity;
+
+    const memberCount = await this.memberRepository.count({
+      where: { community: { id: savedCommunity.id }, role: Not(ECommunityRole.PENDING) },
+    });
+
+    return {
+      id: savedCommunity.id,
+      name: savedCommunity.name,
+      description: savedCommunity.description,
+      thumbnailUrl: savedCommunity.thumbnailUrl,
+      isPublic: savedCommunity.isPublic,
+      memberCount,
+      role: ECommunityRole.ADMIN,
+    } as CommunityResponseDto;
   }
 
-  findAll() {
-    return this.communityRepository.find();
+  async findAll(): Promise<CommunityResponseDto[]> {
+    const communities = await this.communityRepository.find();
+    return Promise.all(
+      communities.map(async (c) => {
+        const memberCount = await this.memberRepository.count({
+          where: { community: { id: c.id }, role: Not(ECommunityRole.PENDING) },
+        });
+        return {
+          id: c.id,
+          name: c.name,
+          description: c.description,
+          thumbnailUrl: c.thumbnailUrl,
+          isPublic: c.isPublic,
+          role: 'NONE',
+          memberCount,
+        } as CommunityResponseDto;
+      }),
+    );
   }
 
   async findOne(id: number) {
@@ -52,7 +84,20 @@ export class CommunitiesService {
     });
 
     if (!community) throw new NotFoundException('Community not found');
-    return community;
+
+    const memberCount = await this.memberRepository.count({
+      where: { community: { id: community.id }, role: Not(ECommunityRole.PENDING) },
+    });
+
+    return {
+      id: community.id,
+      name: community.name,
+      description: community.description,
+      thumbnailUrl: community.thumbnailUrl,
+      isPublic: community.isPublic,
+      role: 'NONE',
+      memberCount,
+    } as CommunityResponseDto;
   }
 
   async getSettings(id: number, userId?: number): Promise<any> {
@@ -67,7 +112,15 @@ export class CommunitiesService {
       const memberCount = await this.memberRepository.count({
         where: { community: { id }, role: Not(ECommunityRole.PENDING) },
       });
-      return { ...community, role: 'NONE', memberCount };
+      return {
+        id: community.id,
+        name: community.name,
+        description: community.description,
+        thumbnailUrl: community.thumbnailUrl,
+        isPublic: community.isPublic,
+        role: 'NONE',
+        memberCount,
+      } as CommunityResponseDto;
     }
 
     const member = await this.memberRepository.findOne({
@@ -80,22 +133,29 @@ export class CommunitiesService {
       where: { community: { id }, role: Not(ECommunityRole.PENDING) },
     });
 
-    return { ...community, role, memberCount };
+    return {
+      id: community.id,
+      name: community.name,
+      description: community.description,
+      thumbnailUrl: community.thumbnailUrl,
+      isPublic: community.isPublic,
+      role,
+      memberCount,
+    } as CommunityResponseDto;
   }
 
   async update(id: number, updateCommunityDto: UpdateCommunityDto, userId: number) {
     const community = await this.communityRepository.findOne({ where: { id } });
-    if (!community) throw new NotFoundException("Community not found");
+    if (!community) throw new NotFoundException('Community not found');
 
     const me = await this.memberRepository.findOne({
       where: { community: { id }, user: { id: userId } },
     });
 
-    const ok =
-      !!me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
+    const ok = !!me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
 
     if (!ok) {
-      throw new ForbiddenException("Bạn không có quyền cập nhật cộng đồng này.");
+      throw new ForbiddenException('Bạn không có quyền cập nhật cộng đồng này.');
     }
 
     await this.communityRepository.update(id, updateCommunityDto);
@@ -238,13 +298,23 @@ export class CommunitiesService {
       }
     }
 
-    return this.memberRepository.find({
+    const members = await this.memberRepository.find({
       where: {
         community: { id: communityId },
         role: role ? role : Not(ECommunityRole.PENDING),
       },
       relations: ['user'],
       order: { joinedAt: 'DESC' },
+    });
+
+    return members.map((m) => {
+      const userDto = plainToInstance(UserResponseDto, m.user, { excludeExtraneousValues: true });
+      return plainToInstance(MemberResponseDto, {
+        id: m.id,
+        role: m.role,
+        joinedAt: m.joinedAt,
+        user: userDto,
+      });
     });
   }
 
@@ -257,7 +327,15 @@ export class CommunitiesService {
     if (!member) throw new NotFoundException('Member not found in this community');
 
     member.role = dto.role;
-    return this.memberRepository.save(member);
+    const saved = await this.memberRepository.save(member);
+    const user = await this.userRepository.findOne({ where: { id: saved.user.id } });
+    const userDto = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
+    return plainToInstance(MemberResponseDto, {
+      id: saved.id,
+      role: saved.role,
+      joinedAt: saved.joinedAt,
+      user: userDto,
+    });
   }
 
   async removeMember(communityId: number, memberId: number) {

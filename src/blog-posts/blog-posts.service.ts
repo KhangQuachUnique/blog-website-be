@@ -397,7 +397,7 @@ export class BlogPostsService {
    * - `restore(id)` : Khôi phục từ HIDDEN -> ACTIVE (Restore)
    * - `togglePrivacy(id)` : Đổi public/private (Toggle privacy)
    */
-  async update(id: number, dto: UpdateBlogPostDto, userId: number): Promise<BlogPost> {
+  async update(id: number, dto: UpdateBlogPostDto, userId: number): Promise<PostResponseDto> {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['blocks', 'author', 'community'],
@@ -420,7 +420,8 @@ export class BlogPostsService {
       post.blocks = await this.blockRepository.save(newBlocks);
     }
 
-    return this.blogPostRepository.save(post);
+    const saved = await this.blogPostRepository.save(post);
+    return plainToInstance(PostResponseDto, saved, { excludeExtraneousValues: true });
   }
 
   async updateStatus(id: number, dto: { status: EBlogPostStatus }, userId: number) {
@@ -432,7 +433,8 @@ export class BlogPostsService {
     const ok = await this.userCanManagePost(post, userId);
     if (!ok) throw new ForbiddenException('Bạn không có quyền thay đổi trạng thái bài viết này.');
     post.status = dto.status;
-    return this.blogPostRepository.save(post);
+    const saved = await this.blogPostRepository.save(post);
+    return plainToInstance(PostResponseDto, saved, { excludeExtraneousValues: true });
   }
 
   async publish(id: number, userId: number) {
@@ -448,8 +450,11 @@ export class BlogPostsService {
     if (!ok) throw new ForbiddenException('Bạn không có quyền đăng bài viết này.');
 
     post.status = EBlogPostStatus.ACTIVE;
-    await this.blogPostRepository.save(post);
-    return { message: 'Đã đăng bài viết thành công.', data: post };
+    const saved = await this.blogPostRepository.save(post);
+    return {
+      message: 'Đã đăng bài viết thành công.',
+      data: plainToInstance(PostResponseDto, saved, { excludeExtraneousValues: true }),
+    };
   }
 
   async hide(id: number, userId: number) {
@@ -464,8 +469,11 @@ export class BlogPostsService {
       return { message: `Không thể ẩn. Trạng thái hiện tại là '${post.status}', cần là 'ACTIVE'.` };
     }
     post.status = EBlogPostStatus.HIDDEN;
-    await this.blogPostRepository.save(post);
-    return { message: 'Đã chuyển trạng thái bài viết sang HIDDEN.', data: post };
+    const saved = await this.blogPostRepository.save(post);
+    return {
+      message: 'Đã chuyển trạng thái bài viết sang HIDDEN.',
+      data: plainToInstance(PostResponseDto, saved, { excludeExtraneousValues: true }),
+    };
   }
 
   async restore(id: number, userId: number) {
@@ -482,8 +490,11 @@ export class BlogPostsService {
       };
     }
     post.status = EBlogPostStatus.ACTIVE;
-    await this.blogPostRepository.save(post);
-    return { message: 'Đã khôi phục trạng thái bài viết về ACTIVE.', data: post };
+    const saved = await this.blogPostRepository.save(post);
+    return {
+      message: 'Đã khôi phục trạng thái bài viết về ACTIVE.',
+      data: plainToInstance(PostResponseDto, saved, { excludeExtraneousValues: true }),
+    };
   }
 
   async togglePrivacy(id: number, userId: number) {
@@ -496,10 +507,10 @@ export class BlogPostsService {
     if (!ok)
       throw new ForbiddenException('Bạn không có quyền thay đổi chế độ riêng tư của bài viết này.');
     post.isPublic = !post.isPublic;
-    await this.blogPostRepository.save(post);
+    const saved = await this.blogPostRepository.save(post);
     return {
       message: `Đã đổi chế độ riêng tư của bài viết thành ${post.isPublic ? 'công khai' : 'riêng tư'}.`,
-      data: post,
+      data: plainToInstance(PostResponseDto, saved, { excludeExtraneousValues: true }),
     };
   }
 

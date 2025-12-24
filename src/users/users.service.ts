@@ -16,7 +16,7 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
-import { UserListDto } from './dto/user-list.dto';
+import { UserResponseDto } from './dto/response/user-response.dto';
 import { CommunitiesService } from 'src/communities/communities.service';
 import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
 import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
@@ -75,11 +75,12 @@ export class UsersService {
    * - `verifyAndChangeEmail(userId, dto)` : Xác thực và cập nhật email
    * - `togglePrivacy(userId)` : Đổi chế độ riêng tư
    */
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find({
+  async findAll(): Promise<UserResponseDto[]> {
+    const users = await this.userRepository.find({
       select: ['id', 'username', 'email', 'type', 'isPrivate', 'joinAt'],
       order: { joinAt: 'DESC' },
     });
+    return users.map((u) => plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }));
   }
 
   /**
@@ -372,7 +373,7 @@ export class UsersService {
    * - `getFollowers(userId, viewerId?)` : Lấy danh sách followers
    * - `getFollowing(userId, viewerId?)` : Lấy danh sách following
    */
-  async searchUsers(query: string, currentUserId: number): Promise<User[]> {
+  async searchUsers(query: string, currentUserId: number): Promise<UserResponseDto[]> {
     if (!query || query.trim().length === 0) {
       return [];
     }
@@ -385,7 +386,7 @@ export class UsersService {
       .take(10)
       .getMany();
 
-    return users;
+    return users.map((u) => plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }));
   }
 
   /**
@@ -447,7 +448,7 @@ export class UsersService {
   /**
    * Lấy danh sách người dùng bị chặn
    */
-  async getBlockedUsers(userId: number): Promise<User[]> {
+  async getBlockedUsers(userId: number): Promise<UserResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['blockedUsers'],
@@ -457,7 +458,9 @@ export class UsersService {
       throw new NotFoundException('Người dùng không tồn tại');
     }
 
-    return user.blockedUsers;
+    return user.blockedUsers.map((u) =>
+      plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }),
+    );
   }
 
   /**
@@ -567,7 +570,7 @@ export class UsersService {
   /**
    * Lấy danh sách followers của một user
    */
-  async getFollowers(userId: number, viewerId?: number): Promise<UserListDto[]> {
+  async getFollowers(userId: number, viewerId?: number): Promise<UserResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['followers'],
@@ -596,7 +599,7 @@ export class UsersService {
     // Map sang DTO
     const followers =
       user.followers?.map((follower) => {
-        const dto = plainToInstance(UserListDto, follower, {
+        const dto = plainToInstance(UserResponseDto, follower, {
           excludeExtraneousValues: true,
         });
         // Check xem viewer có đang follow user này không
@@ -612,7 +615,7 @@ export class UsersService {
   /**
    * Lấy danh sách following của một user
    */
-  async getFollowing(userId: number, viewerId?: number): Promise<UserListDto[]> {
+  async getFollowing(userId: number, viewerId?: number): Promise<UserResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['following'],
@@ -641,7 +644,7 @@ export class UsersService {
     // Map sang DTO
     const following =
       user.following?.map((followedUser) => {
-        const dto = plainToInstance(UserListDto, followedUser, {
+        const dto = plainToInstance(UserResponseDto, followedUser, {
           excludeExtraneousValues: true,
         });
         // Check xem viewer có đang follow user này không
