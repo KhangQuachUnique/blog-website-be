@@ -19,6 +19,8 @@ import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
 import { UserListDto } from './dto/user-list.dto';
 import { CommunitiesService } from 'src/communities/communities.service';
 import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
+import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
+import { CommunityResponseDto } from 'src/communities/dto/response/my-community-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -36,9 +38,42 @@ export class UsersService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+  /**
+   * === Nhóm hàm (Tổng quan) ===
+   *
+   * Nhóm: Account & Profile
+   * - `findAll()` : Lấy tất cả users (Admin)
+   * - `getProfile(userId, viewerId?)` : Xem hồ sơ user (tính privacy + block)
+   * - `updateProfile(userId, dto)` : Cập nhật hồ sơ
+   * - `changePassword(userId, dto)` : Đổi mật khẩu
+   * - `requestChangeEmail(userId, dto)` : Yêu cầu đổi email (gửi mã)
+   * - `verifyAndChangeEmail(userId, dto)` : Xác thực và cập nhật email
+   * - `togglePrivacy(userId)` : Đổi chế độ riêng tư
+   *
+   * Nhóm: Social (Follow / Block)
+   * - `searchUsers(query, currentUserId)` : Tìm người dùng theo username
+   * - `blockUser(userId, targetUserId)` : Chặn người dùng
+   * - `unblockUser(userId, targetUserId)` : Bỏ chặn
+   * - `getBlockedUsers(userId)` : Lấy danh sách đã chặn
+   * - `followUser(userId, targetUserId)` : Follow người dùng
+   * - `unfollowUser(userId, targetUserId)` : Unfollow người dùng
+   * - `getFollowers(userId, viewerId?)` : Lấy danh sách followers
+   * - `getFollowing(userId, viewerId?)` : Lấy danh sách following
+   *
+   * Nhóm: Admin
+   * - `deleteAccount(userId)` : Xóa tài khoản (hard delete)
+   * - `updateUserRole(userId, role)` : Cập nhật role của user
+   */
 
   /**
-   * Lấy tất cả users (dành cho Admin)
+   * === Nhóm: Account & Profile ===
+   * - `findAll()` : Lấy tất cả users (Admin)
+   * - `getProfile(userId, viewerId?)` : Xem hồ sơ user (tính privacy + block)
+   * - `updateProfile(userId, dto)` : Cập nhật hồ sơ
+   * - `changePassword(userId, dto)` : Đổi mật khẩu
+   * - `requestChangeEmail(userId, dto)` : Yêu cầu đổi email (gửi mã)
+   * - `verifyAndChangeEmail(userId, dto)` : Xác thực và cập nhật email
+   * - `togglePrivacy(userId)` : Đổi chế độ riêng tư
    */
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
@@ -81,8 +116,14 @@ export class UsersService {
     // Nếu profile ở chế độ riêng tư và người xem không phải chính chủ
     const isPrivateAndNotOwner = user.isPrivate && !isOwner;
 
-    const posts = await this.blogPostsService.findAllPostsByUser(userId);
-    const communities = await this.communitiesService.getUserCommunities(userId);
+    let posts: PostResponseDto[] = [];
+    let communities: CommunityResponseDto[] = [];
+
+    // Nếu profile private và viewer không phải chính chủ thì không trả posts/communities
+    if (!isPrivateAndNotOwner) {
+      posts = await this.blogPostsService.findAllPostsByUser(userId);
+      communities = await this.communitiesService.getUserCommunities(userId);
+    }
 
     // Chuyển đổi sang DTO
     const profileDto = plainToInstance(ProfileResponseDto, user, {
@@ -246,7 +287,7 @@ export class UsersService {
     });
 
     // TODO: Gửi email với verification code
-    console.log(`Verification code for user ${userId}: ${verificationCode}`);
+    console.log(`Mã xác thực cho user ${userId}: ${verificationCode}`);
 
     return {
       message: `Mã xác thực đã được gửi đến ${newEmail}. Vui lòng kiểm tra email.`,
@@ -321,7 +362,15 @@ export class UsersService {
   }
 
   /**
-   * Tìm kiếm người dùng theo username
+   * === Nhóm: Social (Follow / Block) ===
+   * - `searchUsers(query, currentUserId)` : Tìm người dùng theo username
+   * - `blockUser(userId, targetUserId)` : Chặn người dùng
+   * - `unblockUser(userId, targetUserId)` : Bỏ chặn người dùng
+   * - `getBlockedUsers(userId)` : Lấy danh sách đã chặn
+   * - `followUser(userId, targetUserId)` : Follow người dùng
+   * - `unfollowUser(userId, targetUserId)` : Unfollow người dùng
+   * - `getFollowers(userId, viewerId?)` : Lấy danh sách followers
+   * - `getFollowing(userId, viewerId?)` : Lấy danh sách following
    */
   async searchUsers(query: string, currentUserId: number): Promise<User[]> {
     if (!query || query.trim().length === 0) {
@@ -412,7 +461,9 @@ export class UsersService {
   }
 
   /**
-   * Xóa tài khoản (hard delete)
+   * === Nhóm: Admin ===
+   * - `deleteAccount(userId)` : Xóa tài khoản (hard delete)
+   * - `updateUserRole(userId, role)` : Cập nhật role của user
    */
   async deleteAccount(userId: number): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
