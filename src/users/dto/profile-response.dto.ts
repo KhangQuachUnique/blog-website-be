@@ -45,7 +45,7 @@ export class ProfileResponseDto {
 
   @Expose()
   @Type(() => CommunityResponseDto)
-  communities: CommunityResponseDto[];
+  communities?: CommunityResponseDto[];
 
   @Expose()
   followersCount: number;
@@ -58,7 +58,7 @@ export class ProfileResponseDto {
 
   @Expose()
   @Type(() => PostResponseDto)
-  posts: PostResponseDto[];
+  posts?: PostResponseDto[];
 
   @Exclude()
   password: string;

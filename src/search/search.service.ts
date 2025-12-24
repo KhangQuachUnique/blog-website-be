@@ -6,6 +6,7 @@ import { Raw, Repository, Brackets } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { User } from 'src/users/entities/user.entity';
+import { UserResponseDto } from 'src/users/dto/response/user-response.dto';
 import { Community } from 'src/communities/entities/community.entity';
 import { SearchResponseDto, SearchPaginationDto } from './dto/response/search-response.dto';
 import { UserVotesService } from 'src/user-votes/user-votes.service';
@@ -102,6 +103,10 @@ export class SearchService {
         .getMany();
     }
 
+    const usersResponse = users.map((u) =>
+      plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }),
+    );
+
     const pagination: SearchPaginationDto = {
       hasMore,
       nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
@@ -109,7 +114,7 @@ export class SearchService {
 
     return {
       posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
-      users,
+      users: usersResponse,
       communities: communities.map((community) => plainToInstance(CommunityResponseDto, community)),
       pagination,
     };
@@ -202,7 +207,12 @@ export class SearchService {
       nextCursor: hasMore && lastUser ? this.createCursor(lastUser.id) : null,
     };
 
-    return { users: paginatedUsers, pagination };
+    return {
+      users: paginatedUsers.map((u) =>
+        plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }),
+      ),
+      pagination,
+    };
   }
 
   /**

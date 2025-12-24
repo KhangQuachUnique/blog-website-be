@@ -57,18 +57,19 @@ export class CreateBlogPostDto {
     example: BlogPostType.PERSONAL,
   })
   @IsEnum(BlogPostType, {
-    message: 'Post type must be PERSONAL, COMMUNITY, or REPOST',
+    message: 'Loại bài viết phải là PERSONAL, COMMUNITY hoặc REPOST',
   })
   @IsNotEmpty()
   type: BlogPostType;
 
   @ApiProperty({
-    description: 'ID của tác giả',
+    description: 'ID của tác giả (do server gán từ JWT; không cần gửi từ client)',
     example: 1,
   })
   @IsInt()
+  @IsOptional()
   @IsNotEmpty({ message: 'ID của tác giả là bắt buộc' })
-  authorId: number;
+  authorId?: number;
 
   @ApiPropertyOptional({
     description: 'ID community (bắt buộc nếu type = COMMUNITY)',
@@ -84,8 +85,8 @@ export class CreateBlogPostDto {
     example: 1,
   })
   @ValidateIf((o: CreateBlogPostDto) => o.type === BlogPostType.REPOST)
-  @IsInt({ message: 'Original post ID must be a number' })
-  @IsNotEmpty({ message: 'Original post ID is required for reposts' })
+  @IsInt({ message: 'ID bài viết gốc phải là một số' })
+  @IsNotEmpty({ message: 'ID bài viết gốc là bắt buộc cho repost' })
   originalPostId?: number;
 
   @ApiPropertyOptional({

@@ -16,9 +16,11 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
-import { UserListDto } from './dto/user-list.dto';
+import { UserResponseDto } from './dto/response/user-response.dto';
 import { CommunitiesService } from 'src/communities/communities.service';
 import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
+import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
+import { CommunityResponseDto } from 'src/communities/dto/response/my-community-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -36,15 +38,49 @@ export class UsersService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+  /**
+   * === Nhóm hàm (Tổng quan) ===
+   *
+   * Nhóm: Account & Profile
+   * - `findAll()` : Lấy tất cả users (Admin)
+   * - `getProfile(userId, viewerId?)` : Xem hồ sơ user (tính privacy + block)
+   * - `updateProfile(userId, dto)` : Cập nhật hồ sơ
+   * - `changePassword(userId, dto)` : Đổi mật khẩu
+   * - `requestChangeEmail(userId, dto)` : Yêu cầu đổi email (gửi mã)
+   * - `verifyAndChangeEmail(userId, dto)` : Xác thực và cập nhật email
+   * - `togglePrivacy(userId)` : Đổi chế độ riêng tư
+   *
+   * Nhóm: Social (Follow / Block)
+   * - `searchUsers(query, currentUserId)` : Tìm người dùng theo username
+   * - `blockUser(userId, targetUserId)` : Chặn người dùng
+   * - `unblockUser(userId, targetUserId)` : Bỏ chặn
+   * - `getBlockedUsers(userId)` : Lấy danh sách đã chặn
+   * - `followUser(userId, targetUserId)` : Follow người dùng
+   * - `unfollowUser(userId, targetUserId)` : Unfollow người dùng
+   * - `getFollowers(userId, viewerId?)` : Lấy danh sách followers
+   * - `getFollowing(userId, viewerId?)` : Lấy danh sách following
+   *
+   * Nhóm: Admin
+   * - `deleteAccount(userId)` : Xóa tài khoản (hard delete)
+   * - `updateUserRole(userId, role)` : Cập nhật role của user
+   */
 
   /**
-   * Lấy tất cả users (dành cho Admin)
+   * === Nhóm: Account & Profile ===
+   * - `findAll()` : Lấy tất cả users (Admin)
+   * - `getProfile(userId, viewerId?)` : Xem hồ sơ user (tính privacy + block)
+   * - `updateProfile(userId, dto)` : Cập nhật hồ sơ
+   * - `changePassword(userId, dto)` : Đổi mật khẩu
+   * - `requestChangeEmail(userId, dto)` : Yêu cầu đổi email (gửi mã)
+   * - `verifyAndChangeEmail(userId, dto)` : Xác thực và cập nhật email
+   * - `togglePrivacy(userId)` : Đổi chế độ riêng tư
    */
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find({
+  async findAll(): Promise<UserResponseDto[]> {
+    const users = await this.userRepository.find({
       select: ['id', 'username', 'email', 'type', 'isPrivate', 'joinAt'],
       order: { joinAt: 'DESC' },
     });
+    return users.map((u) => plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }));
   }
 
   /**
@@ -81,8 +117,14 @@ export class UsersService {
     // Nếu profile ở chế độ riêng tư và người xem không phải chính chủ
     const isPrivateAndNotOwner = user.isPrivate && !isOwner;
 
-    const posts = await this.blogPostsService.findAllPostsByUser(userId);
-    const communities = await this.communitiesService.getUserCommunities(userId);
+    let posts: PostResponseDto[] = [];
+    let communities: CommunityResponseDto[] = [];
+
+    // Nếu profile private và viewer không phải chính chủ thì không trả posts/communities
+    if (!isPrivateAndNotOwner) {
+      posts = await this.blogPostsService.findAllPostsByUser(userId);
+      communities = await this.communitiesService.getUserCommunities(userId);
+    }
 
     // Chuyển đổi sang DTO
     const profileDto = plainToInstance(ProfileResponseDto, user, {
@@ -246,7 +288,7 @@ export class UsersService {
     });
 
     // TODO: Gửi email với verification code
-    console.log(`Verification code for user ${userId}: ${verificationCode}`);
+    console.log(`Mã xác thực cho user ${userId}: ${verificationCode}`);
 
     return {
       message: `Mã xác thực đã được gửi đến ${newEmail}. Vui lòng kiểm tra email.`,
@@ -321,9 +363,17 @@ export class UsersService {
   }
 
   /**
-   * Tìm kiếm người dùng theo username
+   * === Nhóm: Social (Follow / Block) ===
+   * - `searchUsers(query, currentUserId)` : Tìm người dùng theo username
+   * - `blockUser(userId, targetUserId)` : Chặn người dùng
+   * - `unblockUser(userId, targetUserId)` : Bỏ chặn người dùng
+   * - `getBlockedUsers(userId)` : Lấy danh sách đã chặn
+   * - `followUser(userId, targetUserId)` : Follow người dùng
+   * - `unfollowUser(userId, targetUserId)` : Unfollow người dùng
+   * - `getFollowers(userId, viewerId?)` : Lấy danh sách followers
+   * - `getFollowing(userId, viewerId?)` : Lấy danh sách following
    */
-  async searchUsers(query: string, currentUserId: number): Promise<User[]> {
+  async searchUsers(query: string, currentUserId: number): Promise<UserResponseDto[]> {
     if (!query || query.trim().length === 0) {
       return [];
     }
@@ -336,7 +386,7 @@ export class UsersService {
       .take(10)
       .getMany();
 
-    return users;
+    return users.map((u) => plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }));
   }
 
   /**
@@ -398,7 +448,7 @@ export class UsersService {
   /**
    * Lấy danh sách người dùng bị chặn
    */
-  async getBlockedUsers(userId: number): Promise<User[]> {
+  async getBlockedUsers(userId: number): Promise<UserResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['blockedUsers'],
@@ -408,11 +458,15 @@ export class UsersService {
       throw new NotFoundException('Người dùng không tồn tại');
     }
 
-    return user.blockedUsers;
+    return user.blockedUsers.map((u) =>
+      plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }),
+    );
   }
 
   /**
-   * Xóa tài khoản (hard delete)
+   * === Nhóm: Admin ===
+   * - `deleteAccount(userId)` : Xóa tài khoản (hard delete)
+   * - `updateUserRole(userId, role)` : Cập nhật role của user
    */
   async deleteAccount(userId: number): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -516,7 +570,7 @@ export class UsersService {
   /**
    * Lấy danh sách followers của một user
    */
-  async getFollowers(userId: number, viewerId?: number): Promise<UserListDto[]> {
+  async getFollowers(userId: number, viewerId?: number): Promise<UserResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['followers'],
@@ -545,7 +599,7 @@ export class UsersService {
     // Map sang DTO
     const followers =
       user.followers?.map((follower) => {
-        const dto = plainToInstance(UserListDto, follower, {
+        const dto = plainToInstance(UserResponseDto, follower, {
           excludeExtraneousValues: true,
         });
         // Check xem viewer có đang follow user này không
@@ -561,7 +615,7 @@ export class UsersService {
   /**
    * Lấy danh sách following của một user
    */
-  async getFollowing(userId: number, viewerId?: number): Promise<UserListDto[]> {
+  async getFollowing(userId: number, viewerId?: number): Promise<UserResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['following'],
@@ -590,7 +644,7 @@ export class UsersService {
     // Map sang DTO
     const following =
       user.following?.map((followedUser) => {
-        const dto = plainToInstance(UserListDto, followedUser, {
+        const dto = plainToInstance(UserResponseDto, followedUser, {
           excludeExtraneousValues: true,
         });
         // Check xem viewer có đang follow user này không
