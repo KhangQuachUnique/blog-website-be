@@ -28,7 +28,6 @@ import { UserVotesService } from 'src/user-votes/user-votes.service';
 import { CommunityMember } from 'src/communities/entities/community-member.entity';
 import { ECommunityRole } from 'src/communities/enums/community-role.enum';
 import { ViewedHistory } from 'src/viewed-history/entities/viewed-history.entity';
-import { F } from 'node_modules/@faker-js/faker/dist/airline-DF6RqYmq';
 
 @Injectable()
 export class BlogPostsService {
@@ -69,22 +68,22 @@ export class BlogPostsService {
     @InjectRepository(ViewedHistory)
     private readonly viewedHistoryRepository: Repository<ViewedHistory>,
   ) {}
-
   /**
-   * Tạo bài viết theo loại (Personal, Community, Repost)
+   * === Nhóm: Tạo bài viết (Creation methods) ===
+   * - `create(dto: CreateBlogPostDto)` : Tạo bài viết theo loại Personal / Community / Repost (Create post by type)
+   * - `createRepostBlogPost(dto: CreateBlogPostDto)` : Tạo repost từ một PersonalBlogPost (Create repost)
    */
   async create(dto: CreateBlogPostDto): Promise<PostResponseDto> {
     // Validate author
     const author = await this.userRepository.findOne({ where: { id: dto.authorId } });
     if (!author) {
-      throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
+      throw new NotFoundException(`Không tìm thấy tác giả với ID: ${dto.authorId}`);
     }
 
     // Get or create hashtags
     const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
 
     switch (dto.type) {
-      // Create personal blog post
       case BlogPostType.PERSONAL: {
         const blocks = this.blockRepository.create(dto.blocks || []);
 
@@ -106,17 +105,14 @@ export class BlogPostsService {
         return response;
       }
 
-      // Create community blog post
       case BlogPostType.COMMUNITY: {
-        // Validate community
         const community = await this.communityRepository.findOne({
           where: { id: dto.communityId },
         });
         if (!community) {
-          throw new NotFoundException(`Can't find community with ID: ${dto.communityId}`);
+          throw new NotFoundException(`Không tìm thấy cộng đồng với ID: ${dto.communityId}`);
         }
 
-        // ✅ BẮT BUỘC: phải là member đã duyệt mới được tạo bài
         const me = await this.memberRepository.findOne({
           where: { community: { id: community.id }, user: { id: dto.authorId } },
         });
@@ -134,10 +130,6 @@ export class BlogPostsService {
         const isPrivileged =
           me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR;
 
-        // ✅ Community bật duyệt:
-        // - Member thường => DRAFT
-        // - Admin/Mod => ACTIVE
-        // Community không bật duyệt => ACTIVE hết
         const isApproved = community.requirePostApproval && !isPrivileged ? false : true;
 
         const blocks = this.blockRepository.create(dto.blocks || []);
@@ -163,15 +155,13 @@ export class BlogPostsService {
         return response;
       }
 
-      // Create repost blog post (chỉ repost PersonalBlogPost)
       case BlogPostType.REPOST: {
-        // Validate original post - chỉ cho phép repost PersonalBlogPost
         const originalPost = await this.personalBlogPostRepository.findOne({
           where: { id: dto.originalPostId },
         });
         if (!originalPost) {
           throw new NotFoundException(
-            `Can't find personal post with ID: ${dto.originalPostId}. Only personal posts can be reposted.`,
+            `Không tìm thấy bài viết cá nhân với ID: ${dto.originalPostId}. Chỉ cho phép đăng lại bài viết cá nhân.`,
           );
         }
 
@@ -194,33 +184,28 @@ export class BlogPostsService {
       }
 
       default:
-        throw new NotFoundException(`Invalid post type`);
+        throw new NotFoundException(`Loại bài viết không hợp lệ`);
     }
   }
 
   /**
    * Tao bài viết đăng lại một bài viết cá nhân (chỉ cho phép repost PersonalBlogPost)
-   * @param dto
-   * @returns
    */
   async createRepostBlogPost(dto: CreateBlogPostDto): Promise<PostResponseDto> {
-    // Check original post - chỉ cho phép repost PersonalBlogPost
     const originalPost = await this.personalBlogPostRepository.findOneBy({
       id: dto.originalPostId,
     });
     if (!originalPost) {
       throw new NotFoundException(
-        `Can't find personal post with ID: ${dto.originalPostId}. Only personal posts can be reposted.`,
+        `Không tìm thấy bài viết cá nhân với ID: ${dto.originalPostId}. Chỉ cho phép đăng lại bài viết cá nhân.`,
       );
     }
 
-    // Check author
     const author = await this.userRepository.findOne({ where: { id: dto.authorId } });
     if (!author) {
-      throw new NotFoundException(`Can't find author with ID: ${dto.authorId}`);
+      throw new NotFoundException(`Không tìm thấy tác giả với ID: ${dto.authorId}`);
     }
 
-    // Check hashtags or create new ones
     const hashtags = await this.hashtagService.getOrCreate(dto.hashtags || []);
 
     const post = this.repostBlogPostRepository.create({
@@ -242,22 +227,66 @@ export class BlogPostsService {
     return response;
   }
 
+  /**
+   * === Nhóm: Repost — các helper liên quan (Repost helpers) ===
+   * - `checkReposted(userId, originalPostId)` : Kiểm tra user đã repost chưa (Check if repost exists)
+   * - `removeRepost(userId, originalPostId)` : Xóa một repost (Remove repost)
+   */
+  async checkReposted(userId: number, originalPostId: number): Promise<boolean> {
+    const repost = await this.repostBlogPostRepository.findOne({
+      where: { author: { id: userId }, originalPost: { id: originalPostId } },
+    });
+    return !!repost;
+  }
+
+  async removeRepost(userId: number, originalPostId: number) {
+    const repost = await this.repostBlogPostRepository.findOne({
+      where: { author: { id: userId }, originalPost: { id: originalPostId } },
+    });
+
+    if (!repost) {
+      throw new NotFoundException('Không tìm thấy bài đăng lại');
+    }
+
+    return this.repostBlogPostRepository.remove(repost);
+  }
+
+  // Helper: kiểm tra xem user có quyền quản lý bài viết (tác giả hoặc admin/mod của cộng đồng)
+  private async userCanManagePost(post: BlogPost, userId: number): Promise<boolean> {
+    if (!userId) return false;
+    if (post.author && post.author.id === userId) return true;
+    if (post instanceof CommunityBlogPost && post.community) {
+      const member = await this.memberRepository.findOne({
+        where: { community: { id: post.community.id }, user: { id: userId } },
+      });
+      if (
+        member &&
+        (member.role === ECommunityRole.ADMIN || member.role === ECommunityRole.MODERATOR)
+      )
+        return true;
+    }
+    return false;
+  }
+
+  /**
+   * === Nhóm: Đọc bài viết / Hiển thị (Read methods) ===
+   * - `findAll()` : Lấy tất cả bài viết (Get all posts)
+   * - `findAllPostsByUser(userId)` : Lấy tất cả bài viết của một user (Get posts by user)
+   * - `findOne(id, userId?)` : Lấy chi tiết một bài viết (Get single post detail)
+   */
   async findAll() {
     const posts = await this.blogPostRepository.find({
       relations: ['author', 'community', 'blocks', 'hashtags'],
-      order: {
-        createdAt: 'DESC',
-      },
+      order: { createdAt: 'DESC' },
     });
 
-    // Lấy reacts cho tất cả các bài viết
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
 
-    for (const post of posts) {
-      post['reacts'] = reactsMap.get(post.id);
-    }
+    for (const post of posts) post['reacts'] = reactsMap.get(post.id);
 
-    return posts.map((post) => plainToInstance(PostResponseDto, post));
+    return posts.map((post) =>
+      plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
+    );
   }
 
   async findAllPostsByUser(userId: number): Promise<PostResponseDto[]> {
@@ -266,26 +295,18 @@ export class BlogPostsService {
       relations: ['author', 'community', 'hashtags', 'originalPost'],
     });
 
-    // GUARD CỰC KỲ QUAN TRỌNG
-    if (!posts.length) {
-      return [];
-    }
+    if (!posts.length) return [];
 
-    // Lấy reacts cho tất cả các bài viết
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
     const votesMap = await this.userVotesService.getPostsVotes(
       posts.map((p) => p.id),
       userId,
     );
 
-    for (const post of posts) {
-      post['reacts'] = reactsMap.get(post.id);
-    }
+    for (const post of posts) post['reacts'] = reactsMap.get(post.id);
 
     return posts.map((post) => {
-      const response = plainToInstance(PostResponseDto, post, {
-        excludeExtraneousValues: true,
-      });
+      const response = plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true });
       response.votes = votesMap.get(post.id) || { upvotes: 0, downvotes: 0, userVote: null };
       return response;
     });
@@ -300,218 +321,37 @@ export class BlogPostsService {
       relations: ['author', 'community', 'blocks', 'hashtags'],
     });
 
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
 
-    // Lấy reacts cho bài viết
     const reacts = await this.userReactQueryService.getUserReactForPost(id, userId);
-
     post['reacts'] = reacts;
 
-    if (post instanceof PersonalBlogPost) {
+    if (post instanceof PersonalBlogPost)
       return plainToInstance(DetailPersonalPostResponseDto, post, {
         excludeExtraneousValues: true,
       });
-    } else if (post instanceof CommunityBlogPost) {
+    if (post instanceof CommunityBlogPost)
       return plainToInstance(DetailCommunityPostResponseDto, post, {
         excludeExtraneousValues: true,
       });
-    }
-    throw new NotFoundException(`Blog post with ID: ${id} is neither Personal nor Community type.`);
+
+    throw new NotFoundException(`Bài viết với ID: ${id} không thuộc loại cá nhân hoặc cộng đồng.`);
   }
 
   /**
-   * Update Blog Post by ID
-   * @param id
-   * @param dto
-   * @returns
+   * === Nhóm: Cộng đồng — Đọc / Quản lý (Community read / management) ===
+   * - `findByCommunity(communityId)` : Lấy bài viết public của cộng đồng (Get community posts)
+   * - `findByCommunityManage(communityId, status?, userId)` : Quản lý bài viết (Admin/Mod) (Manage community posts)
    */
-  async update(id: number, dto: UpdateBlogPostDto): Promise<BlogPost> {
-    const post = await this.blogPostRepository.findOne({
-      where: { id },
-      relations: ['blocks'],
-    });
-
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-
-    // Cập nhật các trường cơ bản
-    if (dto.title !== undefined) post.title = dto.title;
-    if (dto.shortDescription !== undefined) post.shortDescription = dto.shortDescription;
-    if (dto.thumbnailUrl !== undefined) post.thumbnailUrl = dto.thumbnailUrl;
-    if (dto.isPublic !== undefined) post.isPublic = dto.isPublic;
-
-    // Cập nhật các trường là relation
-    // Blocks
-    if (dto.blocks !== undefined) {
-      await this.blockRepository.delete({ post: { id } });
-      const newBlocks = this.blockRepository.create(
-        dto.blocks.map((blockDto) => ({
-          ...blockDto,
-          post: { id: post.id },
-        })),
-      );
-      post.blocks = await this.blockRepository.save(newBlocks);
-    }
-
-    return this.blogPostRepository.save(post);
-  }
-
-  /**
-   * Remove blog post by ID
-   * @param id
-   * @returns
-   */
-  async remove(id: number) {
-    // ✅ Xoá viewed history trước để tránh lỗi FK (viewed_history.postId)
-    await this.viewedHistoryRepository.delete({ post: { id } as any });
-
-    return await this.blogPostRepository.delete(id);
-  }
-
-  /**
-   * Update blog post status
-   * @param id
-   * @param dto
-   * @returns
-   */
-  async updateStatus(id: number, dto: { status: EBlogPostStatus }) {
-    const post = await this.blogPostRepository.findOne({ where: { id } });
-
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-
-    post.status = dto.status;
-    return this.blogPostRepository.save(post);
-  }
-
-  async restore(id: number) {
-    const post = await this.blogPostRepository.findOne({ where: { id } });
-
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-
-    if (post.status != EBlogPostStatus.HIDDEN) {
-      return { message: `Cannot restore. Current status is '${post.status}', expecting 'HIDDEN'.` };
-    }
-
-    post.status = EBlogPostStatus.ACTIVE;
-
-    await this.blogPostRepository.save(post);
-
-    return {
-      message: 'Successfully restored blog post status to ACTIVE.',
-      data: post,
-    };
-  }
-
-  async hide(id: number) {
-    const post = await this.blogPostRepository.findOne({ where: { id } });
-
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-
-    if (post.status != EBlogPostStatus.ACTIVE) {
-      return { message: `Cannot hide. Current status is '${post.status}', expecting 'ACTIVE'.` };
-    }
-
-    post.status = EBlogPostStatus.HIDDEN;
-
-    await this.blogPostRepository.save(post);
-
-    return {
-      message: 'Successfully changed blog post status to HIDDEN.',
-      data: post,
-    };
-  }
-
-  async publish(id: number) {
-    const post = await this.blogPostRepository.findOne({ where: { id } });
-
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-
-    post.status = EBlogPostStatus.ACTIVE;
-
-    await this.blogPostRepository.save(post);
-
-    return {
-      message: 'Successfully published blog post.',
-      data: post,
-    };
-  }
-
-  async togglePrivacy(id: number) {
-    const post = await this.blogPostRepository.findOne({ where: { id } });
-
-    if (!post) {
-      throw new NotFoundException(`Can't find blog post with ID: ${id}`);
-    }
-
-    post.isPublic = !post.isPublic;
-
-    await this.blogPostRepository.save(post);
-
-    return {
-      message: `Successfully changed blog post privacy to ${post.isPublic ? 'public' : 'private'}.`,
-      data: post,
-    };
-  }
-
-  // ========== REPOST METHODS ==========
-
-  /**
-   * Kiểm tra user đã repost bài viết chưa
-   */
-  async checkReposted(userId: number, originalPostId: number): Promise<boolean> {
-    const repost = await this.repostBlogPostRepository.findOne({
-      where: {
-        author: { id: userId },
-        originalPost: { id: originalPostId },
-      },
-    });
-    return !!repost;
-  }
-
-  /**
-   * Xóa repost
-   */
-  async removeRepost(userId: number, originalPostId: number) {
-    const repost = await this.repostBlogPostRepository.findOne({
-      where: {
-        author: { id: userId },
-        originalPost: { id: originalPostId },
-      },
-    });
-
-    if (!repost) {
-      throw new NotFoundException('Repost not found');
-    }
-
-    return this.repostBlogPostRepository.remove(repost);
-  }
-
   async findByCommunity(communityId: number) {
     const posts = await this.communityBlogPostRepository.find({
-      where: {
-        community: { id: communityId },
-        status: EBlogPostStatus.ACTIVE,
-      },
+      where: { community: { id: communityId }, status: EBlogPostStatus.ACTIVE },
       relations: ['author', 'community', 'hashtags'],
       order: { createdAt: 'DESC' },
     });
 
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
-
-    for (const post of posts) {
-      post['reacts'] = reactsMap.get(post.id);
-    }
+    for (const post of posts) post['reacts'] = reactsMap.get(post.id);
 
     return posts.map((post) =>
       plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
@@ -523,7 +363,6 @@ export class BlogPostsService {
     status: EBlogPostStatus | undefined,
     userId: number,
   ) {
-    // ✅ chỉ ADMIN / MODERATOR mới xem/manage
     const me = await this.memberRepository.findOne({
       where: { community: { id: communityId }, user: { id: userId } },
     });
@@ -531,15 +370,9 @@ export class BlogPostsService {
     const ok = me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
     if (!ok) throw new ForbiddenException('Bạn không có quyền quản lý bài viết cộng đồng này.');
 
-    // ✅ filter
     const where: any = { community: { id: communityId } };
-
-    if (status) {
-      where.status = status; // ACTIVE hoặc DRAFT
-    } else {
-      // "Tất cả" -> chỉ lấy ACTIVE + DRAFT (không lấy HIDDEN)
-      where.status = In([EBlogPostStatus.ACTIVE]);
-    }
+    if (status) where.status = status;
+    else where.status = In([EBlogPostStatus.ACTIVE]);
 
     const posts = await this.communityBlogPostRepository.find({
       where,
@@ -553,5 +386,139 @@ export class BlogPostsService {
     return posts.map((post) =>
       plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
     );
+  }
+
+  /**
+   * === Nhóm: Cập nhật / Trạng thái / Quyền riêng tư (Update / Status / Privacy) ===
+   * - `update(id, dto)` : Cập nhật nội dung / blocks (Update post)
+   * - `updateStatus(id, {status})` : Thay đổi trạng thái chung (Change status)
+   * - `publish(id)` : Đăng bài (Publish)
+   * - `hide(id)` : Ẩn bài (Hide)
+   * - `restore(id)` : Khôi phục từ HIDDEN -> ACTIVE (Restore)
+   * - `togglePrivacy(id)` : Đổi public/private (Toggle privacy)
+   */
+  async update(id: number, dto: UpdateBlogPostDto, userId: number): Promise<BlogPost> {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['blocks', 'author', 'community'],
+    });
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
+
+    const ok = await this.userCanManagePost(post, userId);
+    if (!ok) throw new ForbiddenException('Bạn không có quyền chỉnh sửa bài viết này.');
+
+    if (dto.title !== undefined) post.title = dto.title;
+    if (dto.shortDescription !== undefined) post.shortDescription = dto.shortDescription;
+    if (dto.thumbnailUrl !== undefined) post.thumbnailUrl = dto.thumbnailUrl;
+    if (dto.isPublic !== undefined) post.isPublic = dto.isPublic;
+
+    if (dto.blocks !== undefined) {
+      await this.blockRepository.delete({ post: { id } });
+      const newBlocks = this.blockRepository.create(
+        dto.blocks.map((blockDto) => ({ ...blockDto, post: { id: post.id } })),
+      );
+      post.blocks = await this.blockRepository.save(newBlocks);
+    }
+
+    return this.blogPostRepository.save(post);
+  }
+
+  async updateStatus(id: number, dto: { status: EBlogPostStatus }, userId: number) {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community'],
+    });
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
+    const ok = await this.userCanManagePost(post, userId);
+    if (!ok) throw new ForbiddenException('Bạn không có quyền thay đổi trạng thái bài viết này.');
+    post.status = dto.status;
+    return this.blogPostRepository.save(post);
+  }
+
+  async publish(id: number, userId: number) {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community'],
+    });
+
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
+
+    const ok = await this.userCanManagePost(post, userId);
+
+    if (!ok) throw new ForbiddenException('Bạn không có quyền đăng bài viết này.');
+
+    post.status = EBlogPostStatus.ACTIVE;
+    await this.blogPostRepository.save(post);
+    return { message: 'Đã đăng bài viết thành công.', data: post };
+  }
+
+  async hide(id: number, userId: number) {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community'],
+    });
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
+    const ok = await this.userCanManagePost(post, userId);
+    if (!ok) throw new ForbiddenException('Bạn không có quyền ẩn bài viết này.');
+    if (post.status != EBlogPostStatus.ACTIVE) {
+      return { message: `Không thể ẩn. Trạng thái hiện tại là '${post.status}', cần là 'ACTIVE'.` };
+    }
+    post.status = EBlogPostStatus.HIDDEN;
+    await this.blogPostRepository.save(post);
+    return { message: 'Đã chuyển trạng thái bài viết sang HIDDEN.', data: post };
+  }
+
+  async restore(id: number, userId: number) {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community'],
+    });
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
+    const ok = await this.userCanManagePost(post, userId);
+    if (!ok) throw new ForbiddenException('Bạn không có quyền khôi phục bài viết này.');
+    if (post.status != EBlogPostStatus.HIDDEN) {
+      return {
+        message: `Không thể khôi phục. Trạng thái hiện tại là '${post.status}', cần là 'HIDDEN'.`,
+      };
+    }
+    post.status = EBlogPostStatus.ACTIVE;
+    await this.blogPostRepository.save(post);
+    return { message: 'Đã khôi phục trạng thái bài viết về ACTIVE.', data: post };
+  }
+
+  async togglePrivacy(id: number, userId: number) {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community'],
+    });
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
+    const ok = await this.userCanManagePost(post, userId);
+    if (!ok)
+      throw new ForbiddenException('Bạn không có quyền thay đổi chế độ riêng tư của bài viết này.');
+    post.isPublic = !post.isPublic;
+    await this.blogPostRepository.save(post);
+    return {
+      message: `Đã đổi chế độ riêng tư của bài viết thành ${post.isPublic ? 'công khai' : 'riêng tư'}.`,
+      data: post,
+    };
+  }
+
+  /**
+   * === Nhóm: Xoá (Delete) ===
+   * - `remove(id)` : Xóa bài viết (Delete post) — xoá cả viewed history trước
+   */
+  async remove(id: number, userId: number) {
+    const post = await this.blogPostRepository.findOne({
+      where: { id },
+      relations: ['author', 'community'],
+    });
+    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
+
+    const ok = await this.userCanManagePost(post, userId);
+    if (!ok) throw new ForbiddenException('Bạn không có quyền xóa bài viết này.');
+
+    // ✅ Xoá viewed history trước để tránh lỗi FK (viewed_history.postId)
+    await this.viewedHistoryRepository.delete({ post: { id } });
+    return await this.blogPostRepository.delete(id);
   }
 }
