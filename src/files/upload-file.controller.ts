@@ -79,7 +79,7 @@ export class UploadFileController {
       }),
     )
     files: Express.Multer.File[],
-    @Body('keys') keys: string[],
+    @Body('keys') keys: string | string[],
   ): Promise<Record<string, string>> {
     return this.uploadFileServiceS3.uploadImagesToBucket(files, keys);
   }

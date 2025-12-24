@@ -37,13 +37,21 @@ export class UploadFileServiceS3 {
 
   async uploadImagesToBucket(
     files: Express.Multer.File[],
-    keys: string[],
+    keys: string | string[],
   ): Promise<Record<string, string>> {
     const bucket_name = this.config.getOrThrow<string>('AWS_S3_BUCKET');
     const result: Record<string, string> = {};
 
+    // Normalize keys to array (NestJS may parse single key as string from multipart/form-data)
+    const keysArray = Array.isArray(keys) ? keys : [keys];
+
+    console.log('[DEBUG uploadImagesToBucket] files count:', files.length);
+    console.log('[DEBUG uploadImagesToBucket] keys (raw):', keys);
+    console.log('[DEBUG uploadImagesToBucket] keysArray:', keysArray);
+
     const uploadPromises = files.map((file, index) => {
-      const key = keys[index];
+      const key = keysArray[index];
+      console.log(`[DEBUG] file[${index}]: ${file.originalname}, key: ${key}`);
 
       const s3Key = `images/${crypto.randomUUID()}_${key}`;
       return this.s3_client
