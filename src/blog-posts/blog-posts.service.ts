@@ -1,4 +1,4 @@
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -358,11 +358,7 @@ export class BlogPostsService {
     );
   }
 
-  async findByCommunityManage(
-    communityId: number,
-    status: EBlogPostStatus | undefined,
-    userId: number,
-  ) {
+  async findByCommunityManage(communityId: number, userId: number): Promise<PostResponseDto[]> {
     const me = await this.memberRepository.findOne({
       where: { community: { id: communityId }, user: { id: userId } },
     });
@@ -370,12 +366,8 @@ export class BlogPostsService {
     const ok = me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
     if (!ok) throw new ForbiddenException('Bạn không có quyền quản lý bài viết cộng đồng này.');
 
-    const where: any = { community: { id: communityId } };
-    if (status) where.status = status;
-    else where.status = In([EBlogPostStatus.ACTIVE]);
-
     const posts = await this.communityBlogPostRepository.find({
-      where,
+      where: { community: { id: communityId }, isApproved: false },
       relations: ['author', 'community', 'hashtags'],
       order: { createdAt: 'DESC' },
     });
@@ -438,7 +430,7 @@ export class BlogPostsService {
   }
 
   async publish(id: number, userId: number) {
-    const post = await this.blogPostRepository.findOne({
+    const post = await this.communityBlogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community'],
     });
@@ -449,7 +441,7 @@ export class BlogPostsService {
 
     if (!ok) throw new ForbiddenException('Bạn không có quyền đăng bài viết này.');
 
-    post.status = EBlogPostStatus.ACTIVE;
+    post.isApproved = true;
     const saved = await this.blogPostRepository.save(post);
     return {
       message: 'Đã đăng bài viết thành công.',

@@ -24,7 +24,6 @@ import { DetailCommunityPostResponseDto } from './dto/response/blog-post-respons
 import { BlogPostType } from './enums/blog-post-type.enum';
 import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { EBlogPostStatus } from './enums/blog-post-status.enum';
 
 @ApiTags('Blog Posts')
 @Controller('blog-posts')
@@ -111,10 +110,9 @@ export class BlogPostsController {
   async findByCommunityManage(
     @Param('communityId') communityId: string,
     @Req() req: Request,
-    @Query('status') status?: EBlogPostStatus,
-  ) {
+  ): Promise<PostResponseDto[]> {
     const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.findByCommunityManage(+communityId, status, userId);
+    return this.blogPostsService.findByCommunityManage(+communityId, userId);
   }
 
   @Get(':id')
