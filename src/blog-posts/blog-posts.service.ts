@@ -1,5 +1,5 @@
 import { In, Repository } from 'typeorm';
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { EBlogPostStatus } from './enums/blog-post-status.enum';
@@ -135,9 +135,9 @@ export class BlogPostsService {
           me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR;
 
         // ✅ Community bật duyệt:
-        // - Member thường => DRAFT
-        // - Admin/Mod => ACTIVE
-        // Community không bật duyệt => ACTIVE hết
+        // - Member thường => isApproved = false (bài chờ duyệt)
+        // - Admin/Mod => isApproved = true
+        // Community không bật duyệt => isApproved = true
         const isApproved = community.requirePostApproval && !isPrivileged ? false : true;
 
         const blocks = this.blockRepository.create(dto.blocks || []);
@@ -304,6 +304,35 @@ export class BlogPostsService {
       throw new NotFoundException(`Can't find blog post with ID: ${id}`);
     }
 
+    // ===== Access control =====
+    // 1) Post bị HIDDEN: chỉ tác giả xem được
+    if (post.status === EBlogPostStatus.HIDDEN) {
+      const isAuthor = !!userId && post.author && post.author.id === userId;
+      if (!isAuthor) {
+        // Trả NotFound để không lộ existence
+        throw new NotFoundException('Post not found');
+      }
+    }
+
+    // 2) Community post chưa duyệt: chỉ tác giả hoặc ADMIN/MOD của community xem được
+    if (post instanceof CommunityBlogPost && post.isApproved === false) {
+      if (!userId) {
+        throw new NotFoundException('Post not found');
+      }
+
+      const isAuthor = post.author && post.author.id === userId;
+      if (!isAuthor) {
+        const me = await this.memberRepository.findOne({
+          where: { community: { id: post.community?.id }, user: { id: userId } },
+        });
+        const isPrivileged =
+          me && (me.role === ECommunityRole.ADMIN || me.role === ECommunityRole.MODERATOR);
+        if (!isPrivileged) {
+          throw new NotFoundException('Post not found');
+        }
+      }
+    }
+
     // Lấy reacts cho bài viết
     const reacts = await this.userReactQueryService.getUserReactForPost(id, userId);
 
@@ -439,6 +468,11 @@ export class BlogPostsService {
 
     post.status = EBlogPostStatus.ACTIVE;
 
+    // Nếu là bài viết Community thì publish đồng nghĩa với duyệt bài
+    if (post instanceof CommunityBlogPost) {
+      post.isApproved = true;
+    }
+
     await this.blogPostRepository.save(post);
 
     return {
@@ -502,6 +536,8 @@ export class BlogPostsService {
       where: {
         community: { id: communityId },
         status: EBlogPostStatus.ACTIVE,
+        // Chỉ public những bài đã được duyệt
+        isApproved: true,
       },
       relations: ['author', 'community', 'hashtags'],
       order: { createdAt: 'DESC' },
@@ -520,7 +556,8 @@ export class BlogPostsService {
 
   async findByCommunityManage(
     communityId: number,
-    status: EBlogPostStatus | undefined,
+    statusRaw: string | undefined,
+    isApprovedRaw: string | undefined,
     userId: number,
   ) {
     // ✅ chỉ ADMIN / MODERATOR mới xem/manage
@@ -534,11 +571,37 @@ export class BlogPostsService {
     // ✅ filter
     const where: any = { community: { id: communityId } };
 
-    if (status) {
-      where.status = status; // ACTIVE hoặc DRAFT
+    // --- status ---
+    const status = statusRaw?.toString().trim().toUpperCase();
+
+    // Hệ thống không dùng enum DRAFT. FE cũ vẫn có thể gửi status=DRAFT để lấy bài "chờ duyệt".
+    if (status === 'DRAFT') {
+      where.status = EBlogPostStatus.ACTIVE;
+      where.isApproved = false;
+    } else if (status) {
+      const allowed = Object.values(EBlogPostStatus) as string[];
+      if (!allowed.includes(status)) {
+        throw new BadRequestException(`Invalid status '${statusRaw}'. Allowed: ${allowed.join(', ')}`);
+      }
+      where.status = status as EBlogPostStatus;
     } else {
-      // "Tất cả" -> chỉ lấy ACTIVE + DRAFT (không lấy HIDDEN)
+      // "Tất cả" (mặc định): chỉ lấy ACTIVE (không lấy HIDDEN)
       where.status = In([EBlogPostStatus.ACTIVE]);
+    }
+
+    // --- isApproved ---
+    if (isApprovedRaw !== undefined && isApprovedRaw !== null && isApprovedRaw !== '') {
+      const v = isApprovedRaw.toString().trim().toLowerCase();
+      if (v !== 'true' && v !== 'false') {
+        throw new BadRequestException(`Invalid isApproved '${isApprovedRaw}'. Expect 'true' or 'false'.`);
+      }
+
+      // Nếu FE gửi DRAFT thì đã cố định là pending (isApproved=false)
+      if (status === 'DRAFT' && v === 'true') {
+        throw new BadRequestException(`status=DRAFT only supports isApproved=false.`);
+      }
+
+      where.isApproved = v === 'true';
     }
 
     const posts = await this.communityBlogPostRepository.find({
