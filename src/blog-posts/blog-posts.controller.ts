@@ -26,7 +26,6 @@ import { DetailCommunityPostResponseDto } from './dto/response/blog-post-respons
 import { BlogPostType } from './enums/blog-post-type.enum';
 import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { EBlogPostStatus } from './enums/blog-post-status.enum';
 
 @ApiTags('Blog Posts')
 @Controller('blog-posts')
@@ -40,40 +39,45 @@ export class BlogPostsController {
   @Post('repost')
   @ApiOperation({ summary: 'Repost bài viết' })
   @ApiResponse({ status: 201, description: 'Repost thành công' })
-  async repost(@Body() dto: CreateBlogPostDto) {
+  @UseGuards(JwtAuthGuard)
+  async repost(@Body() dto: CreateBlogPostDto, @Req() req: Request) {
     dto.type = BlogPostType.REPOST;
+    // enforce author from JWT
+    dto.authorId = (req.user as JwtUser).id;
     return this.blogPostsService.create(dto);
   }
 
   @Get('repost/check')
   @ApiOperation({ summary: 'Kiểm tra đã repost chưa' })
-  @ApiQuery({ name: 'userId', type: Number })
   @ApiQuery({ name: 'originalPostId', type: Number })
-  async checkReposted(
-    @Query('userId') userId: number,
-    @Query('originalPostId') originalPostId: number,
-  ) {
+  @UseGuards(JwtAuthGuard)
+  async checkReposted(@Query('originalPostId') originalPostId: number, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
     const reposted = await this.blogPostsService.checkReposted(+userId, +originalPostId);
     return { reposted };
   }
 
   @Delete('repost')
   @ApiOperation({ summary: 'Xóa repost' })
-  @ApiQuery({ name: 'userId', type: Number })
   @ApiQuery({ name: 'originalPostId', type: Number })
-  async removeRepost(
-    @Query('userId') userId: number,
-    @Query('originalPostId') originalPostId: number,
-  ) {
+  @UseGuards(JwtAuthGuard)
+  async removeRepost(@Query('originalPostId') originalPostId: number, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
     return this.blogPostsService.removeRepost(+userId, +originalPostId);
   }
 
   // ========== CRUD ENDPOINTS ==========
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Tạo bài viết mới' })
   @ApiResponse({ status: 201, description: 'Tạo bài viết thành công' })
   @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ' })
-  create(@Body() createBlogPostDto: CreateBlogPostDto): Promise<PostResponseDto> {
+  create(
+    @Body() createBlogPostDto: CreateBlogPostDto,
+    @Req() req: Request,
+  ): Promise<PostResponseDto> {
+    // enforce author from JWT
+    createBlogPostDto.authorId = (req.user as JwtUser).id;
     return this.blogPostsService.create(createBlogPostDto);
   }
 
@@ -81,8 +85,14 @@ export class BlogPostsController {
   @ApiOperation({ summary: 'Cập nhật bài viết theo ID' })
   @ApiResponse({ status: 200, description: 'Cập nhật bài viết thành công' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy bài viết' })
-  update(@Param('id') id: string, @Body() updateBlogPostDto: UpdateBlogPostDto) {
-    return this.blogPostsService.update(+id, updateBlogPostDto);
+  @UseGuards(JwtAuthGuard)
+  update(
+    @Param('id') id: string,
+    @Body() updateBlogPostDto: UpdateBlogPostDto,
+    @Req() req: Request,
+  ) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.update(+id, updateBlogPostDto, userId);
   }
 
   @Get()
@@ -112,7 +122,6 @@ export class BlogPostsController {
   @Get('community/:communityId')
   async findByCommunity(@Param('communityId') communityId: string) {
     const results = await this.blogPostsService.findByCommunity(+communityId);
-    console.log(results);
     return results;
   }
 
@@ -121,10 +130,9 @@ export class BlogPostsController {
   async findByCommunityManage(
     @Param('communityId') communityId: string,
     @Req() req: Request,
-    @Query('status') status?: EBlogPostStatus,
-  ) {
+  ): Promise<PostResponseDto[]> {
     const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.findByCommunityManage(+communityId, status, userId);
+    return this.blogPostsService.findByCommunityManage(+communityId, userId);
   }
 
   @Get(':id')
@@ -134,51 +142,62 @@ export class BlogPostsController {
     @Req() req: Request,
   ): Promise<DetailPersonalPostResponseDto | DetailCommunityPostResponseDto> {
     const postId = +id;
-    console.log('[BlogPostsController] findOne', { postId, user: req.user });
-    // If user is present, record viewed history (fire-and-forget)
-    const user = req.user as JwtUser;
-    if (user.id) {
+    const user = req.user as JwtUser | undefined;
+    if (user && user.id) {
+      // record viewed history (fire-and-forget)
       this.viewedHistoryService
         .recordView(Number(user.id), postId)
-        .catch((err) => console.error('ViewedHistory.recordView error', err));
+        .catch((err) => console.error('Lỗi ViewedHistory.recordView', err));
     }
 
-    return this.blogPostsService.findOne(postId, user.id);
+    return this.blogPostsService.findOne(postId, user?.id);
   }
 
   @Patch(':id/status')
   @ApiOperation({ summary: 'Cập nhật trạng thái bài viết' })
   @ApiResponse({ status: 200, description: 'Cập nhật trạng thái thành công' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy bài viết' })
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateBlogStatusDto) {
-    return this.blogPostsService.updateStatus(+id, dto);
+  @UseGuards(JwtAuthGuard)
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateBlogStatusDto, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.updateStatus(+id, dto, userId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.blogPostsService.remove(+id);
+  @UseGuards(JwtAuthGuard)
+  remove(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.remove(+id, userId);
   }
 
   @Patch(':id/restore')
-  restore(@Param('id') id: string) {
-    return this.blogPostsService.restore(+id);
+  @UseGuards(JwtAuthGuard)
+  restore(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.restore(+id, userId);
   }
 
   @Patch(':id/hide')
-  hide(@Param('id') id: string) {
-    return this.blogPostsService.hide(+id);
+  @UseGuards(JwtAuthGuard)
+  hide(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.hide(+id, userId);
   }
 
   @Patch(':id/publish')
-  publish(@Param('id') id: string) {
-    return this.blogPostsService.publish(+id);
+  @UseGuards(JwtAuthGuard)
+  publish(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.publish(+id, userId);
   }
 
   @Patch(':id/toggle-privacy')
   @ApiOperation({ summary: 'Chuyển đổi chế độ công khai/riêng tư của bài viết' })
   @ApiResponse({ status: 200, description: 'Chuyển đổi chế độ thành công' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy bài viết' })
-  togglePrivacy(@Param('id') id: string) {
-    return this.blogPostsService.togglePrivacy(+id);
+  @UseGuards(JwtAuthGuard)
+  togglePrivacy(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.togglePrivacy(+id, userId);
   }
 }

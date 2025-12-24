@@ -13,15 +13,7 @@ import { CreateBlockDto } from 'src/blocks/dto/create-block.dto';
 import { Hashtag } from 'src/hashtags/entities/hashtag.entity';
 
 export class UpdateBlogPostDto {
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional()
-  @IsNumber()
-  id: number;
-
-  @ApiPropertyOptional({ example: 'PERSONAL' })
-  @IsString()
-  @IsOptional()
-  type: string;
+  // Note: `id` and `type` are not expected to be updated via this DTO
 
   @ApiPropertyOptional({ example: 'Tiêu đề đã cập nhật' })
   @IsString()
@@ -55,5 +47,5 @@ export class UpdateBlogPostDto {
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  hashtags?: Hashtag[];
+  hashtags?: string[];
 }

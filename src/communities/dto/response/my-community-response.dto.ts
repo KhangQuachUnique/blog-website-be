@@ -21,5 +21,5 @@ export class CommunityResponseDto {
   memberCount: number;
 
   @ApiProperty({ enum: ECommunityRole, description: 'Vai trò của user hiện tại' })
-  role: ECommunityRole;
+  role: ECommunityRole | 'NONE';
 }

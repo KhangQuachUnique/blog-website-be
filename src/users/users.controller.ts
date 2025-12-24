@@ -22,12 +22,10 @@ import { EUserRole } from './enums/role.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
+import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 
 interface RequestWithUser extends Request {
-  user: {
-    userId: number;
-    email: string;
-  };
+  user?: JwtUser;
 }
 
 @Controller('users')
@@ -42,8 +40,8 @@ export class UsersController {
   @Get('me/profile')
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@Request() req: RequestWithUser) {
-    const userId = req.user.userId;
-    // Truyền userId vào cả 2 tham số để service biết đây là owner
+    const userId = (req.user as JwtUser).id;
+    // Truyền id vào cả 2 tham số để service biết đây là owner
     return this.usersService.getProfile(userId, userId);
   }
 
@@ -55,7 +53,7 @@ export class UsersController {
   @UseGuards(OptionalJwtAuthGuard)
   async getProfile(@Param('id', ParseIntPipe) userId: number, @Request() req: RequestWithUser) {
     // Nếu user đã đăng nhập, lấy viewerId từ token
-    const viewerId = req.user?.userId;
+    const viewerId = (req.user as JwtUser)?.id;
     return this.usersService.getProfile(userId, viewerId);
   }
 
@@ -69,7 +67,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.updateProfile(userId, updateProfileDto);
   }
 
@@ -84,7 +82,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.changePassword(userId, changePasswordDto);
   }
 
@@ -99,7 +97,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Body() requestDto: RequestChangeEmailDto,
   ) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.requestChangeEmail(userId, requestDto);
   }
 
@@ -111,7 +109,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async verifyEmail(@Request() req: RequestWithUser, @Body() verifyDto: VerifyEmailDto) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.verifyAndChangeEmail(userId, verifyDto);
   }
 
@@ -122,7 +120,7 @@ export class UsersController {
   @Patch('me/privacy')
   @UseGuards(JwtAuthGuard)
   async togglePrivacy(@Request() req: RequestWithUser) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.togglePrivacy(userId);
   }
 
@@ -137,7 +135,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) targetUserId: number,
   ) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.blockUser(userId, targetUserId);
   }
 
@@ -152,7 +150,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) targetUserId: number,
   ) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.unblockUser(userId, targetUserId);
   }
 
@@ -163,7 +161,7 @@ export class UsersController {
   @Get('search')
   @UseGuards(JwtAuthGuard)
   searchUsers(@Query('q') query: string, @Request() req: RequestWithUser) {
-    const currentUserId = req.user.userId;
+    const currentUserId = (req.user as JwtUser).id;
     return this.usersService.searchUsers(query, currentUserId);
   }
 
@@ -174,7 +172,7 @@ export class UsersController {
   @Get('me/blocked')
   @UseGuards(JwtAuthGuard)
   async getBlockedUsers(@Request() req: RequestWithUser) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.getBlockedUsers(userId);
   }
 
@@ -186,7 +184,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async deleteAccount(@Request() req: RequestWithUser) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.deleteAccount(userId);
   }
 
@@ -201,7 +199,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) targetUserId: number,
   ) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.followUser(userId, targetUserId);
   }
 
@@ -216,7 +214,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) targetUserId: number,
   ) {
-    const userId = req.user.userId;
+    const userId = (req.user as JwtUser).id;
     return this.usersService.unfollowUser(userId, targetUserId);
   }
 
@@ -227,7 +225,7 @@ export class UsersController {
   @Get(':id/followers')
   @UseGuards(OptionalJwtAuthGuard)
   async getFollowers(@Param('id', ParseIntPipe) userId: number, @Request() req: RequestWithUser) {
-    const viewerId = req.user?.userId;
+    const viewerId = (req.user as JwtUser)?.id;
     return this.usersService.getFollowers(userId, viewerId);
   }
 
@@ -238,7 +236,7 @@ export class UsersController {
   @Get(':id/following')
   @UseGuards(OptionalJwtAuthGuard)
   async getFollowing(@Param('id', ParseIntPipe) userId: number, @Request() req: RequestWithUser) {
-    const viewerId = req.user?.userId;
+    const viewerId = (req.user as JwtUser)?.id;
     return this.usersService.getFollowing(userId, viewerId);
   }
 
