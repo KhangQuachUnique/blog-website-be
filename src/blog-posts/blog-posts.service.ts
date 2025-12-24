@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -483,17 +483,13 @@ export class BlogPostsService {
     return plainToInstance(PostResponseDto, saved, { excludeExtraneousValues: true });
   }
 
-  async publish(id: number, userId: number) {
+  async publish(id: number) {
     const post = await this.communityBlogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community'],
     });
 
     if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
-
-    const ok = await this.userCanManagePost(post, userId);
-
-    if (!ok) throw new ForbiddenException('Bạn không có quyền đăng bài viết này.');
 
     post.isApproved = true;
     const saved = await this.blogPostRepository.save(post);
@@ -503,14 +499,13 @@ export class BlogPostsService {
     };
   }
 
-  async hide(id: number, userId: number) {
+  async hide(id: number) {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community'],
     });
     if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
-    const ok = await this.userCanManagePost(post, userId);
-    if (!ok) throw new ForbiddenException('Bạn không có quyền ẩn bài viết này.');
+
     if (post.status != EBlogPostStatus.ACTIVE) {
       return { message: `Không thể ẩn. Trạng thái hiện tại là '${post.status}', cần là 'ACTIVE'.` };
     }
@@ -522,14 +517,13 @@ export class BlogPostsService {
     };
   }
 
-  async restore(id: number, userId: number) {
+  async restore(id: number) {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community'],
     });
     if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
-    const ok = await this.userCanManagePost(post, userId);
-    if (!ok) throw new ForbiddenException('Bạn không có quyền khôi phục bài viết này.');
+
     if (post.status != EBlogPostStatus.HIDDEN) {
       return {
         message: `Không thể khôi phục. Trạng thái hiện tại là '${post.status}', cần là 'HIDDEN'.`,

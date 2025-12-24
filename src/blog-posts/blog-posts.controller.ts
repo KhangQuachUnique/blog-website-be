@@ -172,23 +172,20 @@ export class BlogPostsController {
 
   @Patch(':id/restore')
   @UseGuards(JwtAuthGuard)
-  restore(@Param('id') id: string, @Req() req: Request) {
-    const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.restore(+id, userId);
+  restore(@Param('id') id: string) {
+    return this.blogPostsService.restore(+id);
   }
 
   @Patch(':id/hide')
   @UseGuards(JwtAuthGuard)
-  hide(@Param('id') id: string, @Req() req: Request) {
-    const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.hide(+id, userId);
+  hide(@Param('id') id: string) {
+    return this.blogPostsService.hide(+id);
   }
 
   @Patch(':id/publish')
   @UseGuards(JwtAuthGuard)
-  publish(@Param('id') id: string, @Req() req: Request) {
-    const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.publish(+id, userId);
+  publish(@Param('id') id: string) {
+    return this.blogPostsService.publish(+id);
   }
 
   @Patch(':id/toggle-privacy')
