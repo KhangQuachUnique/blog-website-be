@@ -157,7 +157,6 @@ export class ReportsController {
 
   /**
    * ⚖️ Xử lý báo cáo (Duyệt/Từ chối) - Admin Only
-   * Endpoint này quan trọng nhất vừa thêm vào
    */
   @Patch(':id/resolve')
   @UseGuards(JwtAuthGuard)
