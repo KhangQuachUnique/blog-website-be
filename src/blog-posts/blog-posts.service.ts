@@ -343,7 +343,7 @@ export class BlogPostsService {
    * - `findByCommunity(communityId)` : Lấy bài viết public của cộng đồng (Get community posts)
    * - `findByCommunityManage(communityId, status?, userId)` : Quản lý bài viết (Admin/Mod) (Manage community posts)
    */
-  async findByCommunity(communityId: number) {
+  async findByCommunity(communityId: number): Promise<PostResponseDto[]> {
     const posts = await this.communityBlogPostRepository.find({
       where: { community: { id: communityId }, status: EBlogPostStatus.ACTIVE },
       relations: ['author', 'community', 'hashtags'],
@@ -351,11 +351,17 @@ export class BlogPostsService {
     });
 
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
-    for (const post of posts) post['reacts'] = reactsMap.get(post.id);
+    const votesMap = await this.userVotesService.getPostsVotes(posts.map((p) => p.id));
 
-    return posts.map((post) =>
-      plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
-    );
+    for (const post of posts) {
+      post['reacts'] = reactsMap.get(post.id);
+    }
+
+    return posts.map((post) => {
+      const result = plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true });
+      result['votes'] = votesMap.get(post.id) || { upvotes: 0, downvotes: 0, userVote: null };
+      return result;
+    });
   }
 
   async findByCommunityManage(communityId: number, userId: number): Promise<PostResponseDto[]> {

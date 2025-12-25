@@ -100,7 +100,7 @@ export class BlogPostsController {
 
   // community
   @Get('community/:communityId')
-  async findByCommunity(@Param('communityId') communityId: string) {
+  async findByCommunity(@Param('communityId') communityId: string): Promise<PostResponseDto[]> {
     const results = await this.blogPostsService.findByCommunity(+communityId);
     return results;
   }
