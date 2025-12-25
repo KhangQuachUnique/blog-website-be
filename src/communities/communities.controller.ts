@@ -133,7 +133,7 @@ export class CommunitiesController {
     @Query('ban') ban?: string,
   ) {
     const requesterId = (req.user as JwtUser).id;
-    const banFlag = ban === '0' ? false : true; // mặc định ban=true
+    const banFlag = ban === undefined ? true : !(ban === "0" || ban.toLowerCase() === "false");
     return this.communitiesService.removeMember(+communityId, +memberId, requesterId, banFlag);
   }
 }
