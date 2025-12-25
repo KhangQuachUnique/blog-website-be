@@ -103,9 +103,12 @@ export class CommunitiesService {
   async getSettings(id: number, userId?: number): Promise<any> {
     const community = await this.communityRepository.findOne({
       where: { id },
-      relations: ['members'],
+      relations: ['members', 'bannedUsers'],
     });
     if (!community) throw new NotFoundException('Community not found');
+
+    const isBanned = !!userId && !!community.bannedUsers?.some((u) => u.id === userId);
+
 
     // ✅ chưa login => NONE
     if (!userId) {
@@ -117,8 +120,12 @@ export class CommunitiesService {
         name: community.name,
         description: community.description,
         thumbnailUrl: community.thumbnailUrl,
+        // coverImageUrl: community.coverImageUrl ?? null,
+        requirePostApproval: !!community.requirePostApproval,
+        requireMemberApproval: !!community.requireMemberApproval,
         isPublic: community.isPublic,
         role: 'NONE',
+        isBanned: false,
         memberCount,
       } as CommunityResponseDto;
     }
@@ -138,8 +145,12 @@ export class CommunitiesService {
       name: community.name,
       description: community.description,
       thumbnailUrl: community.thumbnailUrl,
+      // coverImageUrl: community.coverImageUrl ?? null,
+      requirePostApproval: !!community.requirePostApproval,
+      requireMemberApproval: !!community.requireMemberApproval,
       isPublic: community.isPublic,
       role,
+      isBanned,
       memberCount,
     } as CommunityResponseDto;
   }
@@ -170,8 +181,17 @@ export class CommunitiesService {
   async joinCommunity(communityId: number, userId: number) {
     const community = await this.communityRepository.findOne({
       where: { id: communityId },
+      relations: ['bannedUsers'],
     });
+
+    // ✅ check null trước
     if (!community) throw new NotFoundException('Community not found');
+
+    // ✅ check banned
+    const banned = community.bannedUsers ?? [];
+    if (banned.some((u) => u.id === userId)) {
+      throw new ForbiddenException('Bạn đã bị cấm khỏi cộng đồng này.');
+    }
 
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -181,7 +201,6 @@ export class CommunitiesService {
     });
 
     if (existing) {
-      // đã có record thì không tạo lại
       return {
         ok: true,
         role: existing.role,
@@ -189,7 +208,7 @@ export class CommunitiesService {
       };
     }
 
-    const shouldPending = !community.isPublic || community.requireMemberApproval;
+    const shouldPending = !community.isPublic || !!community.requireMemberApproval;
     const roleToSet = shouldPending ? ECommunityRole.PENDING : ECommunityRole.MEMBER;
 
     const newMember = this.memberRepository.create({

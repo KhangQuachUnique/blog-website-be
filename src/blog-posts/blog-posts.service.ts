@@ -398,7 +398,11 @@ export class BlogPostsService {
    */
   async findByCommunity(communityId: number): Promise<PostResponseDto[]> {
     const posts = await this.communityBlogPostRepository.find({
-      where: { community: { id: communityId }, status: EBlogPostStatus.ACTIVE },
+      where: {
+        community: { id: communityId },
+        status: EBlogPostStatus.ACTIVE,
+        isApproved: true, // ✅ CHỈ LẤY BÀI ĐÃ DUYỆT
+      },
       relations: ['author', 'community', 'hashtags'],
       order: { createdAt: 'DESC' },
     });
@@ -406,9 +410,7 @@ export class BlogPostsService {
     const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
     const votesMap = await this.userVotesService.getPostsVotes(posts.map((p) => p.id));
 
-    for (const post of posts) {
-      post['reacts'] = reactsMap.get(post.id);
-    }
+    for (const post of posts) post['reacts'] = reactsMap.get(post.id);
 
     return posts.map((post) => {
       const result = this.mapPostToDto(post);
@@ -426,7 +428,7 @@ export class BlogPostsService {
     if (!ok) throw new ForbiddenException('Bạn không có quyền quản lý bài viết cộng đồng này.');
 
     const posts = await this.communityBlogPostRepository.find({
-      where: { community: { id: communityId }, isApproved: false },
+      where: { community: { id: communityId }, isApproved: false, status: EBlogPostStatus.ACTIVE },
       relations: ['author', 'community', 'hashtags'],
       order: { createdAt: 'DESC' },
     });
