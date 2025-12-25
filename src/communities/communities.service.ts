@@ -337,18 +337,79 @@ export class CommunitiesService {
     });
   }
 
-  async updateMemberRole(communityId: number, memberId: number, dto: UpdateMemberRoleDto) {
-    const member = await this.memberRepository.findOne({
-      where: { id: memberId, community: { id: communityId } },
-      relations: ['community', 'user'],
+  async updateMemberRole(
+    communityId: number,
+    targetMemberId: number,
+    dto: UpdateMemberRoleDto,
+    requesterId: number,
+  ) {
+    const requester = await this.memberRepository.findOne({
+      where: { community: { id: communityId }, user: { id: requesterId } },
     });
 
-    if (!member) throw new NotFoundException('Member not found in this community');
+    const requesterOk =
+      requester &&
+      (requester.role === ECommunityRole.ADMIN || requester.role === ECommunityRole.MODERATOR);
 
-    member.role = dto.role;
-    const saved = await this.memberRepository.save(member);
+    if (!requesterOk) {
+      throw new ForbiddenException('Bạn không có quyền đổi vai trò trong cộng đồng này.');
+    }
+
+    const target = await this.memberRepository.findOne({
+      where: { id: targetMemberId, community: { id: communityId } },
+      relations: ['user'],
+    });
+
+    if (!target) throw new NotFoundException('Member not found in this community');
+
+    const newRole = dto.role;
+
+    // (Tuỳ bạn) chặn tự đổi role cho chắc
+    if (target.user.id === requesterId) {
+      throw new ForbiddenException('Bạn không thể tự đổi vai trò của chính mình.');
+    }
+
+    // MOD rules
+    if (requester.role === ECommunityRole.MODERATOR) {
+      // mod không đụng admin
+      if (target.role === ECommunityRole.ADMIN) {
+        throw new ForbiddenException('Moderator không thể đổi vai trò của Admin.');
+      }
+      // mod không gán admin
+      if (newRole === ECommunityRole.ADMIN) {
+        throw new ForbiddenException('Moderator không thể gán vai trò Admin.');
+      }
+      // mod chỉ MEMBER <-> MODERATOR (không set PENDING)
+      const allowed = [ECommunityRole.MEMBER, ECommunityRole.MODERATOR];
+      if (!allowed.includes(newRole)) {
+        throw new ForbiddenException('Moderator chỉ có thể đổi MEMBER ↔ MODERATOR.');
+      }
+    }
+
+    // ADMIN rules
+    if (requester.role === ECommunityRole.ADMIN) {
+      // không cho set PENDING bằng đổi role (PENDING chỉ dành cho join approval)
+      if (newRole === ECommunityRole.PENDING) {
+        throw new ForbiddenException('Không thể chuyển thành PENDING bằng chức năng đổi role.');
+      }
+
+      // không được làm mất admin cuối
+      if (target.role === ECommunityRole.ADMIN && newRole !== ECommunityRole.ADMIN) {
+        const adminCount = await this.memberRepository.count({
+          where: { community: { id: communityId }, role: ECommunityRole.ADMIN },
+        });
+        if (adminCount <= 1) {
+          throw new ForbiddenException('Không thể hạ cấp Admin cuối cùng.');
+        }
+      }
+    }
+
+    target.role = newRole;
+    const saved = await this.memberRepository.save(target);
+
     const user = await this.userRepository.findOne({ where: { id: saved.user.id } });
     const userDto = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
+
     return plainToInstance(MemberResponseDto, {
       id: saved.id,
       role: saved.role,

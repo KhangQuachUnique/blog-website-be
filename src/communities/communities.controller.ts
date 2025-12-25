@@ -112,14 +112,16 @@ export class CommunitiesController {
     return this.communitiesService.getMembers(id, role, user?.id);
   }
 
-  @Patch(':id/members/:memberId/role')
+  @Patch(':communityId/members/:memberId/role')
   @UseGuards(JwtAuthGuard)
   updateMemberRole(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('memberId', ParseIntPipe) memberId: number,
+    @Param('communityId') communityId: string,
+    @Param('memberId') memberId: string,
     @Body() dto: UpdateMemberRoleDto,
+    @Req() req: Request,
   ) {
-    return this.communitiesService.updateMemberRole(id, memberId, dto);
+    const requesterId = (req.user as JwtUser).id;
+    return this.communitiesService.updateMemberRole(+communityId, +memberId, dto, requesterId);
   }
 
   @Delete(':communityId/members/:memberId')
