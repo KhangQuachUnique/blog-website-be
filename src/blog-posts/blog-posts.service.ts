@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -290,6 +290,60 @@ export class BlogPostsService {
     return posts.map((post) => this.mapPostToDto(post));
   }
 
+  async findVisiblePostsWithPagination(page: number = 1, limit: number = 10, statusFilter: string = 'ALL') {
+    const skip = (page - 1) * limit;
+
+    const whereCondition: any = {};
+    if (statusFilter !== 'ALL') {
+        whereCondition.status = statusFilter;
+    } else {
+        whereCondition.status = In([EBlogPostStatus.ACTIVE, EBlogPostStatus.HIDDEN]);
+    }
+
+    const [
+        [posts, total],
+        totalActive,
+        totalHidden
+    ] = await Promise.all([
+        this.blogPostRepository.findAndCount({
+            where: whereCondition,
+            relations: ['author', 'community', 'hashtags', 'originalPost'],
+            order: { createdAt: 'DESC' },
+            skip,
+            take: limit,
+        }),
+        this.blogPostRepository.count({ where: { status: EBlogPostStatus.ACTIVE } }),
+        this.blogPostRepository.count({ where: { status: EBlogPostStatus.HIDDEN } }),
+    ]);
+
+    // Lấy reacts cho tất cả posts
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(
+      posts.map((p) => p.id),
+    );
+
+    for (const post of posts) {
+      post['reacts'] = reactsMap.get(post.id);
+    }
+
+    return {
+        items: posts.map((post) =>
+            plainToInstance(PostResponseDto, post, { excludeExtraneousValues: true }),
+        ),
+        meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+
+        statistics: {
+            all: totalActive + totalHidden,
+            active: totalActive,
+            hidden: totalHidden,
+        }
+    };
+  }
+
   async findAllPostsByUser(userId: number): Promise<PostResponseDto[]> {
     const posts = await this.blogPostRepository.find({
       where: { author: { id: userId } },
@@ -434,17 +488,13 @@ export class BlogPostsService {
     return this.mapPostToDto(saved);
   }
 
-  async publish(id: number, userId: number) {
+  async publish(id: number) {
     const post = await this.communityBlogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community'],
     });
 
     if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
-
-    const ok = await this.userCanManagePost(post, userId);
-
-    if (!ok) throw new ForbiddenException('Bạn không có quyền đăng bài viết này.');
 
     post.isApproved = true;
     const saved = await this.blogPostRepository.save(post);
@@ -454,14 +504,13 @@ export class BlogPostsService {
     };
   }
 
-  async hide(id: number, userId: number) {
+  async hide(id: number) {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community', 'originalPost'],
     });
     if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
-    const ok = await this.userCanManagePost(post, userId);
-    if (!ok) throw new ForbiddenException('Bạn không có quyền ẩn bài viết này.');
+
     if (post.status != EBlogPostStatus.ACTIVE) {
       return { message: `Không thể ẩn. Trạng thái hiện tại là '${post.status}', cần là 'ACTIVE'.` };
     }
@@ -473,14 +522,13 @@ export class BlogPostsService {
     };
   }
 
-  async restore(id: number, userId: number) {
+  async restore(id: number) {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community', 'originalPost'],
     });
     if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
-    const ok = await this.userCanManagePost(post, userId);
-    if (!ok) throw new ForbiddenException('Bạn không có quyền khôi phục bài viết này.');
+
     if (post.status != EBlogPostStatus.HIDDEN) {
       return {
         message: `Không thể khôi phục. Trạng thái hiện tại là '${post.status}', cần là 'HIDDEN'.`,

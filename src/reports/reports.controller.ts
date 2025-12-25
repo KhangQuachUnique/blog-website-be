@@ -23,12 +23,14 @@ import type { Request } from 'express';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { ResolveReportDto } from './dto/resolve-report.dto';
 import {
   ReportResponseDto,
   ReportListResponseDto,
   CreateReportResponseDto,
   CheckReportedResponseDto,
 } from './dto/response/report-response.dto';
+import { EReportStatus } from './enums/report-status.enum';
 import { EReportType } from './enums/report-type.enum';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
@@ -88,6 +90,39 @@ export class ReportsController {
     return this.reportsService.checkIfReported(userId, type, targetId);
   }
 
+  @Get('all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy TOÀN BỘ báo cáo (Không phân trang - Export)' })
+  @ApiResponse({ status: 200, type: [ReportResponseDto] })
+  async getAllReportsNoPagination(): Promise<ReportResponseDto[]> {
+    return this.reportsService.getAll();
+  }
+
+  /**
+   * ⏳ Lấy danh sách báo cáo đang chờ xử lý (PENDING)
+   */
+  @Get('pending')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy các báo cáo CHỜ XỬ LÝ (Pending)' })
+  @ApiResponse({ status: 200, type: [ReportResponseDto] })
+  async getPendingReports(): Promise<ReportResponseDto[]> {
+    return this.reportsService.getPending();
+  }
+
+  /**
+   * ✅ Lấy danh sách báo cáo đã giải quyết (RESOLVED)
+   */
+  @Get('resolved')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy các báo cáo ĐÃ GIẢI QUYẾT (Resolved)' })
+  @ApiResponse({ status: 200, type: [ReportResponseDto] })
+  async getResolvedReports(): Promise<ReportResponseDto[]> {
+    return this.reportsService.getResolved();
+  }
+
   /**
    * 📋 Lấy tất cả báo cáo với pagination (Admin)
    */
@@ -115,8 +150,29 @@ export class ReportsController {
   @ApiResponse({ status: 200, type: [ReportResponseDto] })
   async getReportsByPost(
     @Param('postId', ParseIntPipe) postId: number,
+    @Query('status') status?: EReportStatus,
   ): Promise<ReportResponseDto[]> {
-    return this.reportsService.getReportsByPost(postId);
+    return this.reportsService.getReportsByPost(postId, status);
+  }
+
+  /**
+   * ⚖️ Xử lý báo cáo (Duyệt/Từ chối) - Admin Only
+   */
+  @Patch(':id/resolve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Xử lý báo cáo (Chấp thuận/Từ chối)' })
+  @ApiResponse({ status: 200, type: ReportResponseDto, description: 'Xử lý thành công' })
+  @ApiResponse({ status: 400, description: 'Trạng thái không hợp lệ hoặc đã xử lý rồi' })
+  async resolve(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() resolveDto: ResolveReportDto,
+  ): Promise<ReportResponseDto> {
+    return this.reportsService.resolveReport(
+      id,
+      resolveDto.type,
+      resolveDto.action,
+    );
   }
 
   /**

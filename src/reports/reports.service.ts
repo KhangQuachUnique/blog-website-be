@@ -4,8 +4,12 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
+import { UsersService } from 'src/users/users.service';
+import { CommentsService } from 'src/comments/comments.service';
 import { Report } from './entities/report.entity';
 import { EReportType } from './enums/report-type.enum';
+import { EReportStatus } from './enums/report-status.enum';
 import { User } from 'src/users/entities/user.entity';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Comment } from 'src/comments/entities/comment.entity';
@@ -36,6 +40,10 @@ export class ReportsService {
     private postRepository: Repository<BlogPost>,
     @InjectRepository(Comment)
     private commentRepository: Repository<Comment>,
+
+    private readonly blogPostsService: BlogPostsService,
+    private readonly usersService: UsersService,
+    private readonly commentsService: CommentsService,
   ) {}
 
   /**
@@ -147,15 +155,64 @@ export class ReportsService {
 
   /**
    * 📋 Lấy báo cáo của 1 bài viết
+   * @param postId
+   * @param status
    */
-  async getReportsByPost(postId: number): Promise<ReportResponseDto[]> {
+  async getReportsByPost(postId: number, status?: EReportStatus): Promise<ReportResponseDto[]> {
+
+    const whereCondition: any = { 
+      reportedPost: { id: postId } 
+    };
+
+    if (status) {
+      whereCondition.status = status;
+    }
+
     const reports = await this.reportRepository.find({
-      where: { reportedPost: { id: postId } },
+      where: whereCondition,
       relations: ['reporter', 'reportedPost'],
       order: { createdAt: 'DESC' },
     });
 
-    return reports.map(this.mapToResponseDto);
+    return reports.map((report) => this.mapToResponseDto(report));
+  }
+
+  /**
+   * Lấy toàn bộ báo cáo
+   */
+  async getAll(): Promise<ReportResponseDto[]> {
+    const reports = await this.reportRepository.find({
+      relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return reports.map((report) => this.mapToResponseDto(report));
+  }
+
+  /**
+   * ⏳ Lấy danh sách báo cáo đang chờ xử lý (PENDING)
+   */
+  async getPending(): Promise<ReportResponseDto[]> {
+    const reports = await this.reportRepository.find({
+      where: { status: EReportStatus.PENDING },
+      relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
+      order: { createdAt: 'ASC' },
+    });
+
+    return reports.map((report) => this.mapToResponseDto(report));
+  }
+
+  /**
+   * ✅ Lấy danh sách báo cáo đã giải quyết (RESOLVED)
+   */
+  async getResolved(): Promise<ReportResponseDto[]> {
+    const reports = await this.reportRepository.find({
+      where: { status: EReportStatus.RESOLVED },
+      relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return reports.map((report) => this.mapToResponseDto(report));
   }
 
   /**
@@ -209,6 +266,75 @@ export class ReportsService {
 
     const updated = await this.reportRepository.save(report);
     return this.mapToResponseDto(updated);
+  }
+
+  /**
+   *  Xử lý báo cáo
+   */
+  async resolveReport(id: number, type: EReportType, action: 'APPROVE' | 'REJECT'): Promise<ReportResponseDto> {
+    const report = await this.reportRepository.findOne({
+      where: { id },
+      relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
+    });
+
+    if (!report) throw new NotFoundException('Báo cáo không tồn tại');
+
+    if (report.type !== type) {
+      throw new BadRequestException('Loại báo cáo không khớp với dữ liệu hệ thống');
+    }
+    
+    if (report.status === EReportStatus.RESOLVED) {
+        throw new BadRequestException('Báo cáo này đã được giải quyết trước đó');
+    }
+
+    if (action === 'APPROVE') {
+      switch (type) {
+        case EReportType.POST:
+          await this.handlePostResolution(report);
+          break;
+
+        case EReportType.COMMENT:
+          await this.handleCommentResolution(report);
+          break;
+
+        case EReportType.USER:
+          await this.handleUserResolution(report);
+          break;
+
+        default:
+          throw new BadRequestException('Loại báo cáo không được hỗ trợ');
+      }
+    }
+
+    report.status = EReportStatus.RESOLVED;
+    
+    const savedReport = await this.reportRepository.save(report);
+
+    return this.mapToResponseDto(savedReport);
+  }
+
+  private async handlePostResolution(report: Report): Promise<void> {
+    const postId = report.reportedPost.id;
+
+    await this.blogPostsService.hide(postId); 
+    
+    console.log(`[Report] Đã ẩn bài viết ID ${postId} theo báo cáo ${report.id}`);
+  }
+
+  private async handleUserResolution(report: Report): Promise<void> {
+    const userId = report.reportedUser.id;
+
+    await this.usersService.banUser(userId, report.reason);
+    
+    console.log(`[Report] Đã xử lý báo cáo người dùng ID ${userId}`);
+  }
+
+  private async handleCommentResolution(report: Report): Promise<void> {
+    const commentId = report.reportedComment.id;  
+
+    await this.commentsService.remove(commentId);
+    
+    console.log(`[Report] Đã xử lý báo cáo bình luận ID ${commentId}`);
   }
 
   /**
