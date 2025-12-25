@@ -103,6 +103,7 @@ export class PersonalPostResponseDto extends PostResponseDto {}
  */
 export class CommunityPostResponseDto extends PostResponseDto {
   @Expose()
+  @Type(() => CommunityDto)
   @ApiPropertyOptional({ type: CommunityDto })
   community?: CommunityDto;
 }

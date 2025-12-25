@@ -31,7 +31,6 @@ export class CreateBlogPostDto {
     example: 'Đây là mô tả ngắn của bài viết đầu tiên của tôi.',
   })
   @IsString()
-  @IsNotEmpty({ message: 'Mô tả ngắn là bắt buộc' })
   @IsOptional()
   shortDescription?: string;
 
