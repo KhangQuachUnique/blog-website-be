@@ -107,13 +107,18 @@ export class BlogPostsController {
   @ApiOperation({ summary: 'Lấy danh sách bài viết hiển thị theo trang và trạng thái' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
-
-  @ApiQuery({ name: 'status', required: false, type: String, example: 'ALL', description: 'ALL | ACTIVE | HIDDEN' }) 
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    example: 'ALL',
+    description: 'ALL | ACTIVE | HIDDEN',
+  })
   findVisible(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
 
-    @Query('status', new DefaultValuePipe('ALL')) status: string, 
+    @Query('status', new DefaultValuePipe('ALL')) status: string,
   ) {
     return this.blogPostsService.findVisiblePostsWithPagination(page, limit, status);
   }
@@ -172,12 +177,14 @@ export class BlogPostsController {
 
   @Patch(':id/restore')
   @UseGuards(JwtAuthGuard)
+  // Phải kèm userId để check Admin có quyền ẩn bài hay bỏ ẩn
   restore(@Param('id') id: string) {
     return this.blogPostsService.restore(+id);
   }
 
   @Patch(':id/hide')
   @UseGuards(JwtAuthGuard)
+  // Phải kèm userId để check Admin có quyền ẩn bài hay bỏ ẩn
   hide(@Param('id') id: string) {
     return this.blogPostsService.hide(+id);
   }
