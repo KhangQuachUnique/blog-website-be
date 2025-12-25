@@ -357,15 +357,55 @@ export class CommunitiesService {
     });
   }
 
-  async removeMember(communityId: number, memberId: number) {
+  async removeMember(communityId: number, memberId: number, requesterId: number, ban = true) {
+    // ✅ requester phải là admin/mod
+    const requester = await this.memberRepository.findOne({
+      where: { community: { id: communityId }, user: { id: requesterId } },
+    });
+
+    const ok =
+      requester &&
+      (requester.role === ECommunityRole.ADMIN || requester.role === ECommunityRole.MODERATOR);
+
+    if (!ok) throw new ForbiddenException('Bạn không có quyền kick thành viên.');
+
     const member = await this.memberRepository.findOne({
       where: { id: memberId, community: { id: communityId } },
+      relations: ['user', 'community'],
     });
 
     if (!member) throw new NotFoundException('Member not found in this community');
 
+    // ✅ MOD không kick được ADMIN
+    if (requester.role === ECommunityRole.MODERATOR && member.role === ECommunityRole.ADMIN) {
+      throw new ForbiddenException('Moderator không thể kick Admin.');
+    }
+
+    // ✅ không kick admin cuối cùng
+    if (member.role === ECommunityRole.ADMIN) {
+      const adminCount = await this.memberRepository.count({
+        where: { community: { id: communityId }, role: ECommunityRole.ADMIN },
+      });
+      if (adminCount <= 1) throw new ForbiddenException('Không thể kick admin cuối cùng.');
+    }
+
+    // ✅ BAN user để không join lại
+    if (ban) {
+      const community = await this.communityRepository.findOne({
+        where: { id: communityId },
+        relations: ['bannedUsers'],
+      });
+      if (!community) throw new NotFoundException('Community not found');
+
+      const alreadyBanned = (community.bannedUsers ?? []).some((u) => u.id === member.user.id);
+      if (!alreadyBanned) {
+        community.bannedUsers = [...(community.bannedUsers ?? []), member.user];
+        await this.communityRepository.save(community);
+      }
+    }
+
     await this.memberRepository.remove(member);
-    return { deleted: true };
+    return { deleted: true, banned: ban };
   }
 
   // Functions to support another services

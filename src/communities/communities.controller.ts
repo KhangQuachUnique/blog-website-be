@@ -122,12 +122,16 @@ export class CommunitiesController {
     return this.communitiesService.updateMemberRole(id, memberId, dto);
   }
 
-  @Delete(':id/members/:memberId')
+  @Delete(':communityId/members/:memberId')
   @UseGuards(JwtAuthGuard)
   removeMember(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('memberId', ParseIntPipe) memberId: number,
+    @Param('communityId') communityId: string,
+    @Param('memberId') memberId: string,
+    @Req() req: Request,
+    @Query('ban') ban?: string,
   ) {
-    return this.communitiesService.removeMember(id, memberId);
+    const requesterId = (req.user as JwtUser).id;
+    const banFlag = ban === '0' ? false : true; // mặc định ban=true
+    return this.communitiesService.removeMember(+communityId, +memberId, requesterId, banFlag);
   }
 }
