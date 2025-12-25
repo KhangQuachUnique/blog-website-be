@@ -1,8 +1,9 @@
 import { Repository, In } from 'typeorm';
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { EBlogPostStatus } from './enums/blog-post-status.enum';
+import { EUserRole } from 'src/users/enums/role.enum';
 
 import { CreateBlogPostDto } from './dto/create-blog-post.dto';
 import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
@@ -257,6 +258,13 @@ export class BlogPostsService {
   // Helper: kiểm tra xem user có quyền quản lý bài viết (tác giả hoặc admin/mod của cộng đồng)
   private async userCanManagePost(post: BlogPost, userId: number): Promise<boolean> {
     if (!userId) return false;
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'type'],
+    });
+    
+    if (user && user.type === EUserRole.ADMIN) return true;
     if (post.author && post.author.id === userId) return true;
     if (post instanceof CommunityBlogPost && post.community) {
       const member = await this.memberRepository.findOne({
@@ -273,9 +281,6 @@ export class BlogPostsService {
 
   /**
    * === Nhóm: Đọc bài viết / Hiển thị (Read methods) ===
-   * - `findAll()` : Lấy tất cả bài viết (Get all posts)
-   * - `findAllPostsByUser(userId)` : Lấy tất cả bài viết của một user (Get posts by user)
-   * - `findOne(id, userId?)` : Lấy chi tiết một bài viết (Get single post detail)
    */
   async findAll() {
     const posts = await this.blogPostRepository.find({
@@ -502,40 +507,62 @@ export class BlogPostsService {
     };
   }
 
-  async hide(id: number) {
+async hide(id: number, userId: number) {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community', 'originalPost'],
     });
-    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
 
-    if (post.status != EBlogPostStatus.ACTIVE) {
-      return { message: `Không thể ẩn. Trạng thái hiện tại là '${post.status}', cần là 'ACTIVE'.` };
+    if (!post) {
+      throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
     }
+
+    const canManage = await this.userCanManagePost(post, userId);
+    if (!canManage) {
+      throw new ForbiddenException('Bạn không có quyền ẩn bài viết này.');
+    }
+
+    if (post.status !== EBlogPostStatus.ACTIVE) {
+      throw new BadRequestException(
+        `Không thể ẩn. Trạng thái hiện tại là '${post.status}', yêu cầu phải là 'ACTIVE'.`
+      );
+    }
+
     post.status = EBlogPostStatus.HIDDEN;
     const saved = await this.blogPostRepository.save(post);
+
     return {
-      message: 'Đã chuyển trạng thái bài viết sang HIDDEN.',
+      message: 'Đã ẩn bài viết thành công.',
       data: this.mapPostToDto(saved),
     };
   }
 
-  async restore(id: number) {
+  async restore(id: number, userId: number) {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community', 'originalPost'],
     });
-    if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
 
-    if (post.status != EBlogPostStatus.HIDDEN) {
-      return {
-        message: `Không thể khôi phục. Trạng thái hiện tại là '${post.status}', cần là 'HIDDEN'.`,
-      };
+    if (!post) {
+      throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
     }
+
+    const canManage = await this.userCanManagePost(post, userId);
+    if (!canManage) {
+      throw new ForbiddenException('Bạn không có quyền khôi phục bài viết này.');
+    }
+
+    if (post.status !== EBlogPostStatus.HIDDEN) {
+      throw new BadRequestException(
+        `Không thể khôi phục. Trạng thái hiện tại là '${post.status}', yêu cầu phải là 'HIDDEN'.`
+      );
+    }
+
     post.status = EBlogPostStatus.ACTIVE;
     const saved = await this.blogPostRepository.save(post);
+
     return {
-      message: 'Đã khôi phục trạng thái bài viết về ACTIVE.',
+      message: 'Đã khôi phục bài viết thành công.',
       data: this.mapPostToDto(saved),
     };
   }

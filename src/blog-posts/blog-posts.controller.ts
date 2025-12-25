@@ -177,16 +177,16 @@ export class BlogPostsController {
 
   @Patch(':id/restore')
   @UseGuards(JwtAuthGuard)
-  // Phải kèm userId để check Admin có quyền ẩn bài hay bỏ ẩn
-  restore(@Param('id') id: string) {
-    return this.blogPostsService.restore(+id);
+  restore(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.restore(+id, userId);
   }
 
   @Patch(':id/hide')
   @UseGuards(JwtAuthGuard)
-  // Phải kèm userId để check Admin có quyền ẩn bài hay bỏ ẩn
-  hide(@Param('id') id: string) {
-    return this.blogPostsService.hide(+id);
+  hide(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as JwtUser).id;
+    return this.blogPostsService.hide(+id, userId);
   }
 
   @Patch(':id/publish')

@@ -271,7 +271,7 @@ export class ReportsService {
   /**
    *  Xử lý báo cáo
    */
-  async resolveReport(id: number, type: EReportType, action: 'APPROVE' | 'REJECT'): Promise<ReportResponseDto> {
+  async resolveReport(id: number, type: EReportType, action: 'APPROVE' | 'REJECT', userId: number): Promise<ReportResponseDto> {
     const report = await this.reportRepository.findOne({
       where: { id },
       relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
@@ -290,7 +290,7 @@ export class ReportsService {
     if (action === 'APPROVE') {
       switch (type) {
         case EReportType.POST:
-          await this.handlePostResolution(report);
+          await this.handlePostResolution(report, userId);
           break;
 
         case EReportType.COMMENT:
@@ -313,10 +313,10 @@ export class ReportsService {
     return this.mapToResponseDto(savedReport);
   }
 
-  private async handlePostResolution(report: Report): Promise<void> {
+  private async handlePostResolution(report: Report, userId: number): Promise<void> {
     const postId = report.reportedPost.id;
 
-    await this.blogPostsService.hide(postId); 
+    await this.blogPostsService.hide(postId, userId); 
     
     console.log(`[Report] Đã ẩn bài viết ID ${postId} theo báo cáo ${report.id}`);
   }
