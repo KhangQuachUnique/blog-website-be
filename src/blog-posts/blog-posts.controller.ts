@@ -9,8 +9,10 @@ import {
   Query,
   Req,
   UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { BlogPostsService } from './blog-posts.service';
 import { ViewedHistoryService } from '../viewed-history/viewed-history.service';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
@@ -24,7 +26,6 @@ import { DetailCommunityPostResponseDto } from './dto/response/blog-post-respons
 import { BlogPostType } from './enums/blog-post-type.enum';
 import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { EBlogPostStatus } from './enums/blog-post-status.enum';
 
 @ApiTags('Blog Posts')
 @Controller('blog-posts')
@@ -95,13 +96,36 @@ export class BlogPostsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy tất cả bài viết (Admin)' })
   findAll() {
     return this.blogPostsService.findAll();
   }
 
+  @Get('visible')
+  @ApiOperation({ summary: 'Lấy danh sách bài viết hiển thị theo trang và trạng thái' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    example: 'ALL',
+    description: 'ALL | ACTIVE | HIDDEN',
+  })
+  findVisible(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+
+    @Query('status', new DefaultValuePipe('ALL')) status: string,
+  ) {
+    return this.blogPostsService.findVisiblePostsWithPagination(page, limit, status);
+  }
+
   // community
   @Get('community/:communityId')
-  async findByCommunity(@Param('communityId') communityId: string) {
+  async findByCommunity(@Param('communityId') communityId: string): Promise<PostResponseDto[]> {
     const results = await this.blogPostsService.findByCommunity(+communityId);
     return results;
   }
@@ -111,10 +135,9 @@ export class BlogPostsController {
   async findByCommunityManage(
     @Param('communityId') communityId: string,
     @Req() req: Request,
-    @Query('status') status?: EBlogPostStatus,
-  ) {
+  ): Promise<PostResponseDto[]> {
     const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.findByCommunityManage(+communityId, status, userId);
+    return this.blogPostsService.findByCommunityManage(+communityId, userId);
   }
 
   @Get(':id')
@@ -154,23 +177,22 @@ export class BlogPostsController {
 
   @Patch(':id/restore')
   @UseGuards(JwtAuthGuard)
-  restore(@Param('id') id: string, @Req() req: Request) {
-    const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.restore(+id, userId);
+  // Phải kèm userId để check Admin có quyền ẩn bài hay bỏ ẩn
+  restore(@Param('id') id: string) {
+    return this.blogPostsService.restore(+id);
   }
 
   @Patch(':id/hide')
   @UseGuards(JwtAuthGuard)
-  hide(@Param('id') id: string, @Req() req: Request) {
-    const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.hide(+id, userId);
+  // Phải kèm userId để check Admin có quyền ẩn bài hay bỏ ẩn
+  hide(@Param('id') id: string) {
+    return this.blogPostsService.hide(+id);
   }
 
   @Patch(':id/publish')
   @UseGuards(JwtAuthGuard)
-  publish(@Param('id') id: string, @Req() req: Request) {
-    const userId = (req.user as JwtUser).id;
-    return this.blogPostsService.publish(+id, userId);
+  publish(@Param('id') id: string) {
+    return this.blogPostsService.publish(+id);
   }
 
   @Patch(':id/toggle-privacy')

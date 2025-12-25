@@ -10,5 +10,6 @@ import { Block } from 'src/blocks/entities/block.entity';
   imports: [TypeOrmModule.forFeature([Comment, BlogPost, Block])],
   controllers: [CommentsController],
   providers: [CommentsService],
+  exports: [CommentsService],
 })
 export class CommentsModule {}
