@@ -7,7 +7,7 @@ import { UpdateCommunityDto } from './dto/update-community.dto';
 import { Community } from './entities/community.entity';
 import { CommunityMember } from './entities/community-member.entity';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { CommunityResponseDto } from './dto/response/my-community-response.dto';
+import { CommunityResponseDto } from './dto/response/community-response.dto';
 import { MemberResponseDto } from './dto/response/member-response.dto';
 import { plainToInstance } from 'class-transformer';
 import { UserResponseDto } from 'src/users/dto/response/user-response.dto';
@@ -108,7 +108,6 @@ export class CommunitiesService {
     if (!community) throw new NotFoundException('Community not found');
 
     const isBanned = !!userId && !!community.bannedUsers?.some((u) => u.id === userId);
-
 
     // ✅ chưa login => NONE
     if (!userId) {

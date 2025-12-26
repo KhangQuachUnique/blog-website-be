@@ -18,10 +18,18 @@ export class CommunityResponseDto {
   isPublic: boolean;
 
   // ✅ để optional vì list / detail thường không cần trả
-  @ApiProperty({ example: false, required: false, description: 'Bật duyệt bài viết trước khi hiển thị' })
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Bật duyệt bài viết trước khi hiển thị',
+  })
   requirePostApproval?: boolean;
 
-  @ApiProperty({ example: false, required: false, description: 'Bật duyệt thành viên trước khi tham gia' })
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Bật duyệt thành viên trước khi tham gia',
+  })
   requireMemberApproval?: boolean;
 
   @ApiProperty({

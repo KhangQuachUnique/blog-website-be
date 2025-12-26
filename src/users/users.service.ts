@@ -20,7 +20,7 @@ import { UserResponseDto } from './dto/response/user-response.dto';
 import { CommunitiesService } from 'src/communities/communities.service';
 import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
 import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
-import { CommunityResponseDto } from 'src/communities/dto/response/my-community-response.dto';
+import { CommunityResponseDto } from 'src/communities/dto/response/community-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -580,10 +580,10 @@ export class UsersService {
     }
 
     if (user.type === EUserRole.ADMIN) {
-        throw new ForbiddenException('Không thể ban tài khoản Admin');
+      throw new ForbiddenException('Không thể ban tài khoản Admin');
     }
 
-    user.isBanned = true; 
+    user.isBanned = true;
 
     await this.userRepository.save(user);
 
