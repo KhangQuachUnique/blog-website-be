@@ -10,20 +10,22 @@ export class SearchController {
   @Get()
   async search(@Query() searchDto: SearchDto): Promise<SearchResponseDto> {
     // Nếu có type, tìm kiếm theo type cụ thể
-    if (searchDto.type) {
-      switch (searchDto.type) {
-        case SearchType.POST:
-          return this.searchService.searchByPost(searchDto);
-        case SearchType.USER:
-          return this.searchService.searchByUser(searchDto);
-        case SearchType.COMMUNITY:
-          return this.searchService.searchByCommunity(searchDto);
-        case SearchType.HASHTAG:
-          return this.searchService.searchByHashtag(searchDto);
-      }
+    if (!searchDto.type) {
+      throw new Error('Search type is required');
     }
-    // Không có type, tìm kiếm tất cả
-    return this.searchService.search(searchDto);
+
+    switch (searchDto.type) {
+      case SearchType.POST:
+        return this.searchService.searchByPost(searchDto);
+      case SearchType.USER:
+        return this.searchService.searchByUser(searchDto);
+      case SearchType.COMMUNITY:
+        return this.searchService.searchByCommunity(searchDto);
+      case SearchType.HASHTAG:
+        return this.searchService.searchByHashtag(searchDto);
+      default:
+        throw new Error('Invalid search type');
+    }
   }
 
   // Các endpoint riêng vẫn giữ để backward compatible
