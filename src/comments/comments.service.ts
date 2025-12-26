@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Repository, DataSource } from 'typeorm';
 import { Comment } from './entities/comment.entity';
 import { ECommentType } from './enums/comment-type.enum';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Block } from 'src/blocks/entities/block.entity';
 import { plainToInstance } from 'class-transformer';
 import { CommentResponseDto } from './dto/response/comment-response.dto';
+import { Notification } from 'src/notifications/entities/notification.entity';
 
 @Injectable()
 export class CommentsService {
@@ -20,6 +21,11 @@ export class CommentsService {
 
     @InjectRepository(Block)
     private blockRepository: Repository<Block>,
+
+    @InjectRepository(Notification)
+    private notificationRepository: Repository<Notification>,
+
+    private dataSource: DataSource,
   ) {}
 
   // ========== BASIC CRUD ==========
@@ -133,13 +139,44 @@ export class CommentsService {
   }
 
   async remove(id: number) {
-    // Logic xóa Cascade đã được xử lý ở Entity (onDelete: 'CASCADE')
-    // Nhưng kiểm tra tồn tại trước khi xóa là tốt
-    const result = await this.commentRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Comment #${id} not found`);
-    }
-    return { message: `Comment #${id} deleted` };
+    return await this.dataSource.transaction(async (manager) => {
+      // 1. Kiểm tra comment tồn tại
+      const comment = await manager.findOne(Comment, {
+        where: { id },
+        relations: ['childComments'],
+      });
+
+      if (!comment) {
+        throw new NotFoundException(`Comment #${id} not found`);
+      }
+
+      // 2. Dọn dẹp orphan notifications
+      const commentIds = [id, ...comment.childComments.map((c) => c.id)];
+      
+      const notificationsToDelete = await manager
+        .getRepository(Notification)
+        .createQueryBuilder('notification')
+        .where(
+          // 👇 SỬA Ở ĐÂY: Thêm ngoặc đơn (...) và dùng tham số :...ids
+          "(notification.params->>'commentId')::integer IN (:...ids)",
+          { ids: commentIds }
+        )
+        .getMany();
+
+      if (notificationsToDelete.length > 0) {
+        await manager.remove(Notification, notificationsToDelete);
+      }
+
+      // 3. Xóa comment (cascade sẽ xóa child comments + user_reacts)
+      const result = await manager.delete(Comment, id);
+
+      return {
+        message: `Comment #${id} and its dependencies deleted successfully`,
+        deletedCommentCount: 1,
+        deletedRepliesCount: comment.childComments.length,
+        deletedNotificationsCount: notificationsToDelete.length,
+      };
+    });
   }
 
   // ========== POST/BLOCK COMMENTS ==========
