@@ -382,16 +382,24 @@ export class BlogPostsService {
     if (!post) throw new NotFoundException(`Không tìm thấy bài viết với ID: ${id}`);
 
     const reacts = await this.userReactQueryService.getUserReactForPost(id, userId);
+    const votes = await this.userVotesService.getPostVotes(id, userId);
+
     post['reacts'] = reacts;
 
-    if (post instanceof PersonalBlogPost)
-      return plainToInstance(DetailPersonalPostResponseDto, post, {
+    if (post instanceof PersonalBlogPost) {
+      const result = plainToInstance(DetailPersonalPostResponseDto, post, {
         excludeExtraneousValues: true,
       });
-    if (post instanceof CommunityBlogPost)
-      return plainToInstance(DetailCommunityPostResponseDto, post, {
+      result['votes'] = votes || { upvotes: 0, downvotes: 0, userVote: null };
+      return result;
+    }
+    if (post instanceof CommunityBlogPost) {
+      const result = plainToInstance(DetailCommunityPostResponseDto, post, {
         excludeExtraneousValues: true,
       });
+      result['votes'] = votes || { upvotes: 0, downvotes: 0, userVote: null };
+      return result;
+    }
 
     throw new NotFoundException(`Bài viết với ID: ${id} không thuộc loại cá nhân hoặc cộng đồng.`);
   }
