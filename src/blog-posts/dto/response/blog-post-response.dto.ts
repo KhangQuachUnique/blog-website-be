@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, Type, Transform } from 'class-transformer';
-import { BlockResponseDto } from 'src/blocks/dto/response/block-response.dto';
+import { BlockResponseDto } from '../../../blocks/dto/response/block-response.dto';
 import { EBlogPostStatus } from 'src/blog-posts/enums/blog-post-status.enum';
 import { BlogPostType } from 'src/blog-posts/enums/blog-post-type.enum';
 import { HashtagResponseDto } from 'src/hashtags/dto/response/hashtag-response.dto';

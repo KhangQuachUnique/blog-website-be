@@ -5,6 +5,8 @@ import { UserReact } from '../entities/user-react.entity';
 import { ToggleReactDto } from '../dto/toggle-react.dto';
 import { Emoji } from '../../emojis/entities/emoji.entity';
 import { EEmojiType } from '../../emojis/enums/emoji.enum';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 
 /**
  * 🎯 UserReactCommandService - Handle write operations
@@ -22,10 +24,16 @@ import { EEmojiType } from '../../emojis/enums/emoji.enum';
 @Injectable()
 export class UserReactCommandService {
   constructor(
+    private readonly notificationService: NotificationsService,
+
     @InjectRepository(UserReact)
     private readonly userReactRepo: Repository<UserReact>,
+
     @InjectRepository(Emoji)
     private readonly emojiRepo: Repository<Emoji>,
+
+    @InjectRepository(BlogPost)
+    private readonly blogPostRepo: Repository<BlogPost>,
   ) {}
 
   /**
@@ -88,6 +96,16 @@ export class UserReactCommandService {
       },
     });
 
+    const receiver = await this.blogPostRepo.findOne({
+      where: { id: dto.postId },
+      relations: ['author'],
+      select: {
+        author: {
+          id: true,
+        },
+      },
+    });
+
     if (existing) {
       // React đã tồn tại → Xóa (toggle off)
       await this.userReactRepo.delete(existing.id);
@@ -103,6 +121,17 @@ export class UserReactCommandService {
         post: { id: dto.postId },
         comment: null,
       });
+
+      if (!receiver) {
+        throw new BadRequestException('Post not found');
+      }
+      // Gửi thông báo khi có react mới
+      await this.notificationService.sendUserReactedPostNotification(
+        receiver.author.id,
+        dto.userId,
+        dto.postId,
+        String(emojiId),
+      );
     } catch (error: unknown) {
       if (error instanceof QueryFailedError && error.name === '23505') {
         // Unique constraint violation → ignore
