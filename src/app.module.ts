@@ -27,7 +27,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
+      url: process.env.DATABASE_URL,
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       // synchronize: true,
