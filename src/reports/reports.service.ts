@@ -271,7 +271,7 @@ export class ReportsService {
   /**
    *  Xử lý báo cáo
    */
-  async resolveReport(id: number, type: EReportType, action: 'APPROVE' | 'REJECT'): Promise<ReportResponseDto> {
+  async resolveReport(id: number, type: EReportType, action: 'APPROVE' | 'REJECT', userId: number): Promise<ReportResponseDto> {
     const report = await this.reportRepository.findOne({
       where: { id },
       relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
@@ -290,11 +290,12 @@ export class ReportsService {
     if (action === 'APPROVE') {
       switch (type) {
         case EReportType.POST:
-          await this.handlePostResolution(report);
+          await this.handlePostResolution(report, userId);
           break;
 
         case EReportType.COMMENT:
           await this.handleCommentResolution(report);
+          report.reportedComment = null;
           break;
 
         case EReportType.USER:
@@ -313,28 +314,31 @@ export class ReportsService {
     return this.mapToResponseDto(savedReport);
   }
 
-  private async handlePostResolution(report: Report): Promise<void> {
+  /**
+   * Xử lý Report Bài viết: Chuyển trạng thái bài viết sang HIDDEN
+   */
+  private async handlePostResolution(report: Report, userId: number): Promise<void> {
+    if (!report.reportedPost) return;
     const postId = report.reportedPost.id;
-
-    await this.blogPostsService.hide(postId); 
-    
-    console.log(`[Report] Đã ẩn bài viết ID ${postId} theo báo cáo ${report.id}`);
+    await this.blogPostsService.hide(postId, userId); 
   }
 
+  /**
+   * Xử lý Report Người dùng: Thực hiện BAN tài khoản người dùng
+   */
   private async handleUserResolution(report: Report): Promise<void> {
+    if (!report.reportedUser) return;
     const userId = report.reportedUser.id;
-
     await this.usersService.banUser(userId, report.reason);
-    
-    console.log(`[Report] Đã xử lý báo cáo người dùng ID ${userId}`);
   }
 
+  /**
+   * Xử lý Report Bình luận: Xóa vĩnh viễn bình luận khỏi hệ thống
+   */
   private async handleCommentResolution(report: Report): Promise<void> {
-    const commentId = report.reportedComment.id;  
-
-    await this.commentsService.remove(commentId);
-    
-    console.log(`[Report] Đã xử lý báo cáo bình luận ID ${commentId}`);
+    if (!report.reportedComment) return;
+    const commentId = report.reportedComment.id;  
+    await this.commentsService.remove(commentId);
   }
 
   /**

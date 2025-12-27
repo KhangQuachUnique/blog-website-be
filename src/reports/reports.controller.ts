@@ -167,11 +167,13 @@ export class ReportsController {
   async resolve(
     @Param('id', ParseIntPipe) id: number,
     @Body() resolveDto: ResolveReportDto,
+    @Req() req: any,
   ): Promise<ReportResponseDto> {
     return this.reportsService.resolveReport(
       id,
       resolveDto.type,
       resolveDto.action,
+      req.user.id,
     );
   }
 
