@@ -39,7 +39,7 @@ export class CommentsService {
   }): Promise<CommentResponseDto> {
     // 1. Destructure thêm parentCommentId và replyToUserId
     const { content, type, postId, blockId, parentCommentId, replyToUserId } = createCommentDto;
-
+    console.log('Creating comment: ', replyToUserId);
     // 2. Validate dữ liệu đầu vào
     if (type === ECommentType.POST && !postId) {
       throw new BadRequestException('Thiếu postId');
@@ -107,21 +107,42 @@ export class CommentsService {
     });
 
     return this.commentRepository.save(comment).then(async (savedComment) => {
-      if (type === ECommentType.POST && post && post.author.id !== userId) {
-        await this.notificationsService.sendUserCommentedPostNotification(
-          post.author.id,
-          userId,
-          Number(post.id),
-          savedComment.id,
-        );
-      } else if (type === ECommentType.BLOCK && block && block.post.author.id !== userId) {
+      if (type === ECommentType.POST && post) {
+        if (post.author.id !== userId)
+          await this.notificationsService.sendUserCommentedPostNotification(
+            post.author.id,
+            userId,
+            Number(post.id),
+            savedComment.id,
+          );
+        console.log('Sent notification to post author:', post.author.id);
+        if (replyToUserId) {
+          // Gửi notification cho người được reply (nếu có)
+          console.log('Reply to user:', replyToUserId);
+          await this.notificationsService.sendUserRepliedCommentNotification(
+            replyToUserId,
+            userId,
+            savedComment.id,
+          );
+        }
+      } else if (type === ECommentType.BLOCK && block) {
         // Gửi notification nếu là comment trên block và không phải tự comment vào post của mình
-        await this.notificationsService.sendUserCommentedPostNotification(
-          block.post.author.id,
-          userId,
-          Number(block.post.id),
-          savedComment.id,
-        );
+        if (block.post.author.id !== userId)
+          await this.notificationsService.sendUserCommentedPostNotification(
+            block.post.author.id,
+            userId,
+            Number(block.post.id),
+            savedComment.id,
+          );
+        if (replyToUserId) {
+          // Gửi notification cho người được reply (nếu có)
+          console.log('Reply to user:', replyToUserId);
+          await this.notificationsService.sendUserRepliedCommentNotification(
+            replyToUserId,
+            userId,
+            savedComment.id,
+          );
+        }
       } else {
         // Không gửi notification nếu không thỏa điều kiện
       }

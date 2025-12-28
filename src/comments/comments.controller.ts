@@ -30,6 +30,7 @@ export class CommentsController {
     @Req() req: Request,
   ): Promise<CommentResponseDto> {
     const user = req.user as JwtUser;
+    console.log(createCommentDto, 'from user', user.id);
     return this.commentsService.create({ userId: user.id, createCommentDto });
   }
 
