@@ -53,7 +53,6 @@ export class NotificationsService {
       relations: ['sender', 'receiver', 'template'],
       order: { createdAt: 'DESC' },
     });
-    console.log('Fetched notifications:', notis);
 
     return plainToInstance(NotificationResponseDto, notis, { excludeExtraneousValues: true });
   }

@@ -124,7 +124,7 @@ export class SearchService {
    * 2. TÌM RIÊNG BÀI VIẾT (Tab "Bài viết")
    * Logic: Phân trang đầy đủ
    */
-  async searchByPost(searchDto: SearchDto): Promise<SearchResponseDto> {
+  async searchByPost(searchDto: SearchDto, viewerId?: number): Promise<SearchResponseDto> {
     const { q, limit = 15, after } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
     const cursor = this.parseCursor(after);
@@ -164,9 +164,11 @@ export class SearchService {
 
     const reactsMap = await this.userReactsQueryService.getUserReactForPosts(
       paginatedPosts.map((post) => post.id),
+      viewerId,
     );
     const votesMap = await this.userVotesService.getPostsVotes(
       paginatedPosts.map((post) => post.id),
+      viewerId,
     );
 
     return {
@@ -261,7 +263,7 @@ export class SearchService {
    * 5. TÌM RIÊNG HASHTAG
    * Logic: Tìm bài viết chứa hashtag đó -> Phân trang bài viết
    */
-  async searchByHashtag(searchDto: SearchDto): Promise<SearchResponseDto> {
+  async searchByHashtag(searchDto: SearchDto, viewerId?: number): Promise<SearchResponseDto> {
     const { q, limit = 15, after } = searchDto;
     const keyword = `%${q.toLowerCase()}%`;
     const cursor = this.parseCursor(after);
@@ -292,8 +294,22 @@ export class SearchService {
       nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
     };
 
+    const reactsMap = await this.userReactsQueryService.getUserReactForPosts(
+      paginatedPosts.map((post) => post.id),
+      viewerId,
+    );
+    const votesMap = await this.userVotesService.getPostsVotes(
+      paginatedPosts.map((post) => post.id),
+      viewerId,
+    );
+
     return {
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
+      posts: paginatedPosts.map((post) => {
+        const result = plainToInstance(PostResponseDto, post);
+        result['reacts'] = reactsMap.get(post.id);
+        result['votes'] = votesMap.get(post.id);
+        return result;
+      }),
       pagination,
     };
   }
