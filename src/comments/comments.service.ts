@@ -10,11 +10,14 @@ import { plainToInstance } from 'class-transformer';
 import { CommentResponseDto } from './dto/response/comment-response.dto';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsService } from '@modules/notifications/notifications.service';
+import { UserReactQueryService } from '@modules/user-reacts/services/user-react-query.service';
 
 @Injectable()
 export class CommentsService {
   constructor(
     private readonly notificationsService: NotificationsService,
+
+    private readonly userReactsService: UserReactQueryService,
 
     @InjectRepository(Comment)
     private commentRepository: Repository<Comment>,
@@ -221,7 +224,7 @@ export class CommentsService {
       }
 
       // 3. Xóa comment (cascade sẽ xóa child comments + user_reacts)
-      const result = await manager.delete(Comment, id);
+      await manager.delete(Comment, id);
 
       return {
         message: `Comment #${id} and its dependencies deleted successfully`,
@@ -234,7 +237,11 @@ export class CommentsService {
 
   // ========== POST/BLOCK COMMENTS ==========
 
-  async findByPost(postId: number, sortBy: string = 'newest'): Promise<CommentResponseDto[]> {
+  async findByPost(
+    postId: number,
+    sortBy: string = 'newest',
+    currentUserId?: number,
+  ): Promise<CommentResponseDto[]> {
     // QueryBuilder để xử lý sort phức tạp hơn nếu cần (ví dụ sort theo tương tác)
     const query = this.commentRepository
       .createQueryBuilder('comment')
@@ -259,21 +266,34 @@ export class CommentsService {
 
     const comments = await query.getMany();
 
+    const reactsMap = await this.userReactsService.getUserReactForComments(
+      comments.map((c) => c.id),
+      currentUserId,
+    );
+
     // Nếu muốn sort 'interactions' chuẩn xác mà không có cột count, phải sort bằng JS sau khi fetch
     if (sortBy === 'interactions') {
       return comments
         .sort((a, b) => b.childComments.length - a.childComments.length)
-        .map((comment) =>
-          plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true }),
-        );
+        .map((comment) => {
+          const result = plainToInstance(CommentResponseDto, comment, {
+            excludeExtraneousValues: true,
+          });
+          result['reacts'] = reactsMap.get(comment.id);
+          return result;
+        });
     }
 
-    return comments.map((comment) =>
-      plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true }),
-    );
+    return comments.map((comment) => {
+      const result = plainToInstance(CommentResponseDto, comment, {
+        excludeExtraneousValues: true,
+      });
+      result['reacts'] = reactsMap.get(comment.id);
+      return result;
+    });
   }
 
-  async findByBlock(blockId: number): Promise<CommentResponseDto[]> {
+  async findByBlock(blockId: number, currentUserId?: number): Promise<CommentResponseDto[]> {
     const comments = await this.commentRepository.find({
       where: { block: { id: blockId }, type: ECommentType.BLOCK, parentComment: IsNull() },
       relations: [
@@ -284,9 +304,19 @@ export class CommentsService {
       ],
       order: { createAt: 'DESC', childComments: { createAt: 'ASC' } },
     });
-    return comments.map((comment) =>
-      plainToInstance(CommentResponseDto, comment, { excludeExtraneousValues: true }),
+
+    const reactsMap = await this.userReactsService.getUserReactForComments(
+      comments.map((c) => c.id),
+      currentUserId,
     );
+
+    return comments.map((comment) => {
+      const result = plainToInstance(CommentResponseDto, comment, {
+        excludeExtraneousValues: true,
+      });
+      result['reacts'] = reactsMap.get(comment.id);
+      return result;
+    });
   }
 
   async countByPost(postId: number) {

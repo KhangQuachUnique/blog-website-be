@@ -7,6 +7,7 @@ import { UserReactQueryService } from './services/user-react-query.service';
 import { UserReactsController } from './user-reacts.controller';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { Comment } from '@modules/comments/entities/comment.entity';
 
 /**
  * UserReactsModule - Clean Architecture
@@ -29,7 +30,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
  * - Information Expert: user-react module biết về reactions
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([UserReact, Emoji, BlogPost]), NotificationsModule],
+  imports: [TypeOrmModule.forFeature([UserReact, Emoji, BlogPost, Comment]), NotificationsModule],
   controllers: [UserReactsController],
   providers: [UserReactCommandService, UserReactQueryService],
   exports: [UserReactQueryService],

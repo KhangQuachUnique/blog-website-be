@@ -7,10 +7,12 @@ import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { Block } from 'src/blocks/entities/block.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
+import { UserReactsModule } from '@modules/user-reacts/user-reacts.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Comment, BlogPost, Block, Notification]),
+    UserReactsModule,
     NotificationsModule,
   ],
   controllers: [CommentsController],

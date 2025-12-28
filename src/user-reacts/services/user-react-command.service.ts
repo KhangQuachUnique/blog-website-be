@@ -7,6 +7,7 @@ import { Emoji } from '../../emojis/entities/emoji.entity';
 import { EEmojiType } from '../../emojis/enums/emoji.enum';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
+import { Comment } from '@modules/comments/entities/comment.entity';
 
 /**
  * 🎯 UserReactCommandService - Handle write operations
@@ -34,6 +35,9 @@ export class UserReactCommandService {
 
     @InjectRepository(BlogPost)
     private readonly blogPostRepo: Repository<BlogPost>,
+
+    @InjectRepository(Comment)
+    private readonly commentRepo: Repository<Comment>,
   ) {}
 
   /**
@@ -167,6 +171,16 @@ export class UserReactCommandService {
       return;
     }
 
+    const comment = await this.commentRepo.findOne({
+      where: { id: dto.commentId },
+      relations: ['commenter'],
+      select: {
+        commenter: {
+          id: true,
+        },
+      },
+    });
+
     try {
       await this.userReactRepo.insert({
         user: { id: dto.userId },
@@ -174,6 +188,19 @@ export class UserReactCommandService {
         post: null,
         comment: { id: dto.commentId },
       });
+
+      if (!comment) {
+        throw new BadRequestException('Comment not found');
+      }
+
+      // Gửi thông báo khi có react mới
+      if (comment.commenter.id !== dto.userId)
+        await this.notificationService.sendUserReactedPostNotification(
+          comment.commenter.id,
+          dto.userId,
+          dto.commentId,
+          String(emojiId),
+        );
     } catch (error: unknown) {
       if (error instanceof QueryFailedError && error.name === '23505') {
         return;
