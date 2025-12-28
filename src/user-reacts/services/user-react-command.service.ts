@@ -96,7 +96,7 @@ export class UserReactCommandService {
       },
     });
 
-    const receiver = await this.blogPostRepo.findOne({
+    const post = await this.blogPostRepo.findOne({
       where: { id: dto.postId },
       relations: ['author'],
       select: {
@@ -122,12 +122,13 @@ export class UserReactCommandService {
         comment: null,
       });
 
-      if (!receiver) {
+      if (!post) {
         throw new BadRequestException('Post not found');
       }
+
       // Gửi thông báo khi có react mới
       await this.notificationService.sendUserReactedPostNotification(
-        receiver.author.id,
+        post.author.id,
         dto.userId,
         dto.postId,
         String(emojiId),
