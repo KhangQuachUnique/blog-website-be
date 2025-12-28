@@ -127,12 +127,13 @@ export class UserReactCommandService {
       }
 
       // Gửi thông báo khi có react mới
-      await this.notificationService.sendUserReactedPostNotification(
-        post.author.id,
-        dto.userId,
-        dto.postId,
-        String(emojiId),
-      );
+      if (post.author.id !== dto.userId)
+        await this.notificationService.sendUserReactedPostNotification(
+          post.author.id,
+          dto.userId,
+          dto.postId,
+          String(emojiId),
+        );
     } catch (error: unknown) {
       if (error instanceof QueryFailedError && error.name === '23505') {
         // Unique constraint violation → ignore

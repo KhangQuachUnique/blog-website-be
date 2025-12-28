@@ -9,10 +9,13 @@ import { Block } from 'src/blocks/entities/block.entity';
 import { plainToInstance } from 'class-transformer';
 import { CommentResponseDto } from './dto/response/comment-response.dto';
 import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationsService } from '@modules/notifications/notifications.service';
 
 @Injectable()
 export class CommentsService {
   constructor(
+    private readonly notificationsService: NotificationsService,
+
     @InjectRepository(Comment)
     private commentRepository: Repository<Comment>,
 
@@ -21,9 +24,6 @@ export class CommentsService {
 
     @InjectRepository(Block)
     private blockRepository: Repository<Block>,
-
-    @InjectRepository(Notification)
-    private notificationRepository: Repository<Notification>,
 
     private dataSource: DataSource,
   ) {}
@@ -60,23 +60,38 @@ export class CommentsService {
       }
     }
 
-    // Kiểm tra tồn tại post/block nếu có
-    if (type === ECommentType.POST) {
-      const postExists = await this.blogPostRepository.exists({
+    let post: BlogPost | null = null;
+    let block: Block | null = null;
+
+    if (postId && type === ECommentType.POST) {
+      post = await this.blogPostRepository.findOne({
         where: { id: postId },
+        relations: ['author'],
+        select: {
+          author: { id: true },
+        },
       });
 
-      if (!postExists) {
+      if (!post) {
         throw new NotFoundException('Post không tồn tại');
       }
     }
 
-    if (type === ECommentType.BLOCK) {
-      const blockExists = await this.blockRepository.exists({
+    if (blockId && type === ECommentType.BLOCK) {
+      block = await this.blockRepository.findOne({
         where: { id: blockId },
+        relations: ['post', 'post.author'],
+        select: {
+          id: true,
+          post: {
+            id: true,
+            author: {
+              id: true,
+            },
+          },
+        },
       });
-
-      if (!blockExists) {
+      if (!block) {
         throw new NotFoundException('Block không tồn tại');
       }
     }
@@ -91,11 +106,28 @@ export class CommentsService {
       replyToUser: replyToUserId ? { id: replyToUserId } : undefined,
     });
 
-    return this.commentRepository
-      .save(comment)
-      .then((savedComment) =>
-        plainToInstance(CommentResponseDto, savedComment, { excludeExtraneousValues: true }),
-      );
+    return this.commentRepository.save(comment).then(async (savedComment) => {
+      if (type === ECommentType.POST && post && post.author.id !== userId) {
+        await this.notificationsService.sendUserCommentedPostNotification(
+          post.author.id,
+          userId,
+          Number(post.id),
+          savedComment.id,
+        );
+      } else if (type === ECommentType.BLOCK && block && block.post.author.id !== userId) {
+        // Gửi notification nếu là comment trên block và không phải tự comment vào post của mình
+        await this.notificationsService.sendUserCommentedPostNotification(
+          block.post.author.id,
+          userId,
+          Number(block.post.id),
+          savedComment.id,
+        );
+      } else {
+        // Không gửi notification nếu không thỏa điều kiện
+      }
+
+      return plainToInstance(CommentResponseDto, savedComment, { excludeExtraneousValues: true });
+    });
   }
 
   async findAll(): Promise<CommentResponseDto[]> {
@@ -152,14 +184,14 @@ export class CommentsService {
 
       // 2. Dọn dẹp orphan notifications
       const commentIds = [id, ...comment.childComments.map((c) => c.id)];
-      
+
       const notificationsToDelete = await manager
         .getRepository(Notification)
         .createQueryBuilder('notification')
         .where(
           // 👇 SỬA Ở ĐÂY: Thêm ngoặc đơn (...) và dùng tham số :...ids
           "(notification.params->>'commentId')::integer IN (:...ids)",
-          { ids: commentIds }
+          { ids: commentIds },
         )
         .getMany();
 
