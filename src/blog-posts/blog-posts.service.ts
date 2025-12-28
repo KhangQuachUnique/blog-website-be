@@ -1,5 +1,10 @@
 import { Repository, In } from 'typeorm';
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { EBlogPostStatus } from './enums/blog-post-status.enum';
@@ -263,7 +268,7 @@ export class BlogPostsService {
       where: { id: userId },
       select: ['id', 'type'],
     });
-    
+
     if (user && user.type === EUserRole.ADMIN) return true;
     if (post.author && post.author.id === userId) return true;
     if (post instanceof CommunityBlogPost && post.community) {
@@ -299,6 +304,7 @@ export class BlogPostsService {
     page: number = 1,
     limit: number = 10,
     statusFilter: string = 'ALL',
+    viewerId?: number,
   ) {
     const skip = (page - 1) * limit;
 
@@ -322,7 +328,10 @@ export class BlogPostsService {
     ]);
 
     // Lấy reacts cho tất cả posts
-    const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(
+      posts.map((p) => p.id),
+      viewerId,
+    );
 
     for (const post of posts) {
       post['reacts'] = reactsMap.get(post.id);
@@ -347,7 +356,7 @@ export class BlogPostsService {
     };
   }
 
-  async findAllPostsByUser(userId: number): Promise<PostResponseDto[]> {
+  async findAllPostsByUser(userId: number, viewerId?: number): Promise<PostResponseDto[]> {
     const posts = await this.blogPostRepository.find({
       where: { author: { id: userId } },
       relations: ['author', 'community', 'hashtags', 'originalPost'],
@@ -355,10 +364,13 @@ export class BlogPostsService {
 
     if (!posts.length) return [];
 
-    const reactsMap = await this.userReactQueryService.getUserReactForPosts(posts.map((p) => p.id));
+    const reactsMap = await this.userReactQueryService.getUserReactForPosts(
+      posts.map((p) => p.id),
+      viewerId,
+    );
     const votesMap = await this.userVotesService.getPostsVotes(
       posts.map((p) => p.id),
-      userId,
+      viewerId,
     );
 
     for (const post of posts) post['reacts'] = reactsMap.get(post.id);
@@ -517,7 +529,7 @@ export class BlogPostsService {
     };
   }
 
-async hide(id: number, userId: number) {
+  async hide(id: number, userId: number) {
     const post = await this.blogPostRepository.findOne({
       where: { id },
       relations: ['author', 'community', 'originalPost'],
@@ -534,7 +546,7 @@ async hide(id: number, userId: number) {
 
     if (post.status !== EBlogPostStatus.ACTIVE) {
       throw new BadRequestException(
-        `Không thể ẩn. Trạng thái hiện tại là '${post.status}', yêu cầu phải là 'ACTIVE'.`
+        `Không thể ẩn. Trạng thái hiện tại là '${post.status}', yêu cầu phải là 'ACTIVE'.`,
       );
     }
 
@@ -564,7 +576,7 @@ async hide(id: number, userId: number) {
 
     if (post.status !== EBlogPostStatus.HIDDEN) {
       throw new BadRequestException(
-        `Không thể khôi phục. Trạng thái hiện tại là '${post.status}', yêu cầu phải là 'HIDDEN'.`
+        `Không thể khôi phục. Trạng thái hiện tại là '${post.status}', yêu cầu phải là 'HIDDEN'.`,
       );
     }
 

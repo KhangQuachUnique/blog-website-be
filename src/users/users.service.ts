@@ -122,7 +122,7 @@ export class UsersService {
 
     // Nếu profile private và viewer không phải chính chủ thì không trả posts/communities
     if (!isPrivateAndNotOwner) {
-      posts = await this.blogPostsService.findAllPostsByUser(userId);
+      posts = await this.blogPostsService.findAllPostsByUser(userId, viewerId);
       communities = await this.communitiesService.getUserCommunities(userId);
     }
 

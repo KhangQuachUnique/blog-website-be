@@ -130,6 +130,9 @@ export class UserVotesService {
 
   /**
    * Lấy votes cho NHIỀU bài viết
+   * @param postIds - Mảng các post IDs
+   * @param userId - ID của user hiện tại (nếu có)
+   * @returns Map<postId, VoteResponseDto>
    */
   async getPostsVotes(postIds: number[], userId?: number): Promise<Map<number, VoteResponseDto>> {
     // GUARD case: Nếu không có postIds thì trả về Map rỗng ngay
