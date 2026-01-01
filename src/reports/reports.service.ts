@@ -4,6 +4,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { GetGroupedReportsDto } from './dto/get-grouped-reports.dto';
 import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
 import { UsersService } from 'src/users/users.service';
 import { CommentsService } from 'src/comments/comments.service';
@@ -213,6 +214,151 @@ export class ReportsService {
     });
 
     return reports.map((report) => this.mapToResponseDto(report));
+  }
+
+  async findGrouped(dto: GetGroupedReportsDto) {
+    // 1. Khởi tạo & Destructuring
+    const { status, type, page = 1, limit = 10 } = dto;
+    const skip = (page - 1) * limit;
+
+    // 2. Mapping: Xác định tên cột trong DB (để Group) và tên Relation trong Entity (để Find)
+    let targetColumn = ''; // Tên cột Database (vd: reportedPostId)
+    let relation = '';     // Tên Relation Entity (vd: reportedPost)
+
+    switch (type) {
+      case EReportType.POST:
+        targetColumn = 'reportedPostId';
+        relation = 'reportedPost';
+        break;
+      case EReportType.COMMENT:
+        targetColumn = 'reportedCommentId';
+        relation = 'reportedComment';
+        break;
+      case EReportType.USER:
+        targetColumn = 'reportedUserId';
+        relation = 'reportedUser';
+        break;
+      default:
+        // Mặc định fallback về POST nếu không truyền type (hoặc xử lý logic khác tùy bạn)
+        targetColumn = 'reportedPostId';
+        relation = 'reportedPost';
+    }
+
+    // --- BƯỚC 1: TÌM CÁC NHÓM (GROUP BY & PAGINATION) ---
+    const queryBuilder = this.reportRepository.createQueryBuilder('report');
+
+    queryBuilder
+      .select(`report.${targetColumn}`, 'targetId')   // Select ID của đối tượng (vd: Bài viết ID 10)
+      .addSelect('COUNT(report.id)', 'totalReports')  // Đếm số lượng report của bài đó
+      .addSelect('MAX(report.createdAt)', 'latestAt') // Lấy thời gian report mới nhất
+      .where(`report.${targetColumn} IS NOT NULL`);   // Chỉ lấy bản ghi có target
+    
+    // Áp dụng bộ lọc Status (PENDING/RESOLVED)
+    if (status) {
+      queryBuilder.andWhere('report.status = :status', { status });
+    }
+    
+    // Áp dụng bộ lọc Type (POST/COMMENT/USER)
+    if (type) {
+      queryBuilder.andWhere('report.type = :type', { type });
+    }
+
+    // Thực hiện Group và Phân trang trên nhóm
+    queryBuilder
+      .groupBy(`report.${targetColumn}`)
+      .orderBy('"totalReports"', 'DESC') // Ưu tiên đối tượng bị report nhiều nhất lên đầu
+      .addOrderBy('"latestAt"', 'DESC')  // Sau đó ưu tiên cái mới nhất
+      .offset(skip)
+      .limit(limit);
+
+    // Lấy dữ liệu thô (Raw Data): [{ targetId: 1, totalReports: '5', latestAt: ... }]
+    const rawGroups = await queryBuilder.getRawMany();
+
+    // --- BƯỚC 2: ĐẾM TỔNG SỐ NHÓM (TOTAL COUNT) ---
+    // Cần query riêng để tính Total Pages chính xác
+    const countQuery = this.reportRepository.createQueryBuilder('report')
+       .select(`report.${targetColumn}`)
+       .where(`report.${targetColumn} IS NOT NULL`);
+       
+    if (status) countQuery.andWhere('report.status = :status', { status });
+    if (type) countQuery.andWhere('report.type = :type', { type });
+    
+    // Đếm số lượng nhóm unique
+    const distinctGroups = await countQuery
+        .groupBy(`report.${targetColumn}`)
+        .getRawMany();
+    
+    const totalItems = distinctGroups.length;
+
+    // --- BƯỚC 3: LẤY CHI TIẾT (HYDRATION) ---
+    if (rawGroups.length === 0) {
+      return {
+        data: [],
+        meta: { totalItems: 0, totalPages: 0, currentPage: page, itemsPerPage: limit },
+      };
+    }
+
+    // Duyệt qua từng nhóm để lấy danh sách report chi tiết
+    const result = await Promise.all(
+      rawGroups.map(async (group) => {
+        const targetId = group.targetId;
+        
+        // Tìm tất cả report con thuộc về targetId này
+        const reportsList = await this.reportRepository.find({
+          where: {
+            // 🔥 QUAN TRỌNG: Query theo Relation Object để tránh lỗi "Property not found"
+            // Ví dụ: reportedPost: { id: 1 }
+            [relation]: { id: targetId }, 
+            
+            // Vẫn giữ filter status để đồng bộ
+            ...(status ? { status } : {}),
+          },
+          relations: ['reporter', relation], // Load thông tin chi tiết
+          order: { createdAt: 'DESC' },
+        });
+
+        // Lấy report đại diện (cái mới nhất) để hiển thị thông tin chung cho nhóm
+        const representative = reportsList[0];
+
+        if (!representative) return null;
+
+        // Trả về dữ liệu đã được cấu trúc lại
+        return {
+          // Các trường cơ bản (tái sử dụng DTO cũ)
+          id: representative.id, 
+          reason: representative.reason, 
+          type: representative.type,
+          status: representative.status,
+          createdAt: group.latestAt, // Dùng thời gian max từ group
+          
+          // Các trường Relation (để UI hiển thị tên bài viết, user...)
+          reporter: representative.reporter,
+          reportedUser: representative.reportedUser,
+          reportedPost: representative.reportedPost,
+          reportedComment: representative.reportedComment,
+
+          // 🔥 CÁC TRƯỜNG BỔ SUNG CHO GROUP (Frontend cần cái này)
+          totalReports: parseInt(group.totalReports, 10), // Convert string count sang number
+          latestReason: representative.reason,
+          
+          // Map danh sách con sang DTO chuẩn để bảo mật thông tin
+          reportsList: reportsList.map(r => this.mapToResponseDto(r)), 
+        };
+      })
+    );
+
+    // Lọc bỏ null nếu có lỗi data rác
+    const cleanResult = result.filter(item => item !== null);
+
+    return {
+      data: cleanResult,
+      meta: {
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+        currentPage: page,
+        itemsPerPage: limit,
+      },
+    };
   }
 
   /**
