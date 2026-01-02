@@ -6,13 +6,13 @@ import { NotificationResponseDto } from './dto/response/notification-response.dt
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  @Post('mark-as-read')
-  markAsRead(@Body() notificationId: number) {
+  @Post('mark-as-read/:notificationId')
+  markAsRead(@Param('notificationId') notificationId: number) {
     return this.notificationsService.markAsRead(notificationId);
   }
 
-  @Post('mark-all-as-read')
-  markAllAsRead(@Body() userId: number) {
+  @Post('mark-all-as-read/:userId')
+  markAllAsRead(@Param('userId') userId: number) {
     return this.notificationsService.markAllAsRead(userId);
   }
 

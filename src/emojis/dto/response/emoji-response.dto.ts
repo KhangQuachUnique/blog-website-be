@@ -38,5 +38,6 @@ export class EmojiCommunityResponseDto {
   community: CommunityDTO;
 
   @Expose()
+  @Type(() => EmojiResponseDto)
   emojis: EmojiResponseDto[];
 }
