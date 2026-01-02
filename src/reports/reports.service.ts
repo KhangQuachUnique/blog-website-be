@@ -507,6 +507,7 @@ export class ReportsService {
       reason: report.reason,
       type: report.type,
       createdAt: report.createdAt,
+      status: report.status,
       reporter: report.reporter ? {
         id: report.reporter.id,
         username: report.reporter.username,
