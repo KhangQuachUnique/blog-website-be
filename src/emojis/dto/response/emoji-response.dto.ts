@@ -23,6 +23,9 @@ export class EmojiResponseDto {
   codepoint?: string;
 
   @Expose()
+  name: string;
+
+  @Expose()
   emojiUrl?: string;
 
   @Expose()
