@@ -25,16 +25,17 @@ export class EmojisService {
    * @param createEmojiDto
    * @returns Emoji đã được tạo
    */
-  async create(createEmojiDto: CreateEmojiDto): Promise<Emoji> {
+  async create(createEmojiDto: CreateEmojiDto, communityId: number): Promise<Emoji> {
     const community = await this.communityRepository.findOne({
-      where: { id: createEmojiDto.communityId },
+      where: { id: communityId },
     });
 
     if (!community) {
-      throw new NotFoundException(`Không tìm thấy community với ID: ${createEmojiDto.communityId}`);
+      throw new NotFoundException(`Không tìm thấy community với ID: ${communityId}`);
     }
 
     const emoji = this.emojiRepository.create({
+      name: createEmojiDto.name,
       emojiUrl: createEmojiDto.emojiUrl,
       community,
     });
@@ -167,6 +168,7 @@ export class EmojisService {
         id: emoji.id,
         type: emoji.type,
         codepoint: emoji.codepoint ?? undefined,
+        name: emoji.name,
         emojiUrl: emoji.emojiUrl ?? undefined,
         communityId: community.id,
       });

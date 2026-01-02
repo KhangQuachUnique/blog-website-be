@@ -34,7 +34,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
       url: process.env.DATABASE_URL,
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      // synchronize: true,
+      synchronize: true,
     }),
     AuthModule,
     UsersModule,
