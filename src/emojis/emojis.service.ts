@@ -132,7 +132,7 @@ export class EmojisService {
   }
 
   /**
-   * Lấy tất cả emojis từ các community user đã tham gia
+   * Lấy tất cả emojis từ các community user đã tham gia (approved members only)
    * @param userId ID của user
    * @returns Danh sách emojis từ các community user đã join
    */
@@ -143,6 +143,8 @@ export class EmojisService {
       .innerJoin('community.members', 'member')
       .where('member.userId = :userId', { userId })
       .andWhere('emoji.type = :type', { type: EEmojiType.CUSTOM })
+      // Chỉ lấy emoji từ community mà user đã được approved (không phải PENDING)
+      .andWhere('member.role != :pendingRole', { pendingRole: 'PENDING' })
       .orderBy('community.name', 'ASC')
       .addOrderBy('emoji.id', 'ASC')
       .getMany();
