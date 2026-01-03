@@ -1,36 +1,13 @@
 import { Expose } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EUserRole } from '../../enums/role.enum';
+import { UserDetailResponseDto } from './user-response.dto';
 
 /**
  * DTO response cho Admin list users
- * Bao gồm đầy đủ thông tin cần thiết cho quản lý
+ * Extends UserDetailResponseDto và thêm các field chỉ admin mới cần
  */
-export class AdminUserResponseDto {
-  @Expose()
-  @ApiProperty({ example: 1 })
-  id: number;
-
-  @Expose()
-  @ApiProperty({ example: 'johndoe' })
-  username: string;
-
-  @Expose()
-  @ApiProperty({ example: 'john@example.com' })
-  email: string;
-
-  @Expose()
-  @ApiPropertyOptional({ example: '+84123456789' })
-  phoneNumber?: string;
-
-  @Expose()
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
-  avatarUrl?: string;
-
-  @Expose()
-  @ApiPropertyOptional({ example: 'Bio của người dùng' })
-  bio?: string;
-
+export class AdminUserResponseDto extends UserDetailResponseDto {
   @Expose()
   @ApiProperty({ example: 'USER', enum: EUserRole })
   type: EUserRole;
@@ -40,20 +17,8 @@ export class AdminUserResponseDto {
   isBanned: boolean;
 
   @Expose()
-  @ApiProperty({ example: false })
-  isPrivate: boolean;
-
-  @Expose()
   @ApiPropertyOptional({ example: '1990-01-01' })
   dob?: Date;
-
-  @Expose()
-  @ApiPropertyOptional({ example: 'MALE' })
-  gender?: string;
-
-  @Expose()
-  @ApiProperty({ example: '2024-01-01T12:00:00Z' })
-  joinAt: Date;
 }
 
 /**
