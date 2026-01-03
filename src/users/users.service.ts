@@ -96,16 +96,25 @@ export class UsersService {
       throw new NotFoundException('Người dùng không tồn tại');
     }
 
-    // Kiểm tra nếu viewer bị block bởi user
-    if (viewerId) {
-      const isBlocked = await this.userRepository
+    // Kiểm tra nếu một trong hai bên đã chặn (kiểm tra cả 2 chiều)
+    if (viewerId && viewerId !== userId) {
+      // Kiểm tra user có chặn viewer không
+      const isBlockedByUser = await this.userRepository
         .createQueryBuilder('user')
         .innerJoin('user.blockedUsers', 'blocked')
         .where('user.id = :userId', { userId })
         .andWhere('blocked.id = :viewerId', { viewerId })
         .getCount();
 
-      if (isBlocked > 0) {
+      // Kiểm tra viewer có chặn user không
+      const isBlockedByViewer = await this.userRepository
+        .createQueryBuilder('user')
+        .innerJoin('user.blockedUsers', 'blocked')
+        .where('user.id = :viewerId', { viewerId })
+        .andWhere('blocked.id = :userId', { userId })
+        .getCount();
+
+      if (isBlockedByUser > 0 || isBlockedByViewer > 0) {
         throw new ForbiddenException('Bạn không có quyền xem hồ sơ này');
       }
     }
