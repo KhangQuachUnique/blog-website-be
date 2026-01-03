@@ -461,6 +461,65 @@ export class ReportsService {
   }
 
   /**
+   * 🚀 Xử lý TOÀN BỘ báo cáo theo đối tượng (Target)
+   * Áp dụng cho: Post, Comment, User
+   */
+  async resolveAllByTarget(
+    targetId: number,
+    type: EReportType,
+    action: 'APPROVE' | 'REJECT',
+    adminId: number,
+  ): Promise<{ message: string; count: number }> {
+    
+    let whereCondition: any = { status: EReportStatus.PENDING };
+    
+    switch (type) {
+      case EReportType.POST:
+        whereCondition.reportedPost = { id: targetId };
+        break;
+      case EReportType.COMMENT:
+        whereCondition.reportedComment = { id: targetId };
+        break;
+      case EReportType.USER:
+        whereCondition.reportedUser = { id: targetId };
+        break;
+      default:
+        throw new BadRequestException('Loại báo cáo không hợp lệ');
+    }
+
+    const count = await this.reportRepository.count({ where: whereCondition });
+
+    if (count === 0) {
+      return { message: 'Không có báo cáo chờ xử lý nào cho đối tượng này', count: 0 };
+    }
+
+    if (action === 'APPROVE') {
+      switch (type) {
+        case EReportType.POST:
+          await this.blogPostsService.hide(targetId, adminId);
+          break;
+
+        case EReportType.COMMENT:
+          await this.commentsService.remove(targetId);
+          break;
+
+        case EReportType.USER:
+          await this.usersService.banUser(targetId, 'Vi phạm tiêu chuẩn cộng đồng (Xử lý hàng loạt)');
+          break;
+      }
+    }
+
+    await this.reportRepository.update(whereCondition, {
+      status: EReportStatus.RESOLVED,
+    });
+
+    return {
+      message: `Đã xử lý xong ${count} báo cáo liên quan.`,
+      count,
+    };
+  }
+
+  /**
    * Xử lý Report Bài viết: Chuyển trạng thái bài viết sang HIDDEN
    */
   private async handlePostResolution(report: Report, userId: number): Promise<void> {

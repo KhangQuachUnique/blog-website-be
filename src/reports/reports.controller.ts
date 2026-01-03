@@ -118,6 +118,19 @@ export class ReportsController {
     return this.reportsService.getPending();
   }
 
+  @Patch('resolve-all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async resolveAll(
+    @Body('targetId') targetId: number,
+    @Body('type') type: EReportType,
+    @Body('action') action: 'APPROVE' | 'REJECT',
+    @Req() req: any,
+  ) {
+    const adminId = req.user?.id;
+    return this.reportsService.resolveAllByTarget(targetId, type, action, adminId);
+  }
+
   /**
    * ✅ Lấy danh sách báo cáo đã giải quyết (RESOLVED)
    */
