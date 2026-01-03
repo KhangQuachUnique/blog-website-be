@@ -329,7 +329,8 @@ export class ReportsService {
           reason: representative.reason, 
           type: representative.type,
           status: representative.status,
-          createdAt: group.latestAt, // Dùng thời gian max từ group
+          createdAt: group.latestAt,
+          resolvedAt: representative.resolvedAt || undefined,
           
           // Các trường Relation (để UI hiển thị tên bài viết, user...)
           reporter: representative.reporter,
@@ -511,6 +512,7 @@ export class ReportsService {
 
     await this.reportRepository.update(whereCondition, {
       status: EReportStatus.RESOLVED,
+      resolvedAt: new Date(),
     });
 
     return {
@@ -566,6 +568,7 @@ export class ReportsService {
       reason: report.reason,
       type: report.type,
       createdAt: report.createdAt,
+      resolvedAt: report.resolvedAt || undefined,
       status: report.status,
       reporter: report.reporter ? {
         id: report.reporter.id,
