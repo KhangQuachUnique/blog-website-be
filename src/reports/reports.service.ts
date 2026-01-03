@@ -351,7 +351,7 @@ export class ReportsService {
     const cleanResult = result.filter(item => item !== null);
 
     return {
-      data: cleanResult,
+      items: cleanResult,
       meta: {
         totalItems,
         totalPages: Math.ceil(totalItems / limit),
