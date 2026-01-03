@@ -24,6 +24,7 @@ import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { ResolveReportDto } from './dto/resolve-report.dto';
+import { GetGroupedReportsDto } from './dto/get-grouped-reports.dto';
 import {
   ReportResponseDto,
   ReportListResponseDto,
@@ -36,15 +37,6 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 /**
  * 🚨 ReportsController
- * 
- * Endpoints:
- * - POST /reports - Tạo báo cáo mới
- * - GET /reports/check - Kiểm tra đã báo cáo chưa
- * - GET /reports/posts/:postId - Lấy báo cáo của 1 bài viết
- * - GET /reports - Lấy tất cả báo cáo (Admin)
- * - GET /reports/:id - Chi tiết báo cáo
- * - PATCH /reports/:id - Cập nhật báo cáo
- * - DELETE /reports/:id - Xóa báo cáo
  */
 @ApiTags('Reports')
 @Controller('reports')
@@ -65,7 +57,6 @@ export class ReportsController {
     @Body() createReportDto: CreateReportDto,
     @Req() req: Request,
   ): Promise<CreateReportResponseDto> {
-    // Set reporterId from authenticated user (required)
     const userId = (req.user as any)?.id;
     createReportDto.reporterId = userId;
     return this.reportsService.create(createReportDto);
@@ -90,6 +81,22 @@ export class ReportsController {
     return this.reportsService.checkIfReported(userId, type, targetId);
   }
 
+  // =================================================================
+  // 👇👇👇 [MỚI] ROUTE LẤY DANH SÁCH ĐÃ NHÓM 👇👇👇
+  // Lưu ý: Phải đặt trên các route có param như :id hay pending/resolved
+  // =================================================================
+  @Get('grouped')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy danh sách báo cáo GOM NHÓM theo đối tượng (Admin)' })
+  @ApiResponse({ status: 200, description: 'Trả về danh sách nhóm báo cáo kèm phân trang' })
+  async getGroupedReports(@Query() query: GetGroupedReportsDto) {
+    return this.reportsService.findGrouped(query);
+  }
+
+  /**
+   * 📤 Lấy TOÀN BỘ báo cáo (Không phân trang - Export)
+   */
   @Get('all')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -109,6 +116,19 @@ export class ReportsController {
   @ApiResponse({ status: 200, type: [ReportResponseDto] })
   async getPendingReports(): Promise<ReportResponseDto[]> {
     return this.reportsService.getPending();
+  }
+
+  @Patch('resolve-all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async resolveAll(
+    @Body('targetId') targetId: number,
+    @Body('type') type: EReportType,
+    @Body('action') action: 'APPROVE' | 'REJECT',
+    @Req() req: any,
+  ) {
+    const adminId = req.user?.id;
+    return this.reportsService.resolveAllByTarget(targetId, type, action, adminId);
   }
 
   /**
@@ -179,6 +199,7 @@ export class ReportsController {
 
   /**
    * 🔍 Chi tiết 1 báo cáo
+   * ⚠️ Route này bắt mọi ID nên phải đặt dưới cùng các route static
    */
   @Get(':id')
   @UseGuards(JwtAuthGuard)
