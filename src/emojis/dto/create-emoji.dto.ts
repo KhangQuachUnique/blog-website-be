@@ -1,11 +1,11 @@
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class CreateEmojiDto {
   @IsString()
   @IsNotEmpty()
-  emojiUrl: string;
+  name: string;
 
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  communityId: number;
+  emojiUrl: string;
 }

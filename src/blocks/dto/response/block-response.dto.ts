@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { EBlockType, ObjectFit } from 'src/blocks/enums/block-type.enum';
+import { EBlockType, ObjectFit } from '../../enums/block-type.enum';
 
 export class BlockResponseDto {
   @Expose()

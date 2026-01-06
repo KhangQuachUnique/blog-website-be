@@ -25,16 +25,16 @@ import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: 'postgresql://postgres.nhmlmwlvvrdabyikxvzo:kadfwfsfsvs@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres',
-      database: 'postgres',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      // synchronize: true,
-    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      url: process.env.DATABASE_URL,
+      database: 'postgres',
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      // synchronize: true,
     }),
     AuthModule,
     UsersModule,

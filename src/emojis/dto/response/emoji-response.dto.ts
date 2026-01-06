@@ -23,6 +23,9 @@ export class EmojiResponseDto {
   codepoint?: string;
 
   @Expose()
+  name: string;
+
+  @Expose()
   emojiUrl?: string;
 
   @Expose()
@@ -35,5 +38,6 @@ export class EmojiCommunityResponseDto {
   community: CommunityDTO;
 
   @Expose()
+  @Type(() => EmojiResponseDto)
   emojis: EmojiResponseDto[];
 }

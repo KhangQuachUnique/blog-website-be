@@ -17,6 +17,28 @@ export class CommunityResponseDto {
   @ApiProperty()
   isPublic: boolean;
 
+  // ✅ để optional vì list / detail thường không cần trả
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Bật duyệt bài viết trước khi hiển thị',
+  })
+  requirePostApproval?: boolean;
+
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Bật duyệt thành viên trước khi tham gia',
+  })
+  requireMemberApproval?: boolean;
+
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'User hiện tại có đang bị cấm trong cộng đồng không',
+  })
+  isBanned?: boolean;
+
   @ApiProperty({ example: 123, description: 'Số lượng thành viên trong cộng đồng' })
   memberCount: number;
 

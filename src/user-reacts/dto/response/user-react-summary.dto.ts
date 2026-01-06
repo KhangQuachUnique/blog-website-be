@@ -17,6 +17,9 @@ export class EmojiSummaryDto {
   @ApiProperty({ example: 'https://cdn.example.com/emoji.png', description: 'URL emoji (nếu là custom)' })
   emojiUrl?: string;
 
+  @ApiProperty({ example: 'grinning', description: 'Tên của emoji' })
+  name: string;
+
   @ApiProperty({ example: 15, description: 'Tổng số người đã react với emoji này' })
   totalCount: number;
 

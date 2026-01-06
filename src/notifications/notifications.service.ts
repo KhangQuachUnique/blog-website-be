@@ -53,7 +53,6 @@ export class NotificationsService {
       relations: ['sender', 'receiver', 'template'],
       order: { createdAt: 'DESC' },
     });
-    console.log('Fetched notifications:', notis);
 
     return plainToInstance(NotificationResponseDto, notis, { excludeExtraneousValues: true });
   }
@@ -98,6 +97,7 @@ export class NotificationsService {
     postId: number,
     commentId: number,
   ): Promise<Notification> {
+    console.log('Sending notification to', postId);
     const notification = await this.notificationFactory.createNotification(
       ENotificationType.USER_COMMENTED_POST,
       receiverId,

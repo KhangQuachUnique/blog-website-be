@@ -57,6 +57,7 @@ interface EmojiAggregationRow {
   emoji_type: string;
   codepoint?: string;
   emoji_url?: string;
+  emoji_name: string;
   cnt: number;
   reacted_by_me: boolean;
 }
@@ -205,12 +206,13 @@ export class NewsfeedService {
                e.type as emoji_type,
                e.codepoint,
                e."emojiUrl" as emoji_url,
+               e.name as emoji_name,
                COUNT(*)::int as cnt,
                BOOL_OR(ur."userId" = $2) as reacted_by_me
         FROM user_reacts ur
         JOIN emojis e ON e.id = ur."emojiId"
         WHERE ur."postId" = ANY($1::bigint[])
-        GROUP BY ur."postId", e.id, e.type, e.codepoint, e."emojiUrl"
+        GROUP BY ur."postId", e.id, e.type, e.codepoint, e."emojiUrl", e.name
         ORDER BY ur."postId"
       `;
 
@@ -243,6 +245,7 @@ export class NewsfeedService {
           type: emojiType,
           codepoint: r.codepoint ?? undefined,
           emojiUrl: r.emoji_url ?? undefined,
+          name: r.emoji_name,
           totalCount: Number(r.cnt),
           reactedByCurrentUser: Boolean(r.reacted_by_me),
         });

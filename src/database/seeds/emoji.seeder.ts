@@ -26,9 +26,10 @@ export class EmojiSeeder extends Seeder {
 
   async run(): Promise<void> {
     console.log('🌱 Seeding Emojis...');
+    console.log('ℹ️  Only seeding Unicode emojis (skipping community emojis)\n');
 
     const emojiRepository = this.dataSource.getRepository(Emoji);
-    const communityRepository = this.dataSource.getRepository(Community);
+    // const communityRepository = this.dataSource.getRepository(Community);
 
     try {
       // 1. Insert all Unicode emojis from JSON file
@@ -41,6 +42,7 @@ export class EmojiSeeder extends Seeder {
         for (const emojiObj of emojiObjects) {
           const emoji = new Emoji();
           emoji.type = EEmojiType.UNICODE;
+          emoji.name = emojiObj.name; // Set name from JSON
           emoji.codepoint = emojiObj.codepoint; // Extract codepoint from object
           emoji.emojiUrl = null;
           emoji.community = null;
@@ -51,6 +53,7 @@ export class EmojiSeeder extends Seeder {
       await emojiRepository.save(unicodeEmojis);
       this.success(`Created ${unicodeEmojis.length} Unicode emojis from JSON file`);
 
+      /* COMMENTED OUT: Custom community emojis
       // 2. Create custom emojis for each community
       const communities = await communityRepository.find();
 
@@ -74,6 +77,9 @@ export class EmojiSeeder extends Seeder {
         `Created ${totalCustomEmojis} custom emojis for ${communities.length} communities`,
       );
       this.success(`Total emojis: ${unicodeEmojis.length + totalCustomEmojis}`);
+      */
+
+      this.success('Unicode emojis seeded successfully');
     } catch (error) {
       this.error('Failed to seed emojis', error);
       throw error;

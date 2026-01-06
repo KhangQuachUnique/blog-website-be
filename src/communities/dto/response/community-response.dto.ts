@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { ECommunityRole } from '../../enums/community-role.enum';
 
 export class CommunityResponseDto {
   @Expose()
@@ -29,12 +30,44 @@ export class CommunityResponseDto {
   isPublic: boolean;
 
   @Expose()
-  @ApiProperty({ example: '2024-01-01T00:00:00Z', description: 'Community Creation Date' })
-  createdAt: Date;
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Bật duyệt bài viết trước khi hiển thị',
+  })
+  requirePostApproval?: boolean;
 
   @Expose()
-  @ApiProperty({ example: 150, description: 'Number of community members' })
-  memberCount?: number;
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Bật duyệt thành viên trước khi tham gia',
+  })
+  requireMemberApproval?: boolean;
+
+  @Expose()
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'User hiện tại có đang bị cấm trong cộng đồng không',
+  })
+  isBanned?: boolean;
+
+  @Expose()
+  @ApiProperty({ example: 150, description: 'Số lượng thành viên trong cộng đồng' })
+  memberCount: number;
+
+  @Expose()
+  @ApiProperty({ enum: ECommunityRole, description: 'Vai trò của user hiện tại' })
+  role: ECommunityRole | 'NONE';
+
+  @Expose()
+  @ApiProperty({
+    example: '2024-01-01T00:00:00Z',
+    description: 'Community Creation Date',
+    required: false,
+  })
+  createdAt?: Date;
 }
 
 export class CommunitySettingResponseDto {
