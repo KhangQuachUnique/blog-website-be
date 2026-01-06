@@ -511,7 +511,7 @@ export class UsersService {
    * Lấy danh sách users cho Admin với filter và pagination
    */
   async findAllAdmin(query: AdminUserQueryDto): Promise<AdminUserListResponseDto> {
-    const { search, status, page = 1, limit = 10 } = query;
+    const { search, status, page = 1, limit = 10, sortBy = 'id', sortOrder = 'ASC' } = query;
 
     const queryBuilder = this.userRepository.createQueryBuilder('user');
 
@@ -539,8 +539,11 @@ export class UsersService {
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
-    // Order by
-    queryBuilder.orderBy('user.joinAt', 'DESC');
+    // Order by - dynamic sorting
+    const validSortFields = ['id', 'username', 'email', 'joinAt', 'isBanned'];
+    const field = validSortFields.includes(sortBy) ? sortBy : 'id';
+    const order = sortOrder === 'DESC' ? 'DESC' : 'ASC';
+    queryBuilder.orderBy(`user.${field}`, order);
 
     // Select fields
     queryBuilder.select([
