@@ -336,7 +336,12 @@ export class ReportsService {
           reporter: representative.reporter,
           reportedUser: representative.reportedUser,
           reportedPost: representative.reportedPost,
-          reportedComment: representative.reportedComment,
+          reportedComment: representative.reportedComment ? {
+            id: representative.reportedComment.id,
+            contentPreview: representative.reportedComment.content 
+              ? representative.reportedComment.content.substring(0, 200) // Cắt ngắn nếu cần
+              : '', 
+          } : undefined,
 
           // 🔥 CÁC TRƯỜNG BỔ SUNG CHO GROUP (Frontend cần cái này)
           totalReports: parseInt(group.totalReports, 10), // Convert string count sang number
@@ -494,6 +499,11 @@ export class ReportsService {
       return { message: 'Không có báo cáo chờ xử lý nào cho đối tượng này', count: 0 };
     }
 
+    await this.reportRepository.update(whereCondition, {
+      status: EReportStatus.RESOLVED,
+      resolvedAt: new Date(),
+    });
+
     if (action === 'APPROVE') {
       switch (type) {
         case EReportType.POST:
@@ -509,11 +519,6 @@ export class ReportsService {
           break;
       }
     }
-
-    await this.reportRepository.update(whereCondition, {
-      status: EReportStatus.RESOLVED,
-      resolvedAt: new Date(),
-    });
 
     return {
       message: `Đã xử lý xong ${count} báo cáo liên quan.`,

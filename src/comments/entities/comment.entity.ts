@@ -27,6 +27,9 @@ export class Comment {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createAt: Date;
 
+  @Column({ type: 'boolean', default: false })
+  isDeleted: boolean;
+
   // Relations
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'commenterId' })

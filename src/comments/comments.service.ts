@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository, DataSource } from 'typeorm';
+import { IsNull, In, Repository, DataSource } from 'typeorm';
 import { Comment } from './entities/comment.entity';
 import { ECommentType } from './enums/comment-type.enum';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
@@ -157,7 +157,7 @@ export class CommentsService {
   async findAll(): Promise<CommentResponseDto[]> {
     return this.commentRepository
       .find({
-        where: { parentComment: IsNull() },
+        where: { parentComment: IsNull(), isDeleted: false },
         relations: ['commenter', 'childComments', 'childComments.commenter'],
         order: { createAt: 'DESC', childComments: { createAt: 'ASC' } },
         take: 50,
@@ -171,7 +171,7 @@ export class CommentsService {
 
   async findOne(id: number): Promise<CommentResponseDto> {
     const comment = await this.commentRepository.findOne({
-      where: { id },
+      where: { id, isDeleted: false },
       relations: [
         'commenter',
         'replyToUser', // Cần field này để hiển thị người được reply
@@ -198,7 +198,7 @@ export class CommentsService {
     return await this.dataSource.transaction(async (manager) => {
       // 1. Kiểm tra comment tồn tại
       const comment = await manager.findOne(Comment, {
-        where: { id },
+        where: { id, isDeleted: false },
         relations: ['childComments'],
       });
 
@@ -223,13 +223,15 @@ export class CommentsService {
         await manager.remove(Notification, notificationsToDelete);
       }
 
-      // 3. Xóa comment (cascade sẽ xóa child comments + user_reacts)
-      await manager.delete(Comment, id);
+      // 3. Xoá mềm comment: Set isDeleted = true thay vì xoá cứng
+      // Giữ lại dữ liệu comment và tất cả các report liên quan
+      // ⚠️ Giữ nguyên cột resolvedAt trong reports - không reset giá trị này
+      await manager.update(Comment, { id: In(commentIds) }, { isDeleted: true });
 
       return {
-        message: `Comment #${id} and its dependencies deleted successfully`,
-        deletedCommentCount: 1,
-        deletedRepliesCount: comment.childComments.length,
+        message: `Comment #${id} and its replies soft deleted successfully`,
+        softDeletedCommentCount: 1,
+        softDeletedRepliesCount: comment.childComments.length,
         deletedNotificationsCount: notificationsToDelete.length,
       };
     });
@@ -251,6 +253,7 @@ export class CommentsService {
       .leftJoinAndSelect('childComments.replyToUser', 'replyToUser')
       .where('comment.postId = :postId', { postId })
       .andWhere('comment.type = :type', { type: ECommentType.POST })
+      .andWhere('comment.isDeleted = :isDeleted', { isDeleted: false })
       .andWhere('comment.parentCommentId IS NULL'); // Chỉ lấy comment cha
 
     if (sortBy === 'interactions') {
@@ -295,7 +298,7 @@ export class CommentsService {
 
   async findByBlock(blockId: number, currentUserId?: number): Promise<CommentResponseDto[]> {
     const comments = await this.commentRepository.find({
-      where: { block: { id: blockId }, type: ECommentType.BLOCK, parentComment: IsNull() },
+      where: { block: { id: blockId }, type: ECommentType.BLOCK, parentComment: IsNull(), isDeleted: false },
       relations: [
         'commenter',
         'childComments',
@@ -320,9 +323,9 @@ export class CommentsService {
   }
 
   async countByPost(postId: number) {
-    const total = await this.commentRepository.count({ where: { post: { id: postId } } });
+    const total = await this.commentRepository.count({ where: { post: { id: postId }, isDeleted: false } });
     const parentComments = await this.commentRepository.count({
-      where: { post: { id: postId }, parentComment: IsNull() },
+      where: { post: { id: postId }, parentComment: IsNull(), isDeleted: false },
     });
     return { postId, total, parentComments, replies: total - parentComments };
   }
