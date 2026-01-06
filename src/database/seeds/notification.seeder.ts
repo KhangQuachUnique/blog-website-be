@@ -17,10 +17,10 @@ export class NotificationSeeder extends Seeder {
   }
 
   async run(): Promise<void> {
-    console.log('🌱 Seeding Notification Templates...');
+    console.log('🌱 Seeding Notifications...');
 
     const notificationTemplateRepository = this.dataSource.getRepository(NotificationTemplate);
-    // const notificationRepository = this.dataSource.getRepository(Notification);
+    const notificationRepository = this.dataSource.getRepository(Notification);
 
     try {
       // 1. Create notification templates for all types
@@ -29,10 +29,6 @@ export class NotificationSeeder extends Seeder {
       const savedTemplates = await notificationTemplateRepository.save(templates);
       this.success(`Created ${savedTemplates.length} notification templates`);
 
-      // Skip creating notification data - only templates needed
-      console.log('  ℹ️  Skipping notification data generation (templates only)');
-
-      /* COMMENTED OUT: Notification data generation
       // Create a map for quick template lookup
       const templateMap = new Map<ENotificationType, NotificationTemplate>();
       savedTemplates.forEach((t) => templateMap.set(t.type, t));
@@ -167,9 +163,8 @@ export class NotificationSeeder extends Seeder {
       } else {
         this.log('No notifications generated (no actions found)');
       }
-      */
 
-      this.success('Notification templates seeded successfully');
+      this.success('Notifications seeded successfully');
     } catch (error) {
       this.error('Failed to seed notifications', error);
       throw error;

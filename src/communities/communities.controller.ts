@@ -112,28 +112,22 @@ export class CommunitiesController {
     return this.communitiesService.getMembers(id, role, user?.id);
   }
 
-  @Patch(':communityId/members/:memberId/role')
+  @Patch(':id/members/:memberId/role')
   @UseGuards(JwtAuthGuard)
   updateMemberRole(
-    @Param('communityId') communityId: string,
-    @Param('memberId') memberId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
     @Body() dto: UpdateMemberRoleDto,
-    @Req() req: Request,
   ) {
-    const requesterId = (req.user as JwtUser).id;
-    return this.communitiesService.updateMemberRole(+communityId, +memberId, dto, requesterId);
+    return this.communitiesService.updateMemberRole(id, memberId, dto);
   }
 
-  @Delete(':communityId/members/:memberId')
+  @Delete(':id/members/:memberId')
   @UseGuards(JwtAuthGuard)
   removeMember(
-    @Param('communityId') communityId: string,
-    @Param('memberId') memberId: string,
-    @Req() req: Request,
-    @Query('ban') ban?: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('memberId', ParseIntPipe) memberId: number,
   ) {
-    const requesterId = (req.user as JwtUser).id;
-    const banFlag = ban === undefined ? true : !(ban === "0" || ban.toLowerCase() === "false");
-    return this.communitiesService.removeMember(+communityId, +memberId, requesterId, banFlag);
+    return this.communitiesService.removeMember(id, memberId);
   }
 }

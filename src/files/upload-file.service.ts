@@ -39,27 +39,11 @@ export class UploadFileServiceS3 {
     files: Express.Multer.File[],
     keys: string[],
   ): Promise<Record<string, string>> {
-    // Validation đầu vào
-    if (!files || files.length === 0) {
-      throw new Error('No files provided');
-    }
-    if (!keys || keys.length === 0) {
-      throw new Error('No keys provided');
-    }
-    if (files.length !== keys.length) {
-      throw new Error(`Files count (${files.length}) does not match keys count (${keys.length})`);
-    }
-
     const bucket_name = this.config.getOrThrow<string>('AWS_S3_BUCKET');
     const result: Record<string, string> = {};
 
     const uploadPromises = files.map((file, index) => {
       const key = keys[index];
-
-      // Validate key không rỗng
-      if (!key || key.trim().length === 0) {
-        throw new Error(`Key at index ${index} is empty`);
-      }
 
       const s3Key = `images/${crypto.randomUUID()}_${key}`;
       return this.s3_client

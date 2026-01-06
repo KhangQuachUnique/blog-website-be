@@ -1,7 +1,7 @@
 import { Exclude, Expose, Type } from 'class-transformer';
 import { EGender } from '../enums/gender.enum';
 import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
-import { CommunityResponseDto } from 'src/communities/dto/response/community-response.dto';
+import { CommunityResponseDto } from 'src/communities/dto/response/my-community-response.dto';
 
 export class ProfileResponseDto {
   @Expose()

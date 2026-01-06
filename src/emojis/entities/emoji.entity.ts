@@ -10,9 +10,6 @@ export class Emoji {
   @Column({ type: 'enum', enum: EEmojiType, default: EEmojiType.CUSTOM })
   type: EEmojiType;
 
-  @Column({ type: 'varchar', length: 100 })
-  name: string;
-
   // URL for custom emojis, unicode emojis do not have this
   @Column({ type: 'varchar', nullable: true })
   emojiUrl: string | null;

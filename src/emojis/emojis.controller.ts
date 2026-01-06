@@ -9,12 +9,9 @@ import { EmojiCommunityResponseDto } from './dto/response/emoji-response.dto';
 export class EmojisController {
   constructor(private readonly emojisService: EmojisService) {}
 
-  @Post('/:communityId')
-  async create(
-    @Body() createEmojiDto: CreateEmojiDto,
-    @Param('communityId', ParseIntPipe) communityId: number,
-  ): Promise<Emoji> {
-    return this.emojisService.create(createEmojiDto, communityId);
+  @Post()
+  async create(@Body() createEmojiDto: CreateEmojiDto): Promise<Emoji> {
+    return this.emojisService.create(createEmojiDto);
   }
 
   @Get()

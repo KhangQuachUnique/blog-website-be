@@ -4,7 +4,6 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { GetGroupedReportsDto } from './dto/get-grouped-reports.dto';
 import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
 import { UsersService } from 'src/users/users.service';
 import { CommentsService } from 'src/comments/comments.service';
@@ -216,151 +215,6 @@ export class ReportsService {
     return reports.map((report) => this.mapToResponseDto(report));
   }
 
-  async findGrouped(dto: GetGroupedReportsDto) {
-    // 1. Khởi tạo & Destructuring
-    const { status, type, page = 1, limit = 10 } = dto;
-    const skip = (page - 1) * limit;
-
-    // 2. Mapping: Xác định tên cột trong DB (để Group) và tên Relation trong Entity (để Find)
-    let targetColumn = ''; // Tên cột Database (vd: reportedPostId)
-    let relation = '';     // Tên Relation Entity (vd: reportedPost)
-
-    switch (type) {
-      case EReportType.POST:
-        targetColumn = 'reportedPostId';
-        relation = 'reportedPost';
-        break;
-      case EReportType.COMMENT:
-        targetColumn = 'reportedCommentId';
-        relation = 'reportedComment';
-        break;
-      case EReportType.USER:
-        targetColumn = 'reportedUserId';
-        relation = 'reportedUser';
-        break;
-      default:
-        // Mặc định fallback về POST nếu không truyền type (hoặc xử lý logic khác tùy bạn)
-        targetColumn = 'reportedPostId';
-        relation = 'reportedPost';
-    }
-
-    // --- BƯỚC 1: TÌM CÁC NHÓM (GROUP BY & PAGINATION) ---
-    const queryBuilder = this.reportRepository.createQueryBuilder('report');
-
-    queryBuilder
-      .select(`report.${targetColumn}`, 'targetId')   // Select ID của đối tượng (vd: Bài viết ID 10)
-      .addSelect('COUNT(report.id)', 'totalReports')  // Đếm số lượng report của bài đó
-      .addSelect('MAX(report.createdAt)', 'latestAt') // Lấy thời gian report mới nhất
-      .where(`report.${targetColumn} IS NOT NULL`);   // Chỉ lấy bản ghi có target
-    
-    // Áp dụng bộ lọc Status (PENDING/RESOLVED)
-    if (status) {
-      queryBuilder.andWhere('report.status = :status', { status });
-    }
-    
-    // Áp dụng bộ lọc Type (POST/COMMENT/USER)
-    if (type) {
-      queryBuilder.andWhere('report.type = :type', { type });
-    }
-
-    // Thực hiện Group và Phân trang trên nhóm
-    queryBuilder
-      .groupBy(`report.${targetColumn}`)
-      .orderBy('"totalReports"', 'DESC') // Ưu tiên đối tượng bị report nhiều nhất lên đầu
-      .addOrderBy('"latestAt"', 'DESC')  // Sau đó ưu tiên cái mới nhất
-      .offset(skip)
-      .limit(limit);
-
-    // Lấy dữ liệu thô (Raw Data): [{ targetId: 1, totalReports: '5', latestAt: ... }]
-    const rawGroups = await queryBuilder.getRawMany();
-
-    // --- BƯỚC 2: ĐẾM TỔNG SỐ NHÓM (TOTAL COUNT) ---
-    // Cần query riêng để tính Total Pages chính xác
-    const countQuery = this.reportRepository.createQueryBuilder('report')
-       .select(`report.${targetColumn}`)
-       .where(`report.${targetColumn} IS NOT NULL`);
-       
-    if (status) countQuery.andWhere('report.status = :status', { status });
-    if (type) countQuery.andWhere('report.type = :type', { type });
-    
-    // Đếm số lượng nhóm unique
-    const distinctGroups = await countQuery
-        .groupBy(`report.${targetColumn}`)
-        .getRawMany();
-    
-    const totalItems = distinctGroups.length;
-
-    // --- BƯỚC 3: LẤY CHI TIẾT (HYDRATION) ---
-    if (rawGroups.length === 0) {
-      return {
-        data: [],
-        meta: { totalItems: 0, totalPages: 0, currentPage: page, itemsPerPage: limit },
-      };
-    }
-
-    // Duyệt qua từng nhóm để lấy danh sách report chi tiết
-    const result = await Promise.all(
-      rawGroups.map(async (group) => {
-        const targetId = group.targetId;
-        
-        // Tìm tất cả report con thuộc về targetId này
-        const reportsList = await this.reportRepository.find({
-          where: {
-            // 🔥 QUAN TRỌNG: Query theo Relation Object để tránh lỗi "Property not found"
-            // Ví dụ: reportedPost: { id: 1 }
-            [relation]: { id: targetId }, 
-            
-            // Vẫn giữ filter status để đồng bộ
-            ...(status ? { status } : {}),
-          },
-          relations: ['reporter', relation], // Load thông tin chi tiết
-          order: { createdAt: 'DESC' },
-        });
-
-        // Lấy report đại diện (cái mới nhất) để hiển thị thông tin chung cho nhóm
-        const representative = reportsList[0];
-
-        if (!representative) return null;
-
-        // Trả về dữ liệu đã được cấu trúc lại
-        return {
-          // Các trường cơ bản (tái sử dụng DTO cũ)
-          id: representative.id, 
-          reason: representative.reason, 
-          type: representative.type,
-          status: representative.status,
-          createdAt: group.latestAt, // Dùng thời gian max từ group
-          
-          // Các trường Relation (để UI hiển thị tên bài viết, user...)
-          reporter: representative.reporter,
-          reportedUser: representative.reportedUser,
-          reportedPost: representative.reportedPost,
-          reportedComment: representative.reportedComment,
-
-          // 🔥 CÁC TRƯỜNG BỔ SUNG CHO GROUP (Frontend cần cái này)
-          totalReports: parseInt(group.totalReports, 10), // Convert string count sang number
-          latestReason: representative.reason,
-          
-          // Map danh sách con sang DTO chuẩn để bảo mật thông tin
-          reportsList: reportsList.map(r => this.mapToResponseDto(r)), 
-        };
-      })
-    );
-
-    // Lọc bỏ null nếu có lỗi data rác
-    const cleanResult = result.filter(item => item !== null);
-
-    return {
-      items: cleanResult,
-      meta: {
-        totalItems,
-        totalPages: Math.ceil(totalItems / limit),
-        currentPage: page,
-        itemsPerPage: limit,
-      },
-    };
-  }
-
   /**
    * 📋 Lấy tất cả báo cáo với pagination (Admin)
    */
@@ -417,7 +271,7 @@ export class ReportsService {
   /**
    *  Xử lý báo cáo
    */
-  async resolveReport(id: number, type: EReportType, action: 'APPROVE' | 'REJECT', userId: number): Promise<ReportResponseDto> {
+  async resolveReport(id: number, type: EReportType, action: 'APPROVE' | 'REJECT'): Promise<ReportResponseDto> {
     const report = await this.reportRepository.findOne({
       where: { id },
       relations: ['reporter', 'reportedPost', 'reportedComment', 'reportedUser'],
@@ -436,12 +290,11 @@ export class ReportsService {
     if (action === 'APPROVE') {
       switch (type) {
         case EReportType.POST:
-          await this.handlePostResolution(report, userId);
+          await this.handlePostResolution(report);
           break;
 
         case EReportType.COMMENT:
           await this.handleCommentResolution(report);
-          report.reportedComment = null;
           break;
 
         case EReportType.USER:
@@ -460,90 +313,28 @@ export class ReportsService {
     return this.mapToResponseDto(savedReport);
   }
 
-  /**
-   * 🚀 Xử lý TOÀN BỘ báo cáo theo đối tượng (Target)
-   * Áp dụng cho: Post, Comment, User
-   */
-  async resolveAllByTarget(
-    targetId: number,
-    type: EReportType,
-    action: 'APPROVE' | 'REJECT',
-    adminId: number,
-  ): Promise<{ message: string; count: number }> {
-    
-    let whereCondition: any = { status: EReportStatus.PENDING };
-    
-    switch (type) {
-      case EReportType.POST:
-        whereCondition.reportedPost = { id: targetId };
-        break;
-      case EReportType.COMMENT:
-        whereCondition.reportedComment = { id: targetId };
-        break;
-      case EReportType.USER:
-        whereCondition.reportedUser = { id: targetId };
-        break;
-      default:
-        throw new BadRequestException('Loại báo cáo không hợp lệ');
-    }
-
-    const count = await this.reportRepository.count({ where: whereCondition });
-
-    if (count === 0) {
-      return { message: 'Không có báo cáo chờ xử lý nào cho đối tượng này', count: 0 };
-    }
-
-    if (action === 'APPROVE') {
-      switch (type) {
-        case EReportType.POST:
-          await this.blogPostsService.hide(targetId, adminId);
-          break;
-
-        case EReportType.COMMENT:
-          await this.commentsService.remove(targetId);
-          break;
-
-        case EReportType.USER:
-          await this.usersService.banUser(targetId, 'Vi phạm tiêu chuẩn cộng đồng (Xử lý hàng loạt)');
-          break;
-      }
-    }
-
-    await this.reportRepository.update(whereCondition, {
-      status: EReportStatus.RESOLVED,
-    });
-
-    return {
-      message: `Đã xử lý xong ${count} báo cáo liên quan.`,
-      count,
-    };
-  }
-
-  /**
-   * Xử lý Report Bài viết: Chuyển trạng thái bài viết sang HIDDEN
-   */
-  private async handlePostResolution(report: Report, userId: number): Promise<void> {
-    if (!report.reportedPost) return;
+  private async handlePostResolution(report: Report): Promise<void> {
     const postId = report.reportedPost.id;
-    await this.blogPostsService.hide(postId, userId); 
+
+    await this.blogPostsService.hide(postId); 
+    
+    console.log(`[Report] Đã ẩn bài viết ID ${postId} theo báo cáo ${report.id}`);
   }
 
-  /**
-   * Xử lý Report Người dùng: Thực hiện BAN tài khoản người dùng
-   */
   private async handleUserResolution(report: Report): Promise<void> {
-    if (!report.reportedUser) return;
     const userId = report.reportedUser.id;
+
     await this.usersService.banUser(userId, report.reason);
+    
+    console.log(`[Report] Đã xử lý báo cáo người dùng ID ${userId}`);
   }
 
-  /**
-   * Xử lý Report Bình luận: Xóa vĩnh viễn bình luận khỏi hệ thống
-   */
   private async handleCommentResolution(report: Report): Promise<void> {
-    if (!report.reportedComment) return;
-    const commentId = report.reportedComment.id;  
-    await this.commentsService.remove(commentId);
+    const commentId = report.reportedComment.id;  
+
+    await this.commentsService.remove(commentId);
+    
+    console.log(`[Report] Đã xử lý báo cáo bình luận ID ${commentId}`);
   }
 
   /**
@@ -566,7 +357,6 @@ export class ReportsService {
       reason: report.reason,
       type: report.type,
       createdAt: report.createdAt,
-      status: report.status,
       reporter: report.reporter ? {
         id: report.reporter.id,
         username: report.reporter.username,

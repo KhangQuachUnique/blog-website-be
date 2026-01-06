@@ -16,7 +16,6 @@ import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { type Request } from 'express';
 import { CommentResponseDto } from './dto/response/comment-response.dto';
-import { OptionalJwtAuthGuard } from '@modules/auth/guards/optional-jwt-auth.guard';
 
 @Controller('comments')
 export class CommentsController {
@@ -31,7 +30,6 @@ export class CommentsController {
     @Req() req: Request,
   ): Promise<CommentResponseDto> {
     const user = req.user as JwtUser;
-    console.log(createCommentDto, 'from user', user.id);
     return this.commentsService.create({ userId: user.id, createCommentDto });
   }
 
@@ -54,24 +52,16 @@ export class CommentsController {
   // ========== POST/BLOCK COMMENTS ==========
 
   @Get('post/:postId')
-  @UseGuards(OptionalJwtAuthGuard)
   findByPost(
     @Param('postId', ParseIntPipe) postId: number,
-    @Req() req: Request,
-    @Query('sortBy') sortBy?: string,
+    @Query('sortBy') sortBy?: string, // Thêm dòng này để bắt ?sortBy=...
   ): Promise<CommentResponseDto[]> {
-    const currentUserId = (req.user as JwtUser).id;
-    return this.commentsService.findByPost(postId, sortBy, currentUserId);
+    return this.commentsService.findByPost(postId, sortBy);
   }
 
   @Get('block/:blockId')
-  @UseGuards(OptionalJwtAuthGuard)
-  findByBlock(
-    @Param('blockId', ParseIntPipe) blockId: number,
-    @Req() req: Request,
-  ): Promise<CommentResponseDto[]> {
-    const currentUserId = (req.user as JwtUser)?.id;
-    return this.commentsService.findByBlock(blockId, currentUserId);
+  findByBlock(@Param('blockId', ParseIntPipe) blockId: number): Promise<CommentResponseDto[]> {
+    return this.commentsService.findByBlock(blockId);
   }
 
   @Get('post/:postId/count')

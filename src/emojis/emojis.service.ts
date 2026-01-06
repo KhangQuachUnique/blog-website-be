@@ -25,17 +25,16 @@ export class EmojisService {
    * @param createEmojiDto
    * @returns Emoji đã được tạo
    */
-  async create(createEmojiDto: CreateEmojiDto, communityId: number): Promise<Emoji> {
+  async create(createEmojiDto: CreateEmojiDto): Promise<Emoji> {
     const community = await this.communityRepository.findOne({
-      where: { id: communityId },
+      where: { id: createEmojiDto.communityId },
     });
 
     if (!community) {
-      throw new NotFoundException(`Không tìm thấy community với ID: ${communityId}`);
+      throw new NotFoundException(`Không tìm thấy community với ID: ${createEmojiDto.communityId}`);
     }
 
     const emoji = this.emojiRepository.create({
-      name: createEmojiDto.name,
       emojiUrl: createEmojiDto.emojiUrl,
       community,
     });
@@ -132,7 +131,7 @@ export class EmojisService {
   }
 
   /**
-   * Lấy tất cả emojis từ các community user đã tham gia (approved members only)
+   * Lấy tất cả emojis từ các community user đã tham gia
    * @param userId ID của user
    * @returns Danh sách emojis từ các community user đã join
    */
@@ -143,8 +142,6 @@ export class EmojisService {
       .innerJoin('community.members', 'member')
       .where('member.userId = :userId', { userId })
       .andWhere('emoji.type = :type', { type: EEmojiType.CUSTOM })
-      // Chỉ lấy emoji từ community mà user đã được approved (không phải PENDING)
-      .andWhere('member.role != :pendingRole', { pendingRole: 'PENDING' })
       .orderBy('community.name', 'ASC')
       .addOrderBy('emoji.id', 'ASC')
       .getMany();
@@ -170,7 +167,6 @@ export class EmojisService {
         id: emoji.id,
         type: emoji.type,
         codepoint: emoji.codepoint ?? undefined,
-        name: emoji.name,
         emojiUrl: emoji.emojiUrl ?? undefined,
         communityId: community.id,
       });

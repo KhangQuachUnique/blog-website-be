@@ -5,12 +5,9 @@ import { UserReact } from './entities/user-react.entity';
 import { UserReactCommandService } from './services/user-react-command.service';
 import { UserReactQueryService } from './services/user-react-query.service';
 import { UserReactsController } from './user-reacts.controller';
-import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
-import { NotificationsModule } from 'src/notifications/notifications.module';
-import { Comment } from '@modules/comments/entities/comment.entity';
 
 /**
- * UserReactsModule - Clean Architecture
+ * 🏗️ UserReactsModule - Clean Architecture
  *
  * Structure:
  * ├── entities/          # Domain models
@@ -22,7 +19,7 @@ import { Comment } from '@modules/comments/entities/comment.entity';
  *
  * Exports:
  * - UserReactQueryService: Để các module khác query reactions
- * - KHÔNG export CommandService (chỉ dùng internal qua Controller)
+ * - ❌ KHÔNG export CommandService (chỉ dùng internal qua Controller)
  *
  * Design rationale:
  * - CQRS: Tách command/query rõ ràng
@@ -30,9 +27,9 @@ import { Comment } from '@modules/comments/entities/comment.entity';
  * - Information Expert: user-react module biết về reactions
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([UserReact, Emoji, BlogPost, Comment]), NotificationsModule],
+  imports: [TypeOrmModule.forFeature([UserReact, Emoji])],
   controllers: [UserReactsController],
   providers: [UserReactCommandService, UserReactQueryService],
-  exports: [UserReactQueryService],
+  exports: [UserReactQueryService], // ✅ Chỉ export QueryService
 })
 export class UserReactsModule {}

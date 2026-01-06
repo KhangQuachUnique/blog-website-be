@@ -12,7 +12,6 @@ import {
   HttpStatus,
   ParseIntPipe,
   Query,
-  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,13 +22,6 @@ import { EUserRole } from './enums/role.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
-import {
-  UpdateUserRoleDto,
-  BanUserDto,
-  AdminCreateUserDto,
-  AdminUpdateUserDto,
-  AdminUserQueryDto,
-} from './dto/admin-user.dto';
 import { JwtUser } from 'src/auth/dto/validate-payload.dto';
 
 interface RequestWithUser extends Request {
@@ -251,53 +243,14 @@ export class UsersController {
   // ==================== ADMIN ROUTES ====================
 
   /**
-   * Lấy tất cả users với pagination và filter (Admin only)
+   * Lấy tất cả users (Admin only)
    * GET /users/admin/all
    */
   @Get('admin/all')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(EUserRole.ADMIN)
-  async getAllUsersAdmin(@Query() query: AdminUserQueryDto) {
-    return this.usersService.findAllAdmin(query);
-  }
-
-  /**
-   * Lấy chi tiết user bất kỳ (Admin only)
-   * GET /users/admin/:id
-   */
-  @Get('admin/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(EUserRole.ADMIN)
-  async getUserByIdAdmin(@Param('id', ParseIntPipe) userId: number) {
-    return this.usersService.findByIdAdmin(userId);
-  }
-
-  /**
-   * Tạo user mới (Admin only)
-   * POST /users/admin
-   */
-  @Post('admin')
-  @HttpCode(HttpStatus.CREATED)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(EUserRole.ADMIN)
-  async createUserByAdmin(@Body() createUserDto: AdminCreateUserDto) {
-    return this.usersService.createUserByAdmin(createUserDto);
-  }
-
-  /**
-   * Cập nhật user bất kỳ (Admin only)
-   * PATCH /users/admin/:id
-   */
-  @Patch('admin/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(EUserRole.ADMIN)
-  async updateUserByAdmin(
-    @Param('id', ParseIntPipe) userId: number,
-    @Body() updateUserDto: AdminUpdateUserDto,
-    @Request() req: RequestWithUser,
-  ) {
-    const adminId = (req.user as JwtUser).id;
-    return this.usersService.updateUserByAdmin(userId, updateUserDto, adminId);
+  async getAllUsersAdmin() {
+    return this.usersService.findAll();
   }
 
   /**
@@ -308,16 +261,8 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(EUserRole.ADMIN)
-  async deleteUserByAdmin(
-    @Param('id', ParseIntPipe) userId: number,
-    @Request() req: RequestWithUser,
-  ) {
-    const adminId = (req.user as JwtUser).id;
-    // Không cho phép admin tự xóa chính mình
-    if (adminId === userId) {
-      throw new ForbiddenException('Bạn không thể xóa chính mình');
-    }
-    return this.usersService.deleteUserByAdmin(userId);
+  async deleteUserByAdmin(@Param('id', ParseIntPipe) userId: number) {
+    return this.usersService.deleteAccount(userId);
   }
 
   /**
@@ -327,49 +272,7 @@ export class UsersController {
   @Patch('admin/:id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(EUserRole.ADMIN)
-  async updateUserRole(
-    @Param('id', ParseIntPipe) userId: number,
-    @Body() updateRoleDto: UpdateUserRoleDto,
-    @Request() req: RequestWithUser,
-  ) {
-    const adminId = (req.user as JwtUser).id;
-    // Không cho phép admin thay đổi role của chính mình
-    if (adminId === userId) {
-      throw new ForbiddenException('Bạn không thể thay đổi role của chính mình');
-    }
-    return this.usersService.updateUserRole(userId, updateRoleDto.role);
-  }
-
-  /**
-   * Khóa tài khoản user (Admin only)
-   * POST /users/admin/:id/ban
-   */
-  @Post('admin/:id/ban')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(EUserRole.ADMIN)
-  async banUser(
-    @Param('id', ParseIntPipe) userId: number,
-    @Body() banUserDto: BanUserDto,
-    @Request() req: RequestWithUser,
-  ) {
-    const adminId = (req.user as JwtUser).id;
-    // Không cho phép admin tự ban chính mình
-    if (adminId === userId) {
-      throw new ForbiddenException('Bạn không thể khóa tài khoản của chính mình');
-    }
-    return this.usersService.banUser(userId, banUserDto.reason);
-  }
-
-  /**
-   * Mở khóa tài khoản user (Admin only)
-   * POST /users/admin/:id/unban
-   */
-  @Post('admin/:id/unban')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(EUserRole.ADMIN)
-  async unbanUser(@Param('id', ParseIntPipe) userId: number) {
-    return this.usersService.unbanUser(userId);
+  async updateUserRole(@Param('id', ParseIntPipe) userId: number, @Body('role') role: EUserRole) {
+    return this.usersService.updateUserRole(userId, role);
   }
 }
