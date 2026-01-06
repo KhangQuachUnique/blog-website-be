@@ -659,6 +659,7 @@ export class NewsfeedService {
           AND p.status = 'ACTIVE'
           AND p."createdAt" <= NOW()
           AND p."createdAt" > NOW() - INTERVAL '30 days'
+          AND (u."isBanned" = false OR u."isBanned" IS NULL)
       )
       SELECT * FROM ranked
       ${cursorWhere}
