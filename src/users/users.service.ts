@@ -1,10 +1,11 @@
-import { Repository } from 'typeorm';
+import { Repository, Like, ILike } from 'typeorm';
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
   UnauthorizedException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -17,6 +18,11 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestChangeEmailDto, VerifyEmailDto } from './dto/change-email.dto';
 import { UserResponseDto } from './dto/response/user-response.dto';
+import {
+  AdminUserResponseDto,
+  AdminUserListResponseDto,
+} from './dto/response/admin-user-response.dto';
+import { AdminUserQueryDto, AdminCreateUserDto, AdminUpdateUserDto } from './dto/admin-user.dto';
 import { CommunitiesService } from 'src/communities/communities.service';
 import { BlogPostsService } from 'src/blog-posts/blog-posts.service';
 import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
@@ -96,16 +102,25 @@ export class UsersService {
       throw new NotFoundException('Người dùng không tồn tại');
     }
 
-    // Kiểm tra nếu viewer bị block bởi user
-    if (viewerId) {
-      const isBlocked = await this.userRepository
+    // Kiểm tra nếu một trong hai bên đã chặn (kiểm tra cả 2 chiều)
+    if (viewerId && viewerId !== userId) {
+      // Kiểm tra user có chặn viewer không
+      const isBlockedByUser = await this.userRepository
         .createQueryBuilder('user')
         .innerJoin('user.blockedUsers', 'blocked')
         .where('user.id = :userId', { userId })
         .andWhere('blocked.id = :viewerId', { viewerId })
         .getCount();
 
-      if (isBlocked > 0) {
+      // Kiểm tra viewer có chặn user không
+      const isBlockedByViewer = await this.userRepository
+        .createQueryBuilder('user')
+        .innerJoin('user.blockedUsers', 'blocked')
+        .where('user.id = :viewerId', { viewerId })
+        .andWhere('blocked.id = :userId', { userId })
+        .getCount();
+
+      if (isBlockedByUser > 0 || isBlockedByViewer > 0) {
         throw new ForbiddenException('Bạn không có quyền xem hồ sơ này');
       }
     }
@@ -467,6 +482,17 @@ export class UsersService {
    * === Nhóm: Admin ===
    * - `deleteAccount(userId)` : Xóa tài khoản (hard delete)
    * - `updateUserRole(userId, role)` : Cập nhật role của user
+   * - `findAllAdmin(query)` : Lấy danh sách users với filter + pagination
+   * - `findByIdAdmin(userId)` : Lấy chi tiết user bất kỳ
+   * - `createUserByAdmin(dto)` : Tạo user mới
+   * - `updateUserByAdmin(userId, dto)` : Cập nhật user bất kỳ
+   * - `deleteUserByAdmin(userId)` : Xóa user (không cho xóa admin)
+   * - `banUser(userId, reason)` : Khóa tài khoản user
+   * - `unbanUser(userId)` : Mở khóa tài khoản user
+   */
+
+  /**
+   * Xóa tài khoản của chính mình
    */
   async deleteAccount(userId: number): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -479,6 +505,209 @@ export class UsersService {
     await this.userRepository.remove(user);
 
     return { message: 'Tài khoản đã được xóa thành công' };
+  }
+
+  /**
+   * Lấy danh sách users cho Admin với filter và pagination
+   */
+  async findAllAdmin(query: AdminUserQueryDto): Promise<AdminUserListResponseDto> {
+    const { search, status, page = 1, limit = 10 } = query;
+
+    const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+    // Filter theo search term (username, email)
+    if (search) {
+      queryBuilder.andWhere(
+        '(LOWER(user.username) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Filter theo status
+    if (status && status !== 'ALL') {
+      if (status === 'BANNED') {
+        queryBuilder.andWhere('user.isBanned = :isBanned', { isBanned: true });
+      } else if (status === 'ACTIVE') {
+        queryBuilder.andWhere('user.isBanned = :isBanned', { isBanned: false });
+      }
+    }
+
+    // Count total
+    const total = await queryBuilder.getCount();
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // Order by
+    queryBuilder.orderBy('user.joinAt', 'DESC');
+
+    // Select fields
+    queryBuilder.select([
+      'user.id',
+      'user.username',
+      'user.email',
+      'user.phoneNumber',
+      'user.avatarUrl',
+      'user.bio',
+      'user.type',
+      'user.isBanned',
+      'user.isPrivate',
+      'user.dob',
+      'user.gender',
+      'user.joinAt',
+    ]);
+
+    const users = await queryBuilder.getMany();
+
+    const data = users.map((u) =>
+      plainToInstance(AdminUserResponseDto, u, { excludeExtraneousValues: true }),
+    );
+
+    return {
+      data,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Lấy chi tiết user bất kỳ (Admin only)
+   */
+  async findByIdAdmin(userId: number): Promise<AdminUserResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: [
+        'id',
+        'username',
+        'email',
+        'phoneNumber',
+        'avatarUrl',
+        'bio',
+        'type',
+        'isBanned',
+        'isPrivate',
+        'dob',
+        'gender',
+        'joinAt',
+      ],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    return plainToInstance(AdminUserResponseDto, user, { excludeExtraneousValues: true });
+  }
+
+  /**
+   * Tạo user mới bởi Admin
+   */
+  async createUserByAdmin(dto: AdminCreateUserDto): Promise<AdminUserResponseDto> {
+    // Kiểm tra username/email đã tồn tại
+    const existingUser = await this.userRepository.findOne({
+      where: [{ username: dto.username }, { email: dto.email }],
+    });
+
+    if (existingUser) {
+      if (existingUser.username === dto.username) {
+        throw new ConflictException('Username đã tồn tại');
+      }
+      throw new ConflictException('Email đã tồn tại');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    // Tạo user mới
+    const newUser = this.userRepository.create({
+      username: dto.username,
+      email: dto.email,
+      password: hashedPassword,
+      phoneNumber: dto.phoneNumber || null,
+      type: dto.type || EUserRole.USER,
+      isVerified: 'verified', // Admin tạo tài khoản tự động verified
+    });
+
+    const savedUser = await this.userRepository.save(newUser);
+
+    return plainToInstance(AdminUserResponseDto, savedUser, { excludeExtraneousValues: true });
+  }
+
+  /**
+   * Cập nhật user bất kỳ bởi Admin
+   */
+  async updateUserByAdmin(
+    userId: number,
+    dto: AdminUpdateUserDto,
+    adminId: number,
+  ): Promise<AdminUserResponseDto> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Kiểm tra username mới có bị trùng không
+    if (dto.username && dto.username !== user.username) {
+      const existingUser = await this.userRepository.findOne({
+        where: { username: dto.username },
+      });
+      if (existingUser) {
+        throw new ConflictException('Username đã tồn tại');
+      }
+      user.username = dto.username;
+    }
+
+    // Kiểm tra email mới có bị trùng không
+    if (dto.email && dto.email !== user.email) {
+      const existingUser = await this.userRepository.findOne({
+        where: { email: dto.email },
+      });
+      if (existingUser) {
+        throw new ConflictException('Email đã tồn tại');
+      }
+      user.email = dto.email;
+    }
+
+    // Cập nhật các field khác
+    if (dto.phoneNumber !== undefined) {
+      user.phoneNumber = dto.phoneNumber || null;
+    }
+
+    if (dto.type !== undefined) {
+      // Không cho phép admin tự thay đổi role của mình
+      if (userId === adminId) {
+        throw new ForbiddenException('Bạn không thể thay đổi role của chính mình');
+      }
+      user.type = dto.type;
+    }
+
+    await this.userRepository.save(user);
+
+    return plainToInstance(AdminUserResponseDto, user, { excludeExtraneousValues: true });
+  }
+
+  /**
+   * Xóa user bởi Admin
+   */
+  async deleteUserByAdmin(userId: number): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    // Không cho phép xóa admin khác
+    if (user.type === EUserRole.ADMIN) {
+      throw new ForbiddenException('Không thể xóa tài khoản Admin');
+    }
+
+    await this.userRepository.remove(user);
+
+    return { message: 'Đã xóa người dùng thành công' };
   }
 
   /**
@@ -551,7 +780,10 @@ export class UsersService {
   /**
    * Cập nhật role của user (Admin only)
    */
-  async updateUserRole(userId: number, role: EUserRole): Promise<{ message: string; user: User }> {
+  async updateUserRole(
+    userId: number,
+    role: EUserRole,
+  ): Promise<{ message: string; user: AdminUserResponseDto }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
@@ -561,9 +793,11 @@ export class UsersService {
     user.type = role;
     await this.userRepository.save(user);
 
+    const userDto = plainToInstance(AdminUserResponseDto, user, { excludeExtraneousValues: true });
+
     return {
       message: `Đã cập nhật role của người dùng thành ${role}`,
-      user,
+      user: userDto,
     };
   }
 
@@ -572,7 +806,10 @@ export class UsersService {
    * @param userId ID của người dùng cần ban
    * @param reason Lý do ban (optional)
    */
-  async banUser(userId: number, reason?: string): Promise<{ message: string; user: User }> {
+  async banUser(
+    userId: number,
+    reason?: string,
+  ): Promise<{ message: string; user: AdminUserResponseDto }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
@@ -580,16 +817,47 @@ export class UsersService {
     }
 
     if (user.type === EUserRole.ADMIN) {
-      throw new ForbiddenException('Không thể ban tài khoản Admin');
+      throw new ForbiddenException('Không thể khóa tài khoản Admin');
+    }
+
+    if (user.isBanned) {
+      throw new BadRequestException('Người dùng này đã bị khóa rồi');
     }
 
     user.isBanned = true;
-
     await this.userRepository.save(user);
+
+    const userDto = plainToInstance(AdminUserResponseDto, user, { excludeExtraneousValues: true });
 
     return {
       message: `Đã khóa tài khoản người dùng ${user.username}${reason ? `. Lý do: ${reason}` : ''}`,
-      user,
+      user: userDto,
+    };
+  }
+
+  /**
+   * Mở khóa tài khoản người dùng (Admin only)
+   * @param userId ID của người dùng cần unban
+   */
+  async unbanUser(userId: number): Promise<{ message: string; user: AdminUserResponseDto }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại');
+    }
+
+    if (!user.isBanned) {
+      throw new BadRequestException('Người dùng này không bị khóa');
+    }
+
+    user.isBanned = false;
+    await this.userRepository.save(user);
+
+    const userDto = plainToInstance(AdminUserResponseDto, user, { excludeExtraneousValues: true });
+
+    return {
+      message: `Đã mở khóa tài khoản người dùng ${user.username}`,
+      user: userDto,
     };
   }
 
