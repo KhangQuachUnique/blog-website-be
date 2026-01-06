@@ -436,17 +436,22 @@ export class CommunitiesService {
 
     if (!member) throw new NotFoundException('Member not found in this community');
 
-    //  MOD không kick được ADMIN
-    if (requester.role === ECommunityRole.MODERATOR && member.role === ECommunityRole.ADMIN) {
-      throw new ForbiddenException('Moderator không thể kick Admin.');
+    // Không cho kick chính mình
+    if (member.user.id === requesterId) {
+      throw new ForbiddenException('Bạn không thể kick chính mình.');
     }
 
-    //  không kick admin cuối cùng
-    if (member.role === ECommunityRole.ADMIN) {
-      const adminCount = await this.memberRepository.count({
-        where: { community: { id: communityId }, role: ECommunityRole.ADMIN },
-      });
-      if (adminCount <= 1) throw new ForbiddenException('Không thể kick admin cuối cùng.');
+    // MODERATOR: không được kick ADMIN/MODERATOR
+    if (
+      requester.role === ECommunityRole.MODERATOR &&
+      (member.role === ECommunityRole.ADMIN || member.role === ECommunityRole.MODERATOR)
+    ) {
+      throw new ForbiddenException('Moderator không thể kick Admin/Moderator.');
+    }
+
+    // ADMIN: không được kick ADMIN (bao gồm admin khác)
+    if (requester.role === ECommunityRole.ADMIN && member.role === ECommunityRole.ADMIN) {
+      throw new ForbiddenException('Không thể kick Admin.');
     }
 
     //  BAN user để không join lại
