@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SearchDto } from './dto/search.dto';
 import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
-import { Raw, Repository, Brackets } from 'typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { User } from 'src/users/entities/user.entity';
@@ -46,78 +46,6 @@ export class SearchService {
 
   private createCursor(id: number): string {
     return Buffer.from(String(id)).toString('base64');
-  }
-
-  /**
-   * Search all types (Used by Search Sidebar)
-   */
-  async search(searchDto: SearchDto): Promise<SearchResponseDto> {
-    const { q, limit = 15, after } = searchDto;
-    const keyword = `%${q.toLowerCase()}%`;
-    const cursor = this.parseCursor(after);
-
-    let postsQuery = this.blogPostRepository
-      .createQueryBuilder('post')
-      .leftJoinAndSelect('post.hashtags', 'hashtag')
-      .leftJoinAndSelect('post.author', 'author')
-      .leftJoinAndSelect('post.community', 'community')
-      .leftJoin('post.blocks', 'block')
-      .leftJoin('post.blocks', 'block')
-      .where(
-        new Brackets((qb) => {
-          qb.where('LOWER(post.title) ILIKE :keyword', { keyword })
-            .orWhere('LOWER(hashtag.name) ILIKE :keyword', { keyword })
-            .orWhere('LOWER(block.content) ILIKE :keyword', { keyword });
-        }),
-      );
-
-    if (cursor.id !== null) {
-      postsQuery = postsQuery.andWhere('post.id < :cursorId', { cursorId: cursor.id });
-    }
-
-    const posts = await postsQuery
-      .orderBy('post.createdAt', 'DESC')
-      .addOrderBy('post.id', 'DESC')
-      .take(limit + 1)
-      .getMany();
-
-    const hasMore = posts.length > limit;
-    const paginatedPosts = hasMore ? posts.slice(0, limit) : posts;
-    const lastPost = paginatedPosts[paginatedPosts.length - 1];
-
-    // Users và Communities chỉ load ở trang đầu tiên
-    let users: User[] = [];
-    let communities: Community[] = [];
-
-    if (!after) {
-      users = await this.userRepository.find({
-        where: [{ username: Raw((alias) => `LOWER(${alias}) ILIKE '${keyword}'`) }],
-        take: 5,
-      });
-
-      communities = await this.communityRepository
-        .createQueryBuilder('community')
-        .loadRelationCountAndMap('community.memberCount', 'community.members')
-        .where('LOWER(community.name) ILIKE :keyword', { keyword })
-        .take(5)
-        .getMany();
-    }
-
-    const usersResponse = users.map((u) =>
-      plainToInstance(UserResponseDto, u, { excludeExtraneousValues: true }),
-    );
-
-    const pagination: SearchPaginationDto = {
-      hasMore,
-      nextCursor: hasMore && lastPost ? this.createCursor(lastPost.id) : null,
-    };
-
-    return {
-      posts: paginatedPosts.map((post) => plainToInstance(PostResponseDto, post)),
-      users: usersResponse,
-      communities: communities.map((community) => plainToInstance(CommunityResponseDto, community)),
-      pagination,
-    };
   }
 
   /**
