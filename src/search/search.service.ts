@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SearchDto } from './dto/search.dto';
 import { PostResponseDto } from 'src/blog-posts/dto/response/blog-post-response.dto';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
-import { Raw, Repository, Brackets } from 'typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { User } from 'src/users/entities/user.entity';
