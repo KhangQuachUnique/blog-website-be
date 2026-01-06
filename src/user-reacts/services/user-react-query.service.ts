@@ -191,6 +191,7 @@ export class UserReactQueryService {
             type: reaction.emoji.type,
             codepoint: reaction.emoji.codepoint ?? undefined,
             emojiUrl: reaction.emoji.emojiUrl ?? undefined,
+            name: reaction.emoji.name,
             totalCount: 0,
             reactedByCurrentUser: false,
           },

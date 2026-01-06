@@ -1,3 +1,4 @@
+import { UserReactSummaryDto } from '@modules/user-reacts/dto/response/user-react-summary.dto';
 import { Expose, Type } from 'class-transformer';
 import { ECommentType } from 'src/comments/enums/comment-type.enum';
 
@@ -36,4 +37,8 @@ export class CommentResponseDto {
   @Expose()
   @Type(() => CommentResponseDto)
   childComments?: Omit<CommentResponseDto, 'childComments'>[];
+
+  @Expose()
+  @Type(() => UserReactSummaryDto)
+  reacts?: UserReactSummaryDto;
 }

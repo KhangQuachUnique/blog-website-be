@@ -41,6 +41,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check if user is banned
+    if (user.isBanned) {
+      throw new UnauthorizedException(
+        'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.',
+      );
+    }
+
     // Check if email is verified
     if (user.isVerified !== 'verified') {
       throw new UnauthorizedException(

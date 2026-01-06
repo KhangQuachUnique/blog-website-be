@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { EReportType } from '../../enums/report-type.enum';
+import { EReportStatus } from '../../enums/report-status.enum';
 
 // ============================================
 // 📦 Sub DTOs
@@ -89,6 +90,10 @@ export class ReportResponseDto {
   @ApiProperty({ enum: EReportType, example: 'POST' })
   @Expose()
   type: EReportType;
+
+  @ApiProperty({ enum: EReportStatus, example: 'PENDING' })
+  @Expose()
+  status: EReportStatus;
 
   @ApiProperty({ example: '2024-12-18T10:30:00Z' })
   @Expose()

@@ -5,16 +5,22 @@ import { UserVote, EVoteType } from './entities/user-vote.entity';
 import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
 import { User } from 'src/users/entities/user.entity';
 import { VoteResponseDto } from './dto/response/vote-response.dto';
+import { NotificationsService } from '@modules/notifications/notifications.service';
 
 @Injectable()
 export class UserVotesService {
   constructor(
+    private readonly notificationsService: NotificationsService,
+
     @InjectRepository(UserVote)
     private voteRepository: Repository<UserVote>,
+
     @InjectRepository(BlogPost)
     private postRepository: Repository<BlogPost>,
+
     @InjectRepository(User)
     private userRepository: Repository<User>,
+
     private dataSource: DataSource,
   ) {}
 
@@ -39,7 +45,10 @@ export class UserVotesService {
       // Lock the post without loading votes relation (to avoid LEFT JOIN + FOR UPDATE conflict)
       const post = await manager.findOne(BlogPost, {
         where: { id: postId },
-        lock: { mode: 'pessimistic_write' },
+        relations: ['author'],
+        select: {
+          author: { id: true },
+        },
       });
       if (!post) throw new NotFoundException('Post not found');
 
@@ -89,6 +98,15 @@ export class UserVotesService {
       });
       await manager.save(newVote);
 
+      // Gửi thông báo cho tác giả bài viết
+      if (post.author && post.author.id !== userId) {
+        await this.notificationsService.sendUserVotedPostNotification(
+          post.author.id,
+          userId,
+          postId,
+        );
+      }
+
       const updatedVotes = [...votes, newVote];
       const { upVotes, downVotes } = this.getVoteCounts(updatedVotes);
 
@@ -130,6 +148,9 @@ export class UserVotesService {
 
   /**
    * Lấy votes cho NHIỀU bài viết
+   * @param postIds - Mảng các post IDs
+   * @param userId - ID của user hiện tại (nếu có)
+   * @returns Map<postId, VoteResponseDto>
    */
   async getPostsVotes(postIds: number[], userId?: number): Promise<Map<number, VoteResponseDto>> {
     // GUARD case: Nếu không có postIds thì trả về Map rỗng ngay

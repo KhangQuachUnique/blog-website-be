@@ -5,6 +5,9 @@ import { UserReact } from '../entities/user-react.entity';
 import { ToggleReactDto } from '../dto/toggle-react.dto';
 import { Emoji } from '../../emojis/entities/emoji.entity';
 import { EEmojiType } from '../../emojis/enums/emoji.enum';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { BlogPost } from 'src/blog-posts/entities/blog-post.entity';
+import { Comment } from '@modules/comments/entities/comment.entity';
 
 /**
  * 🎯 UserReactCommandService - Handle write operations
@@ -22,10 +25,19 @@ import { EEmojiType } from '../../emojis/enums/emoji.enum';
 @Injectable()
 export class UserReactCommandService {
   constructor(
+    private readonly notificationService: NotificationsService,
+
     @InjectRepository(UserReact)
     private readonly userReactRepo: Repository<UserReact>,
+
     @InjectRepository(Emoji)
     private readonly emojiRepo: Repository<Emoji>,
+
+    @InjectRepository(BlogPost)
+    private readonly blogPostRepo: Repository<BlogPost>,
+
+    @InjectRepository(Comment)
+    private readonly commentRepo: Repository<Comment>,
   ) {}
 
   /**
@@ -88,6 +100,16 @@ export class UserReactCommandService {
       },
     });
 
+    const post = await this.blogPostRepo.findOne({
+      where: { id: dto.postId },
+      relations: ['author'],
+      select: {
+        author: {
+          id: true,
+        },
+      },
+    });
+
     if (existing) {
       // React đã tồn tại → Xóa (toggle off)
       await this.userReactRepo.delete(existing.id);
@@ -103,6 +125,19 @@ export class UserReactCommandService {
         post: { id: dto.postId },
         comment: null,
       });
+
+      if (!post) {
+        throw new BadRequestException('Post not found');
+      }
+
+      // Gửi thông báo khi có react mới
+      if (post.author.id !== dto.userId)
+        await this.notificationService.sendUserReactedPostNotification(
+          post.author.id,
+          dto.userId,
+          dto.postId,
+          String(emojiId),
+        );
     } catch (error: unknown) {
       if (error instanceof QueryFailedError && error.name === '23505') {
         // Unique constraint violation → ignore
@@ -136,6 +171,16 @@ export class UserReactCommandService {
       return;
     }
 
+    const comment = await this.commentRepo.findOne({
+      where: { id: dto.commentId },
+      relations: ['commenter'],
+      select: {
+        commenter: {
+          id: true,
+        },
+      },
+    });
+
     try {
       await this.userReactRepo.insert({
         user: { id: dto.userId },
@@ -143,6 +188,19 @@ export class UserReactCommandService {
         post: null,
         comment: { id: dto.commentId },
       });
+
+      if (!comment) {
+        throw new BadRequestException('Comment not found');
+      }
+
+      // Gửi thông báo khi có react mới
+      if (comment.commenter.id !== dto.userId)
+        await this.notificationService.sendUserReactedPostNotification(
+          comment.commenter.id,
+          dto.userId,
+          dto.commentId,
+          String(emojiId),
+        );
     } catch (error: unknown) {
       if (error instanceof QueryFailedError && error.name === '23505') {
         return;

@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
 import { EReportType } from '../enums/report-type.enum';
 import { EReportStatus } from '../enums/report-status.enum';
 import { User } from 'src/users/entities/user.entity';
@@ -39,7 +39,8 @@ export class Report {
     onDelete: 'SET NULL',
     nullable: true,
   })
-  reportedComment: Comment;
+  @JoinColumn({ name: 'reportedCommentId' })
+  reportedComment: Comment | null;
 
   @ManyToOne(() => BlogPost, {
     onDelete: 'SET NULL',
