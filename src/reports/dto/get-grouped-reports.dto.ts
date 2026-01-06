@@ -10,7 +10,7 @@ export class GetGroupedReportsDto {
 
   @IsOptional()
   @IsEnum(EReportType)
-  type?: EReportType; // Nếu null => Mặc định lấy POST hoặc phải handle logic ALL
+  type?: EReportType;
 
   @IsOptional()
   @Type(() => Number)
