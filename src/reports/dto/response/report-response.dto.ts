@@ -7,9 +7,6 @@ import { EReportStatus } from '../../enums/report-status.enum';
 // 📦 Sub DTOs
 // ============================================
 
-/**
- * Reporter summary trong response
- */
 export class ReporterSummaryDto {
   @ApiProperty({ example: 1 })
   @Expose()
@@ -24,9 +21,6 @@ export class ReporterSummaryDto {
   avatarUrl?: string;
 }
 
-/**
- * Reported user summary
- */
 export class ReportedUserSummaryDto {
   @ApiProperty({ example: 1 })
   @Expose()
@@ -41,9 +35,6 @@ export class ReportedUserSummaryDto {
   avatarUrl?: string;
 }
 
-/**
- * Reported post summary
- */
 export class ReportedPostSummaryDto {
   @ApiProperty({ example: 1 })
   @Expose()
@@ -58,9 +49,6 @@ export class ReportedPostSummaryDto {
   thumbnailUrl?: string;
 }
 
-/**
- * Reported comment summary
- */
 export class ReportedCommentSummaryDto {
   @ApiProperty({ example: 1 })
   @Expose()
@@ -69,6 +57,27 @@ export class ReportedCommentSummaryDto {
   @ApiProperty({ example: 'Comment content preview...' })
   @Expose()
   contentPreview: string;
+}
+
+/**
+ * DTO cho Meta phân trang (Dùng cho Grouped Response)
+ */
+export class PaginationMetaDto {
+  @ApiProperty({ example: 50 })
+  @Expose()
+  totalItems: number;
+
+  @ApiProperty({ example: 5 })
+  @Expose()
+  totalPages: number;
+
+  @ApiProperty({ example: 1 })
+  @Expose()
+  currentPage: number;
+
+  @ApiProperty({ example: 10 })
+  @Expose()
+  itemsPerPage: number;
 }
 
 // ============================================
@@ -99,6 +108,10 @@ export class ReportResponseDto {
   @Expose()
   createdAt: Date;
 
+  @ApiPropertyOptional({ example: '2024-12-19T10:30:00Z', description: 'Thời gian báo cáo được giải quyết' })
+  @Expose()
+  resolvedAt?: Date;
+
   @ApiProperty({ type: ReporterSummaryDto })
   @Expose()
   @Type(() => ReporterSummaryDto)
@@ -121,7 +134,7 @@ export class ReportResponseDto {
 }
 
 /**
- * Response DTO cho list reports với pagination
+ * Response DTO cho list reports cơ bản (Không group)
  */
 export class ReportListResponseDto {
   @ApiProperty({ type: [ReportResponseDto] })
@@ -144,6 +157,39 @@ export class ReportListResponseDto {
   @ApiProperty({ example: 3 })
   @Expose()
   totalPages: number;
+}
+
+/**
+ * Response DTO cho Grouped Report Item
+ */
+export class GroupedReportResponseDto extends ReportResponseDto {
+  @ApiProperty({ example: 5, description: 'Tổng số báo cáo cho đối tượng này' })
+  @Expose()
+  totalReports: number;
+
+  @ApiProperty({ example: 'Spam nội dung', description: 'Lý do báo cáo gần nhất' })
+  @Expose()
+  latestReason: string;
+
+  @ApiProperty({ type: [ReportResponseDto], description: 'Danh sách các báo cáo chi tiết trong nhóm' })
+  @Expose()
+  @Type(() => ReportResponseDto)
+  reportsList: ReportResponseDto[];
+}
+
+/**
+ * Response Wrapper cho danh sách Grouped Reports
+ */
+export class GroupedReportListResponseDto {
+  @ApiProperty({ type: [GroupedReportResponseDto] })
+  @Expose()
+  @Type(() => GroupedReportResponseDto)
+  items: GroupedReportResponseDto[];
+
+  @ApiProperty({ type: PaginationMetaDto })
+  @Expose()
+  @Type(() => PaginationMetaDto)
+  meta: PaginationMetaDto;
 }
 
 /**

@@ -22,6 +22,9 @@ export class Report {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  resolvedAt: Date | null;
+
   // Relations
   @ManyToOne(() => User, {
     onDelete: 'SET NULL',
