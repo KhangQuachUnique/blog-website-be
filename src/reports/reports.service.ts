@@ -218,7 +218,7 @@ export class ReportsService {
 
   async findGrouped(dto: GetGroupedReportsDto) {
     // 1. Khởi tạo & Destructuring
-    const { status, type, page = 1, limit = 10 } = dto;
+    const { status, type, page = 1, limit = 10, search } = dto;
     const skip = (page - 1) * limit;
 
     // 2. Mapping: Xác định tên cột trong DB (để Group) và tên Relation trong Entity (để Find)
@@ -261,6 +261,31 @@ export class ReportsService {
     // Áp dụng bộ lọc Type (POST/COMMENT/USER)
     if (type) {
       queryBuilder.andWhere('report.type = :type', { type });
+    }
+
+    if (search) {
+      // 1. Nếu search là số -> Tìm theo ID đối tượng
+      if (!isNaN(Number(search))) {
+         queryBuilder.andWhere(`report.${targetColumn} = :searchId`, { searchId: Number(search) });
+      } 
+      // 2. Nếu là chữ -> Tìm theo nội dung (Tùy loại)
+      else {
+         if (type === EReportType.USER) {
+            // Join bảng User để tìm username
+            queryBuilder.leftJoin('report.reportedUser', 'rUser');
+            queryBuilder.andWhere('rUser.username ILIKE :search', { search: `%${search}%` });
+         } 
+         else if (type === EReportType.POST) {
+            // Join bảng Post để tìm title
+            queryBuilder.leftJoin('report.reportedPost', 'rPost');
+            queryBuilder.andWhere('rPost.title ILIKE :search', { search: `%${search}%` });
+         } 
+         else if (type === EReportType.COMMENT) {
+             // Join bảng Comment để tìm content
+            queryBuilder.leftJoin('report.reportedComment', 'rComment');
+            queryBuilder.andWhere('rComment.content ILIKE :search', { search: `%${search}%` });
+         }
+      }
     }
 
     // Thực hiện Group và Phân trang trên nhóm
