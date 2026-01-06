@@ -14,21 +14,23 @@ export class SearchController {
   @UseGuards(OptionalJwtAuthGuard)
   async search(@Query() searchDto: SearchDto, @Req() req: Request): Promise<SearchResponseDto> {
     const viewerId = (req.user as JwtUser)?.id;
-    // Nếu có type, tìm kiếm theo type cụ thể
-    if (searchDto.type) {
-      switch (searchDto.type) {
-        case SearchType.POST:
-          return this.searchService.searchByPost(searchDto, viewerId);
-        case SearchType.USER:
-          return this.searchService.searchByUser(searchDto);
-        case SearchType.COMMUNITY:
-          return this.searchService.searchByCommunity(searchDto);
-        case SearchType.HASHTAG:
-          return this.searchService.searchByHashtag(searchDto, viewerId);
-      }
+
+    if (!searchDto.type) {
+      throw new Error('Search type is required');
     }
-    // Không có type, tìm kiếm tất cả
-    return this.searchService.search(searchDto);
+    // Nếu có type, tìm kiếm theo type cụ thể
+    switch (searchDto.type) {
+      case SearchType.POST:
+        return this.searchService.searchByPost(searchDto, viewerId);
+      case SearchType.USER:
+        return this.searchService.searchByUser(searchDto);
+      case SearchType.COMMUNITY:
+        return this.searchService.searchByCommunity(searchDto);
+      case SearchType.HASHTAG:
+        return this.searchService.searchByHashtag(searchDto, viewerId);
+      default:
+        throw new Error('Invalid search type');
+    }
   }
 
   // Các endpoint riêng vẫn giữ để backward compatible
