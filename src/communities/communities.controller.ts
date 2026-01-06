@@ -48,7 +48,7 @@ export class CommunitiesController {
   }
 
   /**
-   * ✅ Settings: cho phép chưa login
+   *  Settings: cho phép chưa login
    * - Nếu chưa login => role "NONE"
    * - Nếu login nhưng chưa join => "NONE"
    */
@@ -64,7 +64,7 @@ export class CommunitiesController {
     return this.communitiesService.findOne(id);
   }
 
-  // ✅ Update: cần login + CHECK quyền (ADMIN/MOD) ở service
+  //  Update: cần login + CHECK quyền (ADMIN/MOD) ở service
   @Patch(":id")
   @UseGuards(JwtAuthGuard)
   update(
@@ -83,7 +83,7 @@ export class CommunitiesController {
     return this.communitiesService.joinCommunity(id, user.id);
   }
 
-  // ✅ Leave: cần login
+  //  Leave: cần login
   @Delete(':id/leave')
   @UseGuards(JwtAuthGuard)
   leaveCommunity(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
@@ -91,7 +91,7 @@ export class CommunitiesController {
     return this.communitiesService.leaveCommunity(id, user.id);
   }
 
-  // ✅ Delete: cần login (service đã check ADMIN)
+  //  Delete: cần login (service đã check ADMIN)
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   remove(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {

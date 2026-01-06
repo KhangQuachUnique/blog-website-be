@@ -17,7 +17,7 @@ export class CommunityResponseDto {
   @ApiProperty()
   isPublic: boolean;
 
-  // ✅ để optional vì list / detail thường không cần trả
+  //  để optional vì list / detail thường không cần trả
   @ApiProperty({
     example: false,
     required: false,

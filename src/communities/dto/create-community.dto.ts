@@ -7,17 +7,17 @@ export class CreateCommunityDto {
   name: string;
 
   @IsString()
-  @Length(1, 500) // tuỳ bạn, có thể tăng lên
+  @Length(1, 500) // có thể tăng lên
   description: string;
 
   @IsString()
-  // có thể thêm @IsUrl() nếu bạn bắt buộc phải là URL
+  // có thể thêm @IsUrl() bắt buộc phải là URL
   thumbnailUrl: string;
 
   @IsBoolean()
   isPublic: boolean;
 
-  // 2 flag này có default = false ở entity, nên để optional
+  // 2 flag này có default = false ở entity, để optional
   @IsOptional()
   @IsBoolean()
   requirePostApproval?: boolean;

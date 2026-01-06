@@ -109,7 +109,7 @@ export class CommunitiesService {
 
     const isBanned = !!userId && !!community.bannedUsers?.some((u) => u.id === userId);
 
-    // ✅ chưa login => NONE
+    //  chưa login => NONE
     if (!userId) {
       const memberCount = await this.memberRepository.count({
         where: { community: { id }, role: Not(ECommunityRole.PENDING) },
@@ -173,7 +173,7 @@ export class CommunitiesService {
   }
 
   /**
-   * ✅ JOIN community
+   *  JOIN community
    * - Public + không require approval => MEMBER ngay
    * - Private hoặc requireMemberApproval => PENDING
    */
@@ -183,10 +183,10 @@ export class CommunitiesService {
       relations: ['bannedUsers'],
     });
 
-    // ✅ check null trước
+    //  check null trước
     if (!community) throw new NotFoundException('Community not found');
 
-    // ✅ check banned
+    //  check banned
     const banned = community.bannedUsers ?? [];
     if (banned.some((u) => u.id === userId)) {
       throw new ForbiddenException('Bạn đã bị cấm khỏi cộng đồng này.');
@@ -226,7 +226,7 @@ export class CommunitiesService {
   }
 
   /**
-   * ✅ Leave community
+   *  Leave community
    */
   async leaveCommunity(communityId: number, userId: number) {
     const member = await this.memberRepository.findOne({
@@ -254,7 +254,7 @@ export class CommunitiesService {
   }
 
   /**
-   * ✅ Delete community (chỉ ADMIN)
+   *  Delete community (chỉ ADMIN)
    */
   async removeCommunity(communityId: number, userId: number) {
     const member = await this.memberRepository.findOne({
@@ -305,7 +305,7 @@ export class CommunitiesService {
     const community = await this.communityRepository.findOne({ where: { id: communityId } });
     if (!community) throw new NotFoundException('Community not found');
 
-    // ✅ private => phải login + đã được duyệt mới xem
+    //  private => phải login + đã được duyệt mới xem
     if (!community.isPublic) {
       if (!userId) throw new ForbiddenException('Cộng đồng riêng tư. Vui lòng tham gia để xem.');
       const me = await this.memberRepository.findOne({
@@ -418,7 +418,7 @@ export class CommunitiesService {
   }
 
   async removeMember(communityId: number, memberId: number, requesterId: number, ban = true) {
-    // ✅ requester phải là admin/mod
+    //  requester phải là admin/mod
     const requester = await this.memberRepository.findOne({
       where: { community: { id: communityId }, user: { id: requesterId } },
     });
@@ -436,12 +436,12 @@ export class CommunitiesService {
 
     if (!member) throw new NotFoundException('Member not found in this community');
 
-    // ✅ MOD không kick được ADMIN
+    //  MOD không kick được ADMIN
     if (requester.role === ECommunityRole.MODERATOR && member.role === ECommunityRole.ADMIN) {
       throw new ForbiddenException('Moderator không thể kick Admin.');
     }
 
-    // ✅ không kick admin cuối cùng
+    //  không kick admin cuối cùng
     if (member.role === ECommunityRole.ADMIN) {
       const adminCount = await this.memberRepository.count({
         where: { community: { id: communityId }, role: ECommunityRole.ADMIN },
@@ -449,7 +449,7 @@ export class CommunitiesService {
       if (adminCount <= 1) throw new ForbiddenException('Không thể kick admin cuối cùng.');
     }
 
-    // ✅ BAN user để không join lại
+    //  BAN user để không join lại
     if (ban) {
       const community = await this.communityRepository.findOne({
         where: { id: communityId },
