@@ -3,11 +3,11 @@ import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
 
 export class CreateCommunityDto {
   @IsString()
-  @Length(3, 100)
+  @Length(3, 100, { message: 'Tên cộng đồng phải từ 3 đến 100 ký tự.' })
   name: string;
 
   @IsString()
-  @Length(1, 500) // có thể tăng lên
+  @Length(1, 500, { message: 'Mô tả cộng đồng phải từ 1 đến 500 ký tự.' }) // có thể tăng lên
   description: string;
 
   @IsString()
