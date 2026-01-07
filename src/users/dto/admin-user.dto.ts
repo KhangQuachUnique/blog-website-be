@@ -83,4 +83,12 @@ export class AdminUserQueryDto {
 
   @IsOptional()
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: 'id' | 'username' | 'email' | 'joinAt' | 'isBanned';
+
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'ASC' | 'DESC';
 }
